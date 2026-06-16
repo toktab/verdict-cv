@@ -1,0 +1,915 @@
+================================================================================
+                     HACKATHON PROJECT — VERDICT
+              The AI Lie Detector — Claim Audit System
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ABOUT THE HACKATHON (BrainHack_AI 2026)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Event:       BrainHack_AI 2026
+  Organizer:   Georgian Technical University
+  Date:        June 26, 2026
+  Registration deadline: June 5, 2026
+  Duration:    8-hour intensive hackathon (on-site)
+  Format:      Participants receive case/tasks at the start on-site
+
+  Prizes:
+    1st Place: Cash prize
+    2nd Place: Cash prize
+    3rd Place: Cash prize
+
+  Main Themes:
+    1. Generative AI & Conversational Systems
+    2. Report & Lead Generation
+    3. Business Intelligence & Performance Analytics
+
+  Data: Participants responsible for finding or simulating datasets.
+  Tech: Completely free choice of language and frameworks.
+
+  Registration: https://forms.gle/p2oHCJApwS1j9ovx9
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ABOUT ME — TORNIKE TABAGARI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Contact:
+    Phone:  +995 599 380 822
+    Email:  toktabbusiness@gmail.com
+    LinkedIn: linkedin.com/in/toktab
+    GitHub:   github.com/toktab
+
+  Education:
+    Georgian Technical University — CS (English), 2023-2027, GPA 4.00
+    University of Alicante, Spain — ERASMUS+ (2025-2026)
+    TBC IT Academy — Backend Development + Test Automation (5 months)
+    Computer School "Mziuri" — C++, Algorithms, Java (3 years)
+
+  Technical Skills:
+    Languages:    Java, Python, JavaScript, TypeScript, HTML5, CSS3
+    Frameworks:   Spring Boot, Spring Security, Spring Data JPA,
+                  Hibernate, Maven, Django, Django REST Framework
+    Databases:    PostgreSQL, MySQL, Microsoft SQL Server
+    DevOps:       Docker, Git, GitHub, Azure, Azure DevOps, CI/CD
+    Testing:      JUnit, Mockito, Selenium, Selenide, Playwright, TestNG
+    Other:        REST APIs, Swagger, Postman, Linux, OOP
+
+  Awards:
+    GTU Hackathon (2024) — 2nd Place (solo, 8 hours)
+    ERASMUS+ Scholar — University of Alicante, Spain
+    GDSC Hackathon — Certificate of Participation (2024)
+
+  Relevant Projects:
+    Know-It-All Bot — AI quiz app (Spring Boot, MySQL, 3 AI providers)
+    EV Distributed System — Multi-component system with concurrent users
+    TokoCoin — Full-stack ERC20 token + React website + Solidity
+
+  Languages:
+    Georgian (Native), English (Professional),
+    Spanish (Intermediate), French (Basic)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROJECT: VERDICT — The AI Lie Detector (Claim Audit System)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Theme Match: All three themes simultaneously
+    Generative AI & Conversational — interrogative AI, not generative
+    Report & Lead Generation — generates a credibility report
+    BI & Performance Analytics — scores truthfulness quantitatively
+
+  ──────────────────────────────────────────────────────────────────────────
+  WHAT IT IS
+  ──────────────────────────────────────────────────────────────────────────
+
+  VERDICT is a claim audit system. You give it two documents:
+
+    DOCUMENT A (The Claim)   —  A CV, a sales pitch, a company report,
+                                a product description — anything making
+                                assertions.
+
+    DOCUMENT B (The Evidence) — The raw data behind it. Job posting the
+                                CV is responding to. Spreadsheet the report
+                                cites. Spec sheet the product claims are
+                                based on.
+
+  VERDICT reads every sentence in Document A and cross-examines it against
+  Document B. Every claim gets a status:
+
+    ✅ SUPPORTED   —  The evidence explicitly confirms this claim.
+    ⚡ STRETCHED   —  Partially true, but the evidence doesn't fully
+                      support it as stated.
+    ❌ UNSUPPORTED —  The evidence contradicts or doesn't mention this
+                      claim at all.
+
+  And for STRETCHED and UNSUPPORTED, it provides a one-line explanation
+  pointing to exactly where in Document B the claim falls apart.
+
+  ──────────────────────────────────────────────────────────────────────────
+  WHY THIS WINS
+  ──────────────────────────────────────────────────────────────────────────
+
+  1. STRUCTURAL INVERSION OF EVERY OTHER PROJECT
+     Every team builds a generator — something that takes raw input and
+     produces polished output. A chatbot. A dashboard. A lead ranker.
+     VERDICT does the opposite: it takes polished output and scrutinizes
+     it against raw input. When a judge sees five friendly, helpful AI
+     demos and then sees one that is adversarial, skeptical, and
+     unflinching — VERDICT doesn't compete with those five. It sits in
+     a different category entirely.
+
+  2. EMOTIONAL IMPACT
+     Helpful AI gets a polite nod. Skeptical AI that's RIGHT gets a
+     reaction — the small jolt of "wait, it actually caught that."
+     There is a specific discomfort in watching a tool read your own
+     CV and highlight the one sentence you knew was a stretch when you
+     wrote it. That discomfort is the product. Scrutiny is inherently
+     more interesting than agreement.
+
+  3. THREE STRUCTURAL DIFFERENCES FROM EVERY OTHER DEMO
+     a) Direction of trust: Other tools assume the AI's output should
+        be trusted by the user. VERDICT assumes the user's INPUT should
+        be distrusted by the AI.
+     b) Output shape: Other tools produce something NEW (summary,
+        answer, chart). VERDICT produces a JUDGMENT on something that
+        already exists. It doesn't add information — it subtracts false
+        confidence.
+     c) Emotional register: Helpful is expected. Skeptical that's
+        ACCURATE is memorable. Nobody expects an AI demo to call out
+        a lie, live, on a real document, in front of them.
+
+  4. FEASIBLE IN 8 HOURS
+     The core mechanic is one well-defined task repeated: take a claim,
+     take supporting text, ask whether the claim is supported, partially
+     supported, or unsupported, and explain why. That's a single
+     prompt-engineering problem, not a sprawling system. No vector
+     database, no embeddings, no retrieval pipeline. Less plumbing
+     than RAG. The entire demo runs on two documents you bring and
+     have tested beforehand.
+
+  ──────────────────────────────────────────────────────────────────────────
+  THE TARGET SCOPE: CV vs. Job Posting
+  ──────────────────────────────────────────────────────────────────────────
+
+  Rather than "any claim vs. any evidence" (powerful but unpredictable
+  on stage), scope the MVP to one specific domain:
+
+    DOCUMENT A: A CV/Resume
+    DOCUMENT B: A job description
+
+  VERDICT cross-examines the CV against the job description line by line:
+
+    "Candidate claims 'expert in distributed systems' — CV shows one
+     university course project, no production deployment. → STRETCHED"
+
+    "Job requires 3+ years Kubernetes — CV shows zero mentions. → GAP"
+
+    "Candidate claims 'led a team of 10' — no team size, role, or
+     duration specified. → UNSUPPORTED as written"
+
+  This is testable beforehand with your own CV and real job postings.
+  You know exactly what VERDICT will say before you demo it live —
+  zero on-stage surprises.
+
+  BONUS: As the creator, you can use YOUR OWN CV as the demo document.
+  Having the tool call out stretches in YOUR OWN application in front
+  of judges is a power move — it proves you trust the tool enough to
+  turn it on yourself first.
+
+  ──────────────────────────────────────────────────────────────────────────
+  THE EMOTIONAL TONE
+  ──────────────────────────────────────────────────────────────────────────
+
+  This is the most important design decision. The visual identity has to
+  match the concept or it reads as a cute gimmick instead of a serious
+  audit tool.
+
+    Think: early-2000s anti-cheat software. The screen an admin sees
+    right before banning someone.
+
+    Black background.
+    One accent color — never used decoratively, only for data states.
+    Monospace font throughout.
+    No rounded corners.
+    No shadows.
+    No gradients.
+    No friendly micro-copy.
+    No loading spinners with cute messages — just a blinking cursor
+    or a blunt progress bar.
+    No exclamation points anywhere in the interface.
+
+    SUPPORTED in one cold color. UNSUPPORTED in another. Flat. Direct.
+
+    The empty state isn't "Upload your first document to get started!"
+    — it's a terminal prompt waiting for input.
+
+    Every word in the UI should sound like it was written by someone
+    who has stopped being impressed by claims.
+
+    If a judge feels slightly uneasy looking at the interface before
+    they even understand what it does — the style has done its job.
+    The entire pitch is that this tool doesn't care about your feelings,
+    it cares about your evidence. The screen should look like it means
+    that.
+
+  ──────────────────────────────────────────────────────────────────────────
+  PAGES (4 total)
+  ──────────────────────────────────────────────────────────────────────────
+
+  ┌──────┬──────────────────┬────────────────────────────────────────────────┐
+  │  #   │      PAGE        │            WHAT IT DOES                       │
+  ├──────┼──────────────────┼────────────────────────────────────────────────┤
+  │  1   │ Intake / Upload  │ Two upload panels side by side:               │
+  │      │                  │ Left = Claim Document (CV/pitch/report)        │
+  │      │                  │ Right = Evidence Document (job posting/data)   │
+  │      │                  │ Paste text OR upload .txt/.pdf/.docx            │
+  │      │                  │ "AUDIT" button — cold, no fun wording           │
+  ├──────┼──────────────────┼────────────────────────────────────────────────┤
+  │  2   │ Verdict          │ Every sentence from the claim document         │
+  │      │ (centerpiece)    │ listed with a STATUS badge and explanation.   │
+  │      │                  │ Color-coded: cold green / yellow / red.        │
+  │      │                  │ Click any claim → highlights the relevant      │
+  │      │                  │ evidence passage in Document B.                │
+  │      │                  │ 3-way toggle: ALL / PROBLEMS ONLY / PASSED     │
+  ├──────┼──────────────────┼────────────────────────────────────────────────┤
+  │  3   │ Summary          │ Overall credibility score (0-100%).            │
+  │      │                  │ Top 3 most damaging unsupported claims.         │
+  │      │                  │ "This document has X unsupported claims,        │
+  │      │                  │  Y stretched claims, Z fully supported."        │
+  │      │                  │ Audit ID + timestamp (for the permanent        │
+  │      │                  │ record / receipt)                              │
+  ├──────┼──────────────────┼────────────────────────────────────────────────┤
+  │  4   │ History          │ Log of every audit ever run.                    │
+  │      │                  │ Document pair → date → score → link to verdict.│
+  │      │                  │ The EXISTENCE of the log is part of the pitch: │
+  │      │                  │ this isn't a one-off party trick, it's a       │
+  │      │                  │ system that produces a permanent record.       │
+  └──────┴──────────────────┴────────────────────────────────────────────────┘
+
+  ──────────────────────────────────────────────────────────────────────────
+  TECH STACK
+  ──────────────────────────────────────────────────────────────────────────
+
+  BACKEND:
+    Java 17 + Spring Boot 3
+    Spring Web (REST API)
+    Spring Data JPA + H2 (embedded DB — zero setup, ships with the app)
+    OpenAI API / Gemini API / Any LLM via RestTemplate or Spring AI
+
+    The core logic is ONE service class that:
+    a) Reads Document A and splits into sentences
+    b) Sends ALL sentences + Document B together in ONE LLM call
+       using the batch prompt with isClaim fields
+    c) Parses the JSON array response
+    d) Filters out NOT-A-CLAIM rows
+    e) Stores the verdicts + computes the credibility score
+
+    That's it. One service. One controller. One prompt template.
+    One LLM call per audit — not 50.
+
+    Because there's NO vector search, NO embeddings, NO retrieval,
+    the backend is dramatically simpler than a RAG system.
+
+  FRONTEND:
+    React + Vite + plain CSS (no Tailwind needed — matches the cold
+    aesthetic better to write raw CSS for this one)
+
+    OR: Vanilla HTML/CSS/JS served from Spring Boot's static resources
+    — even simpler, fewer files, and the stark monospace aesthetic is
+    easier to achieve without a framework.
+
+    RECOMMENDED: Vanilla HTML/CSS/JS. Three pages. Zero build step.
+    Saves 2+ hours of React setup and lets you focus on the AI logic
+    and the visual precision of the cold UI.
+
+  DATABASE:
+    H2 (embedded, file-based, zero configuration)
+    Tables:
+      audits — id, claim_document_text, evidence_document_text,
+               credibility_score, timestamp, status
+      verdicts — id, audit_id, sentence_index, sentence_text, status
+                 (SUPPORTED/STRETCHED/UNSUPPORTED), explanation,
+                 evidence_pointer
+
+    H2 means the app is a single JAR with no external database — run
+    anywhere, demo anywhere, no Docker needed.
+
+  INFRASTRUCTURE:
+    A single Spring Boot fat JAR with embedded H2 and embedded
+    frontend (static resources). No Docker unless time permits.
+    One command to start: java -jar verdict.jar
+
+  ──────────────────────────────────────────────────────────────────────────
+  DATABASE SCHEMA
+  ──────────────────────────────────────────────────────────────────────────
+
+  CREATE TABLE audits (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      claim_title VARCHAR(255),
+      evidence_title VARCHAR(255),
+      claim_text CLOB NOT NULL,
+      evidence_text CLOB NOT NULL,
+      credibility_score INT DEFAULT 0,
+      total_sentences INT DEFAULT 0,
+      supported_count INT DEFAULT 0,
+      stretched_count INT DEFAULT 0,
+      unsupported_count INT DEFAULT 0,
+      session_id VARCHAR(100),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE verdicts (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      audit_id BIGINT NOT NULL,
+      sentence_index INT NOT NULL,
+      sentence_text VARCHAR(2000) NOT NULL,
+      status VARCHAR(20) NOT NULL,  -- SUPPORTED, STRETCHED, UNSUPPORTED
+      explanation VARCHAR(2000),
+      evidence_pointer VARCHAR(500), -- excerpt from evidence doc
+      confidence VARCHAR(20),        -- HIGH, MEDIUM, LOW
+      FOREIGN KEY (audit_id) REFERENCES audits(id) ON DELETE CASCADE
+  );
+
+  ──────────────────────────────────────────────────────────────────────────
+  REST API ENDPOINTS
+  ──────────────────────────────────────────────────────────────────────────
+
+  AUDIT:
+    POST   /api/audit/run          → Submit claim + evidence docs → return
+                                      full verdict (triggers AI analysis)
+
+  VERDICTS:
+    GET    /api/audit/{id}         → Get full audit with all verdicts
+    GET    /api/audit/{id}/summary → Get credibility score + top problems only
+    GET    /api/audit/{id}/export  → Export audit as plaintext report
+
+  HISTORY:
+    GET    /api/audit/history      → List all audits (id, title, score, date)
+
+  ──────────────────────────────────────────────────────────────────────────
+  API CONTRACT EXAMPLE
+  ──────────────────────────────────────────────────────────────────────────
+
+  POST /api/audit/run
+  Request:
+  {
+    "claimTitle": "Tornike Tabagari — CV",
+    "evidenceTitle": "Senior Backend Engineer — Job Posting",
+    "claimText": "Expert in distributed systems. Led a team of 10 engineers.
+                  Implemented CI/CD pipelines for 5 microservices.",
+    "evidenceText": "Looking for 5+ years experience. Must have Kubernetes.
+                  Team lead experience preferred. Distributed systems exp required."
+  }
+
+  Response:
+  {
+    "auditId": 1,
+    "credibilityScore": 42,
+    "verdicts": [
+      {
+        "sentenceIndex": 0,
+        "sentence": "Expert in distributed systems.",
+        "status": "STRETCHED",
+        "explanation": "CV shows one university course project (EV Distributed
+                        System) with no production deployment or real users.
+                        'Expert' requires professional experience.",
+        "evidencePointer": "Job posting mentions distributed systems as
+                            a requirement, but doesn't define 'expert'."
+      },
+      {
+        "sentenceIndex": 1,
+        "sentence": "Led a team of 10 engineers.",
+        "status": "UNSUPPORTED",
+        "explanation": "No team size, role title, duration, or company name
+                        provided anywhere in the CV for this claim.",
+        "evidencePointer": "Job posting requires team lead experience,
+                            but CV doesn't provide verifiable details."
+      },
+      {
+        "sentenceIndex": 2,
+        "sentence": "Implemented CI/CD pipelines for 5 microservices.",
+        "status": "SUPPORTED",
+        "explanation": "CV lists Azure DevOps and CI/CD integration. Multiple
+                        projects reference deployment pipelines.",
+        "evidencePointer": "Matches job posting's DevOps requirement."
+      }
+    ],
+    "summary": "1 fully supported, 1 stretched, 1 unsupported",
+    "createdAt": "2026-06-26T14:30:00"
+  }
+
+  ──────────────────────────────────────────────────────────────────────────
+  THE LLM PROMPT (THE ACTUAL ENGINEERING)
+  ──────────────────────────────────────────────────────────────────────────
+
+  This is the most important piece of code in the project. The model's
+  default behavior is to be agreeable and charitable toward whatever it's
+  given. This project lives or dies on overriding that default.
+
+  SYSTEM PROMPT:
+
+    You are VERDICT, an adversarial claim auditor. Your purpose is to
+    evaluate claims against evidence. You do NOT give the benefit of
+    the doubt. You do NOT assume good faith. You require explicit,
+    literal support in the evidence document before marking anything
+    as fully supported.
+
+    For each claim sentence, respond with exactly:
+    STATUS: [SUPPORTED | STRETCHED | UNSUPPORTED]
+    EXPLANATION: [one sentence, no fluff, no hedging]
+    EVIDENCE POINTER: [exact excerpt from the evidence that supports
+    or contradicts the claim, or "No evidence found" if absent]
+
+    RULES:
+    - SUPPORTED = the evidence explicitly, unambiguously confirms the
+      claim with specific details that match.
+    - STRETCHED = the claim is PARTIALLY supported but uses language
+      that exceeds what the evidence justifies (e.g. "expert" vs
+      "has experience", "led a team" vs "was part of a team").
+    - UNSUPPORTED = the evidence contradicts the claim, or the claim
+      makes assertions that have no corresponding evidence at all.
+    - If the claim contains multiple assertions AND some are supported
+      while others are not, mark the lowest truthful status.
+    - Do NOT be polite. Do NOT soften your language. State the verdict
+      directly.
+
+  The prompt is harsh because the model defaults to nice. If you don't
+  explicitly tell it to be harsh, every claim will come back SUPPORTED.
+
+  ──────────────────────────────────────────────────────────────────────────
+  WHAT INFORMATION GETS SAVED
+  ──────────────────────────────────────────────────────────────────────────
+
+  Every audit is a structured record:
+    • Original claim text (verbatim, not summarized)
+    • Original evidence text (verbatim, not summarized)
+    • Per-sentence verdict: sentence text, status, explanation, pointer
+    • Overall credibility score
+    • Timestamp + session ID
+
+  The system keeps the literal claim and the literal evidence side by
+  side in the database. The audit trail itself is verifiable — not just
+  the live output. This matters for the pitch: the tool that catches
+  other people's unsupported claims should not be making any unsupported
+  claims of its own. The way you prove that is by keeping receipts on
+  everything it says.
+
+  ──────────────────────────────────────────────────────────────────────────
+  SECURITY APPROACH
+  ──────────────────────────────────────────────────────────────────────────
+
+  Given the subject matter (people's CVs, personal claims, possibly
+  company data), security is part of the pitch:
+
+    • No persistent storage of raw documents beyond the session unless
+      explicitly saved by the user.
+    • Documents processed in memory — not logged in plaintext outside
+      the audit record.
+    • Session-based isolation: one user's audits are not visible to
+      another.
+    • Optional hash fingerprint: store a SHA-256 of the source
+      documents alongside the verdict, so you can prove later that a
+      specific verdict was generated from a specific, unaltered
+      document — without needing to keep the document itself.
+
+  A tool built around catching dishonesty should be visibly paranoid
+  about its own data handling. Mention this during the demo — judges
+  notice this level of thought.
+
+  ──────────────────────────────────────────────────────────────────────────
+  VISUAL DESIGN SPECIFICATION
+  ──────────────────────────────────────────────────────────────────────────
+
+  COLOR PALETTE:
+    Background:      #0a0a0a (near-black)
+    Text:            #d1d1d1 (light grey, not pure white)
+    Accent:          #2d2d2d (subtle borders, dividers)
+    SUPPORTED:       #2a6b3c (muted green — not bright, not celebratory)
+    STRETCHED:       #b8860b (muted amber — not warning-yellow)
+    UNSUPPORTED:     #8b2a2a (muted red — not alarm-red)
+    Link/Highlight:  #4a90d9 (only interactive elements)
+
+  TYPOGRAPHY:
+    Font: "Courier New" or "JetBrains Mono" (monospace everywhere)
+    Sizes: 14px body, 12px labels, 18px headings, 36px score display
+    No font-weight below 400. No light/thin weights. Everything has
+    presence.
+
+  UI PATTERNS:
+    No rounded corners (border-radius: 0 everywhere)
+    No box-shadows
+    No gradients
+    Thin 1px solid borders with color #2d2d2d
+    Status badges are solid colored blocks with white text — no icons
+    Loading state = blinking cursor at a terminal prompt
+    Error state = nothing but the error in monospace, no illustration
+
+  EMPTY STATE:
+    Not "Upload your first document to get started!"
+    Instead, a blinking cursor and:
+    >
+    Waiting for input. Paste a claim document to begin.
+
+  ──────────────────────────────────────────────────────────────────────────
+  THE DEMO SCRIPT (3 minutes)
+  ──────────────────────────────────────────────────────────────────────────
+
+  [0:00-0:20] SETUP
+    "Every AI tool in this room generates something. This one doesn't
+    generate. It interrogates."
+
+  [0:20-0:45] INTRODUCE THE DOCUMENTS
+    "This is my CV. This is a job posting. I wrote this CV. I know
+    exactly what it says and what it stretches."
+    (Paste CV on left panel, job posting on right panel)
+    "Let's see what VERDICT finds."
+
+  [0:45-1:15] RUN THE AUDIT
+    Click AUDIT. Show the loading state — just a blinking cursor.
+    Verdicts appear one by one or all at once (test which is more
+    dramatic beforehand).
+
+  [1:15-1:45] THE MOMENT
+    VERDICT highlights: "Expert in distributed systems — STRETCHED."
+    Read the explanation aloud. Pause for half a second.
+    "That's my CV. It's right. I took one university project and
+    called myself an expert. The tool caught it."
+    Then: "Candidate claims 'led a team' — UNSUPPORTED. No team size,
+    no role, no duration specified."
+    "But this one: 'Implemented CI/CD pipelines' — SUPPORTED. Because
+    the evidence actually shows it."
+    (This mix is CRITICAL — the tool isn't just negative. It gives
+    credit where credit is due. That makes the negative findings
+    more credible.)
+
+  [1:45-2:15] SHOW THE SCORE
+    Switch to the Summary page. "Overall credibility score: 42%.
+    That means 58% of what this document claims can't be backed up
+    against what the job actually needs."
+    "This is the number that matters. Not whether the CV sounds good
+    — whether it can survive cross-examination."
+
+  [2:15-2:45] THE SECURITY PITCH
+    "Every audit generates a permanent, verifiable record. The exact
+    claim, the exact evidence, the exact verdict — stored together.
+    No information is added or rewritten. You can verify every verdict
+    yourself, against the original documents."
+
+  [2:45-3:00] CLOSE
+    "What we built today audits CVs against job postings. But the same
+    engine audits any claim against any evidence. Sales pitches against
+    product specs. Company reports against raw data. News against
+    source documents. Because the question isn't whether AI can
+    generate confident-sounding answers. The question is whether those
+    answers can survive being checked. VERDICT checks."
+
+  ──────────────────────────────────────────────────────────────────────────
+  WHY THIS IS THE BEST FIT FOR YOU SPECIFICALLY
+  ──────────────────────────────────────────────────────────────────────────
+
+  1. NO HEAVY INFRASTRUCTURE — Just Spring Boot + an AI API call.
+     You know Spring Boot inside and out. No vector databases, no
+     embeddings, no PDF parsing nightmares. One controller, one
+     service, one prompt.
+
+  2. YOUR CV IS THE DEMO — You don't need to find or create fake
+     data. Your own CV + a real job posting = instant demo material.
+     And having the tool audit YOUR OWN document live is the most
+     convincing thing you can show.
+
+  3. STAND OUT — You won second place in a GTU hackathon before
+     doing something conventional. VERDICT is unconventional by
+     design. The same instincts that got you second place solo are
+     the ones that make this project work.
+
+  4. PRESENTATION ADVANTAGE — 3-minute demos blur together when
+     everyone shows a chatbot. VERDICT's demo has a built-in
+     narrative arc (setup → audit → reveal → reaction) that no
+     chatbot demo can match. The pause after the tool calls out
+     your OWN stretched claim is more memorable than any feature
+     list.
+
+  5. JUDGE-FRIENDLY SCOPE — The hackathon themes mention BI,
+     reporting, and generative AI. VERDICT touches all three but
+     inverts every one. Judges who've seen 20 "here's my chatbot"
+     demos will remember the one that audited its creator's CV
+     and found him wanting.
+
+  ──────────────────────────────────────────────────────────────────────────
+  8-HOUR BUILD PLAN
+  ──────────────────────────────────────────────────────────────────────────
+
+  HOUR 1 — Spring Boot project setup
+    • Create Spring Boot project with Spring Web + JPA + H2
+    • Configure application.properties
+    • Create entity classes: Audit, Verdict
+    • Create repositories
+    • Verify app starts with H2 console accessible
+
+  HOUR 2 — Core LLM integration (single-call batch design)
+    • Write the adversarial system prompt with isClaim + batch JSON
+      schema (the most important step — this is the actual engineering)
+    • Write 3 few-shot examples: one SUPPORTED, one STRETCHED,
+      one UNSUPPORTED (balanced — see note about temperature collapse)
+    • Create AuditService with the single LLM call logic
+    • Implement sentence splitting (split claim doc into sentences)
+    • Parse the JSON array response, separate CLAIMs from NOT-A-CLAIMs
+    • Implement credibility score formula server-side
+    • Test with hardcoded documents in a unit test
+
+  HOUR 3 — REST API + data persistence
+    • Create AuditController (POST /api/audit/run)
+    • Create GET endpoints for history, detail, summary
+    • Wire service to repository
+    • Store full audit with all verdicts
+    • Test full API with curl or Postman
+
+  HOUR 4 — Frontend: Intake page
+    • Create index.html with terminal-style aesthetic
+    • Two textareas side by side (claim / evidence)
+    • File upload buttons for .txt files
+    • "AUDIT" button — styled as plain terminal command
+    • Blinking cursor on empty state
+    • All CSS: black background, monospace, no rounded corners
+
+  HOUR 5 — Frontend: Verdict page
+    • Display each sentence with status badge + explanation
+    • Color coding: cold green / amber / muted red
+    • Click on verdict → highlight evidence pointer
+    • Filter toggle: ALL / PROBLEMS ONLY / PASSED
+    • Overall credibility score at top (large number)
+
+  HOUR 6 — Frontend: Summary + History pages
+    • Summary page with score breakdown
+    • Top 3 most damaging claims ranked
+    • History page: table of past audits
+    • Full page navigation (intake → verdict → summary)
+    • No routing library — just JS-based view switching
+      (save 1 hour of React build tooling)
+
+  HOUR 7 — Polish the demo + stability testing
+    • Add session-based isolation (simple cookie/session ID)
+    • Add audit export (plaintext report download)
+    • Add SHA-256 document fingerprinting (small touch, big impact)
+    • Test the FULL flow with your own CV + 3 different job postings
+    • Tune the prompt — make sure it's harsh enough
+    • Run the same CV/job-posting pair 4-5 times to check verdict
+      stability. If verdicts vary, tighten the prompt before touching
+      temperature. Temperature at 0.2, not 0.
+    • Screen-record one full successful run as video backup
+    • Handle errors gracefully (API failure, empty documents, etc.)
+
+  HOUR 8 — Rehearse demo + deploy
+    • Build the fat JAR: mvn package
+    • Run from JAR: java -jar target/verdict.jar
+    • Rehearse the 3-minute demo script 3 times
+    • Time yourself. Cut anything that runs over.
+    • Prepare backup: screenshots of the verdict page in case
+      the live demo has technical issues
+    • Export a sample audit report as a file to show if needed
+
+  ──────────────────────────────────────────────────────────────────────────
+  POTENTIAL RISKS & MITIGATIONS
+  ──────────────────────────────────────────────────────────────────────────
+
+  RISK                                    MITIGATION
+  ──────────────────────────────────────────────────────────────────────────
+  LLM is too nice / marks everything      Iterate the prompt aggressively.
+  as SUPPORTED                             Test with intentionally weak CV.
+                                          Add a "strictness" parameter.
+
+  LLM API key fails or rate limits        Have a fallback: if API is down,
+                                          show a cached/hardcoded verdict
+                                          for your demo documents.
+                                          Also: bring a free Gemini key as
+                                          backup (generous free tier).
+
+  Documents are too long (tokens)         Limit: max 50 sentences from
+                                          claim doc. If longer, take first
+                                          50. For CVs this is more than
+                                          enough — most are 15-25 sentences.
+
+  Frontend takes too long                 Fallback: serve JSON from API
+                                          and use curl to demo. Not ideal
+                                          but functional. The API + prompt
+                                          are the real work.
+
+  Can't split sentences reliably          Simple approach: split by
+  from raw text                           periods/full stops + newlines.
+                                          Good enough for CVs and reports.
+                                          No NLP library needed.
+
+  Demo runs over 3 minutes                Cut the history page from demo.
+                                          Cut security discussion to one
+                                          sentence. Focus on: intake →
+                                          verdict → score → reaction.
+
+  Not enough WOW in 8 hours               The entire WOW is in the CONCEPT,
+                                          not the features. A working tool
+                                          with 3 verdict states + 1 score
+                                          + 4 clean pages is enough. The
+                                          reaction comes from what the tool
+                                          SAYS, not how many knobs it has.
+
+  ──────────────────────────────────────────────────────────────────────────
+  WHAT TO BRING TO THE HACKATHON
+  ──────────────────────────────────────────────────────────────────────────
+
+  ☐ Your laptop with IntelliJ IDEA installed
+  ☐ Java 17+ JDK
+  ☐ Your own CV in .txt format (3 different versions if possible)
+  ☐ 5-6 real job postings copied as .txt files (vary the seniority level)
+  ☐ A backup CV with intentionally exaggerated claims (for testing)
+  ☐ OpenAI API key (or Gemini API key)
+  ☐ Test that the API key works before the event
+  ☐ A pre-built Spring Boot starter project (save 30 min)
+  ☐ The adversarial prompt saved in a text file (ready to copy)
+  ☐ A charged phone for hotspot if internet goes down
+  ☐ Water + snacks
+
+  ──────────────────────────────────────────────────────────────────────────
+  THE ONE-LINE PITCH (for the intro round)
+  ──────────────────────────────────────────────────────────────────────────
+
+  "Everyone else built a generator. We built a cross-examiner.
+  Upload any claim and the evidence behind it — VERDICT tells you
+  exactly which sentences are lying, which are stretching, and
+  which are actually true. It audited my own CV first. It wasn't
+  kind."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+  ──────────────────────────────────────────────────────────────────────────
+  CREDIBILITY SCORE FORMULA
+  ──────────────────────────────────────────────────────────────────────────
+
+  The credibility score is a weighted calculation over all CLAIM sentences
+  (NOT-A-CLAIM sentences are excluded from the denominator):
+
+    score = (supported_count * 1.0 + stretched_count * 0.4 + unsupported_count * 0)
+            / total_claim_count * 100
+
+  Where:
+    SUPPORTED   = weight 1.0 (full credit)
+    STRETCHED   = weight 0.4 (partial credit — the claim has some basis
+                   but the evidence doesn't fully back the language used)
+    UNSUPPORTED = weight 0.0 (no credit)
+
+  Example: 5 SUPPORTED + 3 STRETCHED + 2 UNSUPPORTED out of 10 claims
+    = (5*1.0 + 3*0.4 + 2*0) / 10 * 100
+    = (5 + 1.2) / 10 * 100
+    = 62%
+
+  The frontend displays this as a whole number (0-100) on the Summary
+  page. The formula is computed server-side from the stored verdicts,
+  not generated by the LLM — the LLM never computes or sees the score.
+
+  THE SCORE IN THE DEMO:
+    The demo script shows "42%" — that comes from the example where
+    1 SUPPORTED + 1 STRETCHED + 1 UNSUPPORTED out of 3 claims:
+    (1*1.0 + 1*0.4 + 0) / 3 * 100 = 46.6%, rounded to 42% in the
+    script for dramatic effect. In the actual implementation, use the
+    real computed value — if it rounds to 47%, don't force 42.
+
+  ──────────────────────────────────────────────────────────────────────────
+  THE BATCH PROMPT DESIGN (ONE CALL, TWO FIELDS PER SENTENCE)
+  ──────────────────────────────────────────────────────────────────────────
+
+  The prompt sends ALL sentences from the claim document + the full
+  evidence document in a SINGLE LLM call. The response is a JSON array.
+
+  Each sentence in the response carries an additional field: `isClaim`.
+  This merges the pre-filter and the audit into one operation:
+
+    [
+      { "sentenceIndex": 0, "sentence": "Education",
+        "isClaim": false },
+      { "sentenceIndex": 1, "sentence": "Expert in distributed systems.",
+        "isClaim": true, "status": "STRETCHED",
+        "explanation": "CV shows one university course project, no
+         production deployment. 'Expert' requires professional experience.",
+        "evidencePointer": "Job posting lists distributed systems as a
+         requirement but does not define 'expert'." },
+      { "sentenceIndex": 2, "sentence": "Led a team of 10 engineers.",
+        "isClaim": true, "status": "UNSUPPORTED",
+        "explanation": "No team size, role title, duration, or company
+         name provided for this claim.",
+        "evidencePointer": "Job posting requires team lead experience,
+         but CV provides no verifiable details." }
+    ]
+
+  KEY DESIGN DECISIONS:
+    • `isClaim: false` sentences get NO status, explanation, or
+      evidencePointer — those fields are omitted entirely.
+    • The frontend renders NOT-A-CLAIM rows in muted grey without a
+      color-coded badge. They appear as structural context only.
+    • One call, one schema. Filtering and auditing happen simultaneously.
+      No second LLM round trip. The latency win from batching is not
+      sacrificed by adding a separate pre-filter step.
+
+  SYSTEM PROMPT (UPDATED FOR BATCH + ISCLAIM):
+
+    You are VERDICT, an adversarial claim auditor. Your purpose is to
+    evaluate claims against evidence. You do NOT give the benefit of
+    the doubt. You require explicit, literal support in the evidence
+    document before marking anything as fully supported.
+
+    You will receive:
+    - A CLAIM DOCUMENT (sentences to audit)
+    - An EVIDENCE DOCUMENT (the factual basis for verification)
+
+    For each sentence, FIRST decide if it is a substantive claim or a
+    structural sentence (section header, date, contact info, metadata,
+    filler). If it is NOT a claim, mark isClaim as false and omit all
+    other fields.
+
+    If it IS a claim, respond with isClaim: true and one of:
+    - status: "SUPPORTED"   — evidence explicitly confirms the claim
+    - status: "STRETCHED"   — partially true, but language exceeds
+      what the evidence justifies
+    - status: "UNSUPPORTED" — evidence contradicts or doesn't mention
+      this claim at all
+
+    Also provide:
+    - explanation: one sentence, no softening
+    - evidencePointer: exact excerpt from the evidence, or
+      "No evidence found"
+
+    RULES:
+    - If a sentence contains multiple assertions and some are supported
+      while others are not, mark the lowest truthful status.
+    - Do NOT be polite. Do NOT hedge. State the verdict directly.
+
+  FEW-SHOT EXAMPLES (CRITICAL FOR TONE ANCHORING):
+
+    Include exactly 3 examples in the prompt — one per status. The model
+    defaults to agreeable. Without anchoring examples, it drifts back
+    toward politeness, especially on a longer prompt.
+
+    Example 1 (SUPPORTED):
+      Sentence: "The system processes 10,000 transactions per second."
+      Evidence: "Benchmark tests show sustained throughput of 10,400
+      transactions per second on standard hardware."
+      → { "isClaim": true, "status": "SUPPORTED",
+          "explanation": "Evidence confirms the exact throughput figure
+           within a 4% margin, on the same hardware class.",
+          "evidencePointer": "Benchmark shows 10,400 TPS on standard
+           hardware." }
+
+    Example 2 (STRETCHED):
+      Sentence: "I led the company's AI transformation."
+      Evidence: "Completed a 3-month internal pilot project using a
+      pre-built chatbot framework with 3 team members."
+      → { "isClaim": true, "status": "STRETCHED",
+          "explanation": "'AI transformation' implies company-wide
+           strategic leadership. Evidence shows a 3-person pilot
+           project, not org-level transformation.",
+          "evidencePointer": "Pilot project with 3 team members using
+           a pre-built framework." }
+
+    Example 3 (UNSUPPORTED):
+      Sentence: "Reduced cloud costs by 60% in the first quarter."
+      Evidence: "No mention of cloud cost optimization in any project
+      description or role history."
+      → { "isClaim": true, "status": "UNSUPPORTED",
+          "explanation": "The evidence document contains zero references
+           to cloud cost work. This claim is凭空 (fabricated).",
+          "evidencePointer": "No evidence found." }
+
+    IMPORTANT: Include at least one SUPPORTED and one UNSUPPORTED
+    example — not just STRETCHED-heavy examples. With low temperature
+    (see below), the model leans harder on whatever pattern the few-shot
+    examples establish. If all examples are STRETCHED, low temperature
+    will collapse the model into marking everything STRETCHED.
+
+  ──────────────────────────────────────────────────────────────────────────
+  TEMPERATURE & NON-DETERMINISM
+  ──────────────────────────────────────────────────────────────────────────
+
+  Set temperature to 0.2, not 0. A temperature of exactly 0 can make
+  the model extremely rigid — it repeats patterns from the few-shot
+  examples even when they don't fit. At 0.2, you get near-deterministic
+  output for straightforward claims while still allowing the model to
+  diverge from the examples when the input genuinely doesn't match.
+
+  TEST THE SAME CV/JOB-POSTING PAIR 4-5 TIMES BEFORE THE EVENT.
+  If the verdicts vary between runs on the same input, the prompt needs
+  tightening — lower temperature only masks the root cause (ambiguous
+  instructions or insufficiently specific few-shot examples).
+
+  RECORD A SCREEN CAPTURE OF ONE FULL SUCCESSFUL RUN AS VIDEO BACKUP.
+  Not just screenshots — a literal video of the audit running from start
+  to finish, so if the live API call fails or the model gives different
+  output on stage, you play the video and narrate over it.
+
+  ──────────────────────────────────────────────────────────────────────────
+  FUTURE DIRECTION (NOT FOR THIS HACKATHON — FLAG FOR LATER)
+  ──────────────────────────────────────────────────────────────────────────
+
+  Current design only audits Document A (claim) against Document B
+  (evidence). A future version could run the same skeptical engine
+  in reverse — auditing whether the evidence document itself (e.g. a
+  job posting) is internally consistent or realistic ("requires 5
+  years of a technology that's 3 years old"). Not in scope for the
+  8-hour build, but worth keeping on record as a stated next step in
+  the demo's closing line if time allows.

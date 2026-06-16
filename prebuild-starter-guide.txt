@@ -1,0 +1,1358 @@
+================================================================================
+                  PRE-BUILD STARTER PROJECT — VERDICT
+         What to build RIGHT NOW so you only need the prompt on the day
+================================================================================
+
+  Goal: Have a fully compilable Spring Boot project with database, API
+  endpoints, and frontend skeleton ready BEFORE the hackathon starts.
+  On the day, you only need to:
+    1. Copy in the system prompt
+    2. Wire the LLM API call
+    3. Adjust the UI text
+    4. Test + demo
+
+  Estimated pre-build time: 3-4 hours (saves 2-3 hours on hackathon day)
+
+================================================================================
+STEP 1 — CREATE THE SPRING BOOT PROJECT
+================================================================================
+
+  Go to: https://start.spring.io
+
+  Settings:
+    Project:   Maven
+    Language:  Java
+    Spring Boot: 3.4.x (latest stable)
+    Group:     com.verdict
+    Artifact:  verdict
+    Packaging: Jar
+    Java:      17
+
+  Dependencies to add:
+    - Spring Web
+    - Spring Data JPA
+    - H2 Database
+    - Validation
+    - Spring Boot DevTools
+
+  Download and extract. Open in IntelliJ IDEA.
+
+================================================================================
+STEP 2 — SET application.properties
+================================================================================
+
+  File: src/main/resources/application.properties
+
+    # ─── Server ───
+    server.port=8080
+
+    # ─── H2 Database (embedded, file-based) ───
+    spring.datasource.url=jdbc:h2:file:./data/verdictdb;AUTO_SERVER=TRUE
+    spring.datasource.driver-class-name=org.h2.Driver
+    spring.datasource.username=sa
+    spring.datasource.password=
+    spring.h2.console.enabled=true
+    spring.h2.console.path=/h2-console
+
+    # ─── JPA ───
+    spring.jpa.hibernate.ddl-auto=update
+    spring.jpa.show-sql=false
+    spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect
+
+    # ─── Frontend ───
+    spring.web.resources.static-locations=classpath:/static/
+    spring.mvc.static-path-pattern=/**
+
+    # ─── LLM API Key (set this on hackathon day) ───
+    # verdict.llm.api-key=sk-...
+    # verdict.llm.model=gpt-4o-mini
+    # verdict.llm.temperature=0.2
+
+================================================================================
+STEP 3 — CREATE ENTITY CLASSES
+================================================================================
+
+  File: src/main/java/com/verdict/model/Audit.java
+
+    package com.verdict.model;
+
+    import jakarta.persistence.*;
+    import java.time.LocalDateTime;
+
+    @Entity
+    @Table(name = "audits")
+    public class Audit {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+
+        private String claimTitle;
+        private String evidenceTitle;
+
+        @Column(columnDefinition = "CLOB")
+        private String claimText;
+
+        @Column(columnDefinition = "CLOB")
+        private String evidenceText;
+
+        private int credibilityScore;
+        private int totalSentences;
+        private int supportedCount;
+        private int stretchedCount;
+        private int unsupportedCount;
+        private int notClaimCount;
+
+        private String sessionId;
+
+        private LocalDateTime createdAt = LocalDateTime.now();
+
+        // ─── Getters and Setters ───
+        // (Generate via IntelliJ: right-click → Generate → Getter and Setter)
+        // Or use Lombok @Data if you added it to pom.xml
+    }
+
+  ──────────────────────────────────────────────────────────────────────────
+  File: src/main/java/com/verdict/model/Verdict.java
+
+    package com.verdict.model;
+
+    import jakarta.persistence.*;
+
+    @Entity
+    @Table(name = "verdicts")
+    public class Verdict {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "audit_id", nullable = false)
+        private Audit audit;
+
+        private int sentenceIndex;
+
+        @Column(length = 2000)
+        private String sentenceText;
+
+        @Column(length = 20)
+        private String status;       // SUPPORTED, STRETCHED, UNSUPPORTED, or null if not a claim
+
+        @Column(length = 2000)
+        private String explanation;
+
+        @Column(length = 500)
+        private String evidencePointer;
+
+        @Column(length = 20)
+        private String confidence;   // HIGH, MEDIUM, LOW
+
+        private boolean isClaim;     // true = substantive claim, false = structural sentence
+
+        // ─── Getters and Setters ───
+    }
+
+================================================================================
+STEP 4 — CREATE REPOSITORIES
+================================================================================
+
+  File: src/main/java/com/verdict/repository/AuditRepository.java
+
+    package com.verdict.repository;
+
+    import com.verdict.model.Audit;
+    import org.springframework.data.jpa.repository.JpaRepository;
+    import java.util.List;
+
+    public interface AuditRepository extends JpaRepository<Audit, Long> {
+        List<Audit> findBySessionIdOrderByCreatedAtDesc(String sessionId);
+    }
+
+  ──────────────────────────────────────────────────────────────────────────
+  File: src/main/java/com/verdict/repository/VerdictRepository.java
+
+    package com.verdict.repository;
+
+    import com.verdict.model.Verdict;
+    import org.springframework.data.jpa.repository.JpaRepository;
+    import java.util.List;
+
+    public interface VerdictRepository extends JpaRepository<Verdict, Long> {
+        List<Verdict> findByAuditIdOrderBySentenceIndexAsc(Long auditId);
+        void deleteByAuditId(Long auditId);
+    }
+
+================================================================================
+STEP 5 — CREATE DTOs
+================================================================================
+
+  File: src/main/java/com/verdict/dto/AuditRequest.java
+
+    package com.verdict.dto;
+
+    import jakarta.validation.constraints.NotBlank;
+
+    public class AuditRequest {
+        private String claimTitle;
+        private String evidenceTitle;
+
+        @NotBlank(message = "Claim text is required")
+        private String claimText;
+
+        @NotBlank(message = "Evidence text is required")
+        private String evidenceText;
+
+        // ─── Getters and Setters ───
+    }
+
+  ──────────────────────────────────────────────────────────────────────────
+  File: src/main/java/com/verdict/dto/AuditResponse.java
+
+    package com.verdict.dto;
+
+    import java.time.LocalDateTime;
+    import java.util.List;
+
+    public class AuditResponse {
+        private Long auditId;
+        private int credibilityScore;
+        private List<VerdictItem> verdicts;
+        private String summary;
+        private LocalDateTime createdAt;
+
+        // ─── Constructor, Getters, Setters ───
+
+        public static class VerdictItem {
+            private int sentenceIndex;
+            private String sentence;
+            private boolean isClaim;
+            private String status;        // null if not a claim
+            private String explanation;   // null if not a claim
+            private String evidencePointer; // null if not a claim
+
+            // ─── Getters and Setters ───
+        }
+    }
+
+  ──────────────────────────────────────────────────────────────────────────
+  File: src/main/java/com/verdict/dto/SummaryResponse.java
+
+    package com.verdict.dto;
+
+    import java.util.List;
+
+    public class SummaryResponse {
+        private Long auditId;
+        private String claimTitle;
+        private String evidenceTitle;
+        private int credibilityScore;
+        private int totalSentences;
+        private int supportedCount;
+        private int stretchedCount;
+        private int unsupportedCount;
+        private int notClaimCount;
+        private List<DamageItem> topUnsupported;
+
+        public static class DamageItem {
+            private String sentence;
+            private String explanation;
+
+            // ─── Constructor, Getters, Setters ───
+        }
+    }
+
+================================================================================
+STEP 6 — CREATE THE AUDIT SERVICE STUB
+================================================================================
+
+  File: src/main/java/com/verdict/service/AuditService.java
+
+    package com.verdict.service;
+
+    import com.verdict.dto.AuditRequest;
+    import com.verdict.dto.AuditResponse;
+    import com.verdict.dto.SummaryResponse;
+    import com.verdict.model.Audit;
+    import com.verdict.model.Verdict;
+    import com.verdict.repository.AuditRepository;
+    import com.verdict.repository.VerdictRepository;
+    import org.springframework.stereotype.Service;
+    import org.springframework.transaction.annotation.Transactional;
+
+    import java.util.*;
+
+    @Service
+    public class AuditService {
+
+        private final AuditRepository auditRepo;
+        private final VerdictRepository verdictRepo;
+        private final LlmService llmService;
+
+        public AuditService(AuditRepository auditRepo,
+                            VerdictRepository verdictRepo,
+                            LlmService llmService) {
+            this.auditRepo = auditRepo;
+            this.verdictRepo = verdictRepo;
+            this.llmService = llmService;
+        }
+
+        @Transactional
+        public AuditResponse runAudit(AuditRequest request, String sessionId) {
+            // 1. Split claim text into sentences
+            List<String> sentences = splitSentences(request.getClaimText());
+
+            // 2. Send ALL sentences + evidence in ONE LLM call
+            //    The LLM returns a JSON array with isClaim + status per sentence
+            List<AuditResponse.VerdictItem> llmVerdicts = llmService.auditBatch(
+                sentences, request.getEvidenceText()
+            );
+
+            // 3. Compute credibility score
+            int totalClaims = 0;
+            int supported = 0;
+            int stretched = 0;
+            int unsupported = 0;
+            int notClaims = 0;
+
+            for (AuditResponse.VerdictItem item : llmVerdicts) {
+                if (item.isClaim()) {
+                    totalClaims++;
+                    switch (item.getStatus()) {
+                        case "SUPPORTED"   -> supported++;
+                        case "STRETCHED"   -> stretched++;
+                        case "UNSUPPORTED" -> unsupported++;
+                    }
+                } else {
+                    notClaims++;
+                }
+            }
+
+            int score = totalClaims > 0
+                ? (int) Math.round((supported * 1.0 + stretched * 0.4) / totalClaims * 100)
+                : 100;
+
+            // 4. Save to database
+            Audit audit = new Audit();
+            audit.setClaimTitle(request.getClaimTitle());
+            audit.setEvidenceTitle(request.getEvidenceTitle());
+            audit.setClaimText(request.getClaimText());
+            audit.setEvidenceText(request.getEvidenceText());
+            audit.setCredibilityScore(score);
+            audit.setTotalSentences(sentences.size());
+            audit.setSupportedCount(supported);
+            audit.setStretchedCount(stretched);
+            audit.setUnsupportedCount(unsupported);
+            audit.setNotClaimCount(notClaims);
+            audit.setSessionId(sessionId);
+            audit = auditRepo.save(audit);
+
+            final Long auditId = audit.getId();
+            for (AuditResponse.VerdictItem item : llmVerdicts) {
+                if (item.isClaim()) {
+                    Verdict v = new Verdict();
+                    v.setAudit(audit);
+                    v.setSentenceIndex(item.getSentenceIndex());
+                    v.setSentenceText(item.getSentence());
+                    v.setClaim(true);
+                    v.setStatus(item.getStatus());
+                    v.setExplanation(item.getExplanation());
+                    v.setEvidencePointer(item.getEvidencePointer());
+                    verdictRepo.save(v);
+                } else {
+                    Verdict v = new Verdict();
+                    v.setAudit(audit);
+                    v.setSentenceIndex(item.getSentenceIndex());
+                    v.setSentenceText(item.getSentence());
+                    v.setClaim(false);
+                    v.setStatus(null);
+                    v.setExplanation(null);
+                    v.setEvidencePointer(null);
+                    verdictRepo.save(v);
+                }
+            }
+
+            // 5. Build response
+            AuditResponse response = new AuditResponse();
+            response.setAuditId(auditId);
+            response.setCredibilityScore(score);
+            response.setVerdicts(llmVerdicts);
+            response.setSummary(supported + " SUPPORTED, " + stretched + " STRETCHED, "
+                + unsupported + " UNSUPPORTED, " + notClaims + " NOT-A-CLAIM");
+            response.setCreatedAt(audit.getCreatedAt());
+            return response;
+        }
+
+        public AuditResponse getAudit(Long id) {
+            Audit audit = auditRepo.findById(id).orElseThrow();
+            List<Verdict> verdicts = verdictRepo.findByAuditIdOrderBySentenceIndexAsc(id);
+
+            AuditResponse response = new AuditResponse();
+            response.setAuditId(audit.getId());
+            response.setCredibilityScore(audit.getCredibilityScore());
+            response.setCreatedAt(audit.getCreatedAt());
+            response.setSummary(audit.getSupportedCount() + " SUPPORTED, "
+                + audit.getStretchedCount() + " STRETCHED, "
+                + audit.getUnsupportedCount() + " UNSUPPORTED");
+
+            List<AuditResponse.VerdictItem> items = verdicts.stream()
+                .map(v -> {
+                    AuditResponse.VerdictItem item = new AuditResponse.VerdictItem();
+                    item.setSentenceIndex(v.getSentenceIndex());
+                    item.setSentence(v.getSentenceText());
+                    item.setClaim(v.isClaim());
+                    item.setStatus(v.getStatus());
+                    item.setExplanation(v.getExplanation());
+                    item.setEvidencePointer(v.getEvidencePointer());
+                    return item;
+                })
+                .toList();
+            response.setVerdicts(items);
+            return response;
+        }
+
+        public SummaryResponse getSummary(Long id) {
+            Audit audit = auditRepo.findById(id).orElseThrow();
+            List<Verdict> verdicts = verdictRepo.findByAuditIdOrderBySentenceIndexAsc(id);
+
+            SummaryResponse sum = new SummaryResponse();
+            sum.setAuditId(audit.getId());
+            sum.setClaimTitle(audit.getClaimTitle());
+            sum.setEvidenceTitle(audit.getEvidenceTitle());
+            sum.setCredibilityScore(audit.getCredibilityScore());
+            sum.setTotalSentences(audit.getTotalSentences());
+            sum.setSupportedCount(audit.getSupportedCount());
+            sum.setStretchedCount(audit.getStretchedCount());
+            sum.setUnsupportedCount(audit.getUnsupportedCount());
+            sum.setNotClaimCount(audit.getNotClaimCount());
+
+            // Top 3 most damaging = UNSUPPORTED first, then STRETCHED
+            List<SummaryResponse.DamageItem> top = verdicts.stream()
+                .filter(v -> v.isClaim() && !"SUPPORTED".equals(v.getStatus()))
+                .sorted(Comparator.comparingInt(v ->
+                    "UNSUPPORTED".equals(v.getStatus()) ? 0 : 1))
+                .limit(3)
+                .map(v -> {
+                    SummaryResponse.DamageItem d = new SummaryResponse.DamageItem();
+                    d.setSentence(v.getSentenceText());
+                    d.setExplanation(v.getExplanation());
+                    return d;
+                })
+                .toList();
+            sum.setTopUnsupported(top);
+            return sum;
+        }
+
+        public List<Audit> getHistory(String sessionId) {
+            return auditRepo.findBySessionIdOrderByCreatedAtDesc(sessionId);
+        }
+
+        private List<String> splitSentences(String text) {
+            // Simple split by period + newline. Good enough for CVs and reports.
+            if (text == null || text.isBlank()) return List.of();
+            return Arrays.stream(text.split("(?<=[.!?])\\s*|\\n\\s*"))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        }
+    }
+
+================================================================================
+STEP 7 — CREATE THE LLM SERVICE STUB (THE PART YOU FINISH ON HACKATHON DAY)
+================================================================================
+
+  File: src/main/java/com/verdict/service/LlmService.java
+
+    package com.verdict.service;
+
+    import com.verdict.dto.AuditResponse;
+    import org.springframework.stereotype.Service;
+    import java.util.List;
+
+    @Service
+    public class LlmService {
+
+        // ─── CONFIGURATION ───
+        // Set these via application.properties or env vars on hackathon day:
+        //   verdict.llm.api-key
+        //   verdict.llm.model   (e.g. "gpt-4o-mini", "gemini-2.0-flash")
+        //   verdict.llm.temperature (default 0.2)
+
+        /**
+         * ON HACKATHON DAY YOU WILL:
+         * 1. Read API key from config
+         * 2. Build the adversarial system prompt (from hackathon-idea.txt)
+         * 3. Send the full batch of sentences + evidence doc in ONE call
+         * 4. Parse the JSON array from the LLM response
+         * 5. Return the list of VerdictItems
+         *
+         * FOR NOW — return a HARDCODED response so you can test
+         * the entire frontend-to-backend flow without an API key.
+         */
+        public List<AuditResponse.VerdictItem> auditBatch(
+                List<String> sentences, String evidenceText) {
+
+            // TODO: Replace with real LLM call on hackathon day.
+            // See hackathon-idea.txt for the prompt + JSON schema.
+
+            // Hardcoded demo response for testing:
+            return List.of(
+                createItem(0, sentences.size() > 0 ? sentences.get(0) : "Sentence 1", true, "SUPPORTED", "Evidence confirms this claim.", evidenceText.length() > 50 ? evidenceText.substring(0, 50) : evidenceText),
+                createItem(1, sentences.size() > 1 ? sentences.get(1) : "Sentence 2", true, "STRETCHED", "Partially true but language exceeds evidence.", "Partial match found"),
+                createItem(2, sentences.size() > 2 ? sentences.get(2) : "Sentence 3", true, "UNSUPPORTED", "No evidence found for this claim.", "No evidence found"),
+                createItem(3, sentences.size() > 3 ? sentences.get(3) : "Education", false, null, null, null)
+            );
+        }
+
+        private AuditResponse.VerdictItem createItem(int index, String sentence,
+                boolean isClaim, String status, String explanation, String pointer) {
+            AuditResponse.VerdictItem item = new AuditResponse.VerdictItem();
+            item.setSentenceIndex(index);
+            item.setSentence(sentence);
+            item.setClaim(isClaim);
+            item.setStatus(status);
+            item.setExplanation(explanation);
+            item.setEvidencePointer(pointer);
+            return item;
+        }
+    }
+
+================================================================================
+STEP 8 — CREATE THE REST CONTROLLER
+================================================================================
+
+  File: src/main/java/com/verdict/controller/AuditController.java
+
+    package com.verdict.controller;
+
+    import com.verdict.dto.AuditRequest;
+    import com.verdict.dto.AuditResponse;
+    import com.verdict.dto.SummaryResponse;
+    import com.verdict.model.Audit;
+    import com.verdict.service.AuditService;
+    import jakarta.servlet.http.HttpSession;
+    import jakarta.validation.Valid;
+    import org.springframework.http.ResponseEntity;
+    import org.springframework.web.bind.annotation.*;
+
+    import java.util.List;
+
+    @RestController
+    @RequestMapping("/api")
+    public class AuditController {
+
+        private final AuditService auditService;
+
+        public AuditController(AuditService auditService) {
+            this.auditService = auditService;
+        }
+
+        @PostMapping("/audit/run")
+        public ResponseEntity<AuditResponse> runAudit(
+                @Valid @RequestBody AuditRequest request,
+                HttpSession session) {
+            String sessionId = session.getId();
+            AuditResponse response = auditService.runAudit(request, sessionId);
+            return ResponseEntity.ok(response);
+        }
+
+        @GetMapping("/audit/{id}")
+        public ResponseEntity<AuditResponse> getAudit(@PathVariable Long id) {
+            return ResponseEntity.ok(auditService.getAudit(id));
+        }
+
+        @GetMapping("/audit/{id}/summary")
+        public ResponseEntity<SummaryResponse> getSummary(@PathVariable Long id) {
+            return ResponseEntity.ok(auditService.getSummary(id));
+        }
+
+        @GetMapping("/audit/history")
+        public ResponseEntity<List<Audit>> getHistory(HttpSession session) {
+            return ResponseEntity.ok(auditService.getHistory(session.getId()));
+        }
+
+        @GetMapping("/admin/status")
+        public ResponseEntity<String> health() {
+            return ResponseEntity.ok("VERDICT running.");
+        }
+    }
+
+================================================================================
+STEP 9 — CREATE THE FRONTEND SKELETON
+================================================================================
+
+  All frontend files go in: src/main/resources/static/
+
+  ─── File: src/main/resources/static/index.html ───
+
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>VERDICT — Claim Audit System</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <div id="app">
+            <!-- Navigation -->
+            <nav id="nav">
+                <span class="logo">VERDICT v0.1</span>
+                <div class="nav-links">
+                    <a href="#" onclick="showPage('intake')" class="active">AUDIT</a>
+                    <a href="#" onclick="showPage('history')">HISTORY</a>
+                </div>
+            </nav>
+
+            <!-- PAGE: Intake -->
+            <div id="page-intake" class="page active">
+                <div class="intake-grid">
+                    <div class="panel">
+                        <label class="panel-label">CLAIM DOCUMENT</label>
+                        <textarea id="claim-text" placeholder="Paste claim document here..."></textarea>
+                        <input type="file" id="claim-file" accept=".txt" onchange="loadFile('claim')">
+                        <label for="claim-file" class="file-btn">LOAD .TXT</label>
+                    </div>
+                    <div class="panel">
+                        <label class="panel-label">EVIDENCE DOCUMENT</label>
+                        <textarea id="evidence-text" placeholder="Paste evidence document here..."></textarea>
+                        <input type="file" id="evidence-file" accept=".txt" onchange="loadFile('evidence')">
+                        <label for="evidence-file" class="file-btn">LOAD .TXT</label>
+                    </div>
+                </div>
+                <div class="action-row">
+                    <button id="audit-btn" onclick="runAudit()">AUDIT</button>
+                    <span id="status-text"></span>
+                </div>
+            </div>
+
+            <!-- PAGE: Verdict Results -->
+            <div id="page-verdict" class="page">
+                <div class="verdict-header">
+                    <span class="score-display" id="score-display">0%</span>
+                    <span class="score-label">CREDIBILITY</span>
+                </div>
+                <div class="filter-bar">
+                    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">ALL</button>
+                    <button class="filter-btn" data-filter="problems" onclick="setFilter('problems')">PROBLEMS ONLY</button>
+                    <button class="filter-btn" data-filter="passed" onclick="setFilter('passed')">PASSED</button>
+                </div>
+                <div id="verdict-list"></div>
+                <div class="action-row">
+                    <button onclick="showPage('summary')">VIEW SUMMARY</button>
+                    <button onclick="showPage('intake')">NEW AUDIT</button>
+                </div>
+            </div>
+
+            <!-- PAGE: Summary -->
+            <div id="page-summary" class="page">
+                <h2>AUDIT SUMMARY</h2>
+                <div id="summary-content"></div>
+                <div class="action-row">
+                    <button onclick="showPage('verdict')">BACK TO VERDICTS</button>
+                    <button onclick="showPage('intake')">NEW AUDIT</button>
+                </div>
+            </div>
+
+            <!-- PAGE: History -->
+            <div id="page-history" class="page">
+                <h2>AUDIT HISTORY</h2>
+                <div id="history-list"></div>
+                <div class="action-row">
+                    <button onclick="showPage('intake')">NEW AUDIT</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="loading-overlay" class="hidden">
+            <div class="loading-content">
+                <span class="blink-cursor">_</span>
+                <span>ANALYZING</span>
+            </div>
+        </div>
+
+        <script src="app.js"></script>
+    </body>
+    </html>
+
+  ─── File: src/main/resources/static/style.css ───
+
+    /* ─── VERDICT — Cold Terminal Aesthetic ─── */
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        border-radius: 0 !important;
+    }
+
+    body {
+        background: #0a0a0a;
+        color: #d1d1d1;
+        font-family: "Courier New", "JetBrains Mono", monospace;
+        font-size: 14px;
+        line-height: 1.6;
+        min-height: 100vh;
+    }
+
+    #app {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    /* ─── Navigation ─── */
+    nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid #2d2d2d;
+        margin-bottom: 24px;
+    }
+
+    .logo {
+        color: #d1d1d1;
+        font-weight: bold;
+        letter-spacing: 1px;
+    }
+
+    .nav-links a {
+        color: #4a4a4a;
+        text-decoration: none;
+        font-size: 12px;
+        margin-left: 16px;
+        padding: 4px 8px;
+        border: 1px solid #2d2d2d;
+        transition: color 0.2s, border-color 0.2s;
+    }
+
+    .nav-links a:hover,
+    .nav-links a.active {
+        color: #d1d1d1;
+        border-color: #4a4a4a;
+    }
+
+    /* ─── Pages ─── */
+    .page {
+        display: none;
+    }
+
+    .page.active {
+        display: block;
+    }
+
+    /* ─── Intake ─── */
+    .intake-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .panel {
+        border: 1px solid #2d2d2d;
+        padding: 12px;
+    }
+
+    .panel-label {
+        display: block;
+        font-size: 11px;
+        color: #4a4a4a;
+        margin-bottom: 8px;
+        letter-spacing: 1px;
+    }
+
+    textarea {
+        width: 100%;
+        height: 300px;
+        background: #0d0d0d;
+        border: 1px solid #2d2d2d;
+        color: #d1d1d1;
+        font-family: "Courier New", monospace;
+        font-size: 13px;
+        padding: 8px;
+        resize: vertical;
+    }
+
+    textarea:focus {
+        outline: none;
+        border-color: #4a4a4a;
+    }
+
+    textarea::placeholder {
+        color: #2d2d2d;
+    }
+
+    input[type="file"] {
+        display: none;
+    }
+
+    .file-btn {
+        display: inline-block;
+        margin-top: 8px;
+        padding: 4px 12px;
+        border: 1px solid #2d2d2d;
+        font-size: 11px;
+        color: #4a4a4a;
+        cursor: pointer;
+        transition: color 0.2s, border-color 0.2s;
+    }
+
+    .file-btn:hover {
+        color: #d1d1d1;
+        border-color: #4a4a4a;
+    }
+
+    /* ─── Action Row ─── */
+    .action-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    button {
+        background: none;
+        border: 1px solid #2d2d2d;
+        color: #d1d1d1;
+        font-family: "Courier New", monospace;
+        font-size: 13px;
+        padding: 8px 20px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    button:hover {
+        background: #1a1a1a;
+    }
+
+    #status-text {
+        font-size: 12px;
+        color: #4a4a4a;
+    }
+
+    /* ─── Verdict Page ─── */
+    .verdict-header {
+        text-align: center;
+        margin-bottom: 24px;
+        padding: 20px;
+        border: 1px solid #2d2d2d;
+    }
+
+    .score-display {
+        font-size: 48px;
+        font-weight: bold;
+        color: #d1d1d1;
+    }
+
+    .score-label {
+        display: block;
+        font-size: 11px;
+        color: #4a4a4a;
+        margin-top: 4px;
+        letter-spacing: 2px;
+    }
+
+    .filter-bar {
+        display: flex;
+        gap: 0;
+        margin-bottom: 16px;
+        border: 1px solid #2d2d2d;
+    }
+
+    .filter-btn {
+        flex: 1;
+        border: none;
+        border-right: 1px solid #2d2d2d;
+        padding: 8px;
+        font-size: 11px;
+        color: #4a4a4a;
+    }
+
+    .filter-btn:last-child {
+        border-right: none;
+    }
+
+    .filter-btn.active {
+        color: #d1d1d1;
+        background: #1a1a1a;
+    }
+
+    /* ─── Verdict Items ─── */
+    .verdict-item {
+        padding: 12px;
+        margin-bottom: 8px;
+        border: 1px solid #2d2d2d;
+    }
+
+    .verdict-item .sentence {
+        margin-bottom: 6px;
+        line-height: 1.5;
+    }
+
+    .verdict-item .badge {
+        display: inline-block;
+        font-size: 10px;
+        padding: 2px 8px;
+        font-weight: bold;
+        margin-bottom: 6px;
+        letter-spacing: 1px;
+    }
+
+    .badge.SUPPORTED {
+        background: #2a6b3c;
+        color: #d1d1d1;
+    }
+
+    .badge.STRETCHED {
+        background: #b8860b;
+        color: #d1d1d1;
+    }
+
+    .badge.UNSUPPORTED {
+        background: #8b2a2a;
+        color: #d1d1d1;
+    }
+
+    .badge.NOT-A-CLAIM {
+        background: #1a1a1a;
+        color: #4a4a4a;
+    }
+
+    .verdict-item .explanation {
+        font-size: 12px;
+        color: #8a8a8a;
+        margin-bottom: 4px;
+    }
+
+    .verdict-item .pointer {
+        font-size: 11px;
+        color: #4a4a4a;
+        font-style: italic;
+    }
+
+    .verdict-item.SUPPORTED {
+        border-left: 3px solid #2a6b3c;
+    }
+
+    .verdict-item.STRETCHED {
+        border-left: 3px solid #b8860b;
+    }
+
+    .verdict-item.UNSUPPORTED {
+        border-left: 3px solid #8b2a2a;
+    }
+
+    .verdict-item.NOT-A-CLAIM {
+        border-left: 3px solid #2d2d2d;
+        opacity: 0.5;
+    }
+
+    /* ─── Loading ─── */
+    #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #0a0a0a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    #loading-overlay.hidden {
+        display: none;
+    }
+
+    .loading-content {
+        font-size: 18px;
+        letter-spacing: 4px;
+        color: #4a4a4a;
+    }
+
+    .blink-cursor {
+        animation: blink 1s step-end infinite;
+        color: #d1d1d1;
+        margin-right: 8px;
+    }
+
+    @keyframes blink {
+        50% { opacity: 0; }
+    }
+
+    /* ─── Summary ─── */
+    #summary-content {
+        border: 1px solid #2d2d2d;
+        padding: 16px;
+    }
+
+    .stat-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #2d2d2d;
+        font-size: 13px;
+    }
+
+    .stat-row:last-child {
+        border-bottom: none;
+    }
+
+    .damage-item {
+        padding: 8px 0;
+        border-bottom: 1px solid #2d2d2d;
+    }
+
+    .damage-item:last-child {
+        border-bottom: none;
+    }
+
+    .damage-item .damage-sentence {
+        color: #8b2a2a;
+    }
+
+    .damage-item .damage-explanation {
+        font-size: 12px;
+        color: #8a8a8a;
+        margin-top: 4px;
+    }
+
+    /* ─── History ─── */
+    .history-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        border: 1px solid #2d2d2d;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+
+    .history-item:hover {
+        border-color: #4a4a4a;
+    }
+
+    .history-item .h-title {
+        font-size: 13px;
+    }
+
+    .history-item .h-score {
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .history-item .h-date {
+        font-size: 11px;
+        color: #4a4a4a;
+    }
+
+    /* ─── Misc ─── */
+    h2 {
+        font-size: 14px;
+        font-weight: bold;
+        color: #4a4a4a;
+        letter-spacing: 2px;
+        margin-bottom: 16px;
+        text-transform: uppercase;
+    }
+
+  ─── File: src/main/resources/static/app.js ───
+
+    // ─── VERDICT Frontend ───
+
+    let currentAuditId = null;
+    let currentVerdicts = [];
+    let currentFilter = 'all';
+
+    // ─── Page Navigation ───
+    function showPage(page) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById('page-' + page).classList.add('active');
+        document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+        if (page === 'intake') {
+            document.querySelector('.nav-links a[href="#"]').classList.add('active');
+        } else if (page === 'history') {
+            document.querySelectorAll('.nav-links a')[1].classList.add('active');
+            loadHistory();
+        }
+    }
+
+    // ─── File Upload ───
+    function loadFile(target) {
+        const input = document.getElementById(target + '-file');
+        const textarea = document.getElementById(target + '-text');
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                textarea.value = e.target.result;
+            };
+            reader.readAsText(input.files[0]);
+        }
+    }
+
+    // ─── Run Audit ───
+    async function runAudit() {
+        const claimText = document.getElementById('claim-text').value.trim();
+        const evidenceText = document.getElementById('evidence-text').value.trim();
+
+        if (!claimText || !evidenceText) {
+            document.getElementById('status-text').textContent = 'ERROR: BOTH FIELDS REQUIRED';
+            return;
+        }
+
+        document.getElementById('status-text').textContent = '';
+        document.getElementById('loading-overlay').classList.remove('hidden');
+
+        try {
+            const response = await fetch('/api/audit/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    claimTitle: 'Claim Document',
+                    evidenceTitle: 'Evidence Document',
+                    claimText: claimText,
+                    evidenceText: evidenceText
+                })
+            });
+
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+
+            const data = await response.json();
+            currentAuditId = data.auditId;
+            currentVerdicts = data.verdicts;
+            currentFilter = 'all';
+
+            renderVerdicts(data);
+            showPage('verdict');
+
+        } catch (err) {
+            document.getElementById('status-text').textContent = 'ERROR: ' + err.message;
+        } finally {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        }
+    }
+
+    // ─── Render Verdicts ───
+    function renderVerdicts(data) {
+        document.getElementById('score-display').textContent = data.credibilityScore + '%';
+
+        const list = document.getElementById('verdict-list');
+        list.innerHTML = '';
+
+        data.verdicts.forEach(item => {
+            if (currentFilter === 'problems' && (!item.claim || item.status === 'SUPPORTED')) return;
+            if (currentFilter === 'passed' && (!item.claim || item.status !== 'SUPPORTED')) return;
+
+            const div = document.createElement('div');
+            div.className = 'verdict-item ' + (item.claim ? item.status : 'NOT-A-CLAIM');
+
+            let badgeText = item.claim ? item.status : 'NOT-A-CLAIM';
+            div.innerHTML = `
+                <span class="badge ${badgeText}">${badgeText}</span>
+                <div class="sentence">${escapeHtml(item.sentence)}</div>
+                ${item.explanation ? '<div class="explanation">' + escapeHtml(item.explanation) + '</div>' : ''}
+                ${item.evidencePointer ? '<div class="pointer">→ ' + escapeHtml(item.evidencePointer) + '</div>' : ''}
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    // ─── Filter ───
+    function setFilter(filter) {
+        currentFilter = filter;
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.filter === filter);
+        });
+        // Re-render from stored data
+        const data = {
+            credibilityScore: document.getElementById('score-display').textContent.replace('%', ''),
+            verdicts: currentVerdicts
+        };
+        renderVerdicts(data);
+    }
+
+    // ─── View Summary ───
+    async function viewSummary() {
+        if (!currentAuditId) return;
+        try {
+            const response = await fetch('/api/audit/' + currentAuditId + '/summary');
+            const data = await response.json();
+            renderSummary(data);
+            showPage('summary');
+        } catch (err) {
+            document.getElementById('status-text').textContent = 'ERROR: ' + err.message;
+        }
+    }
+
+    function renderSummary(data) {
+        const el = document.getElementById('summary-content');
+        let html = '';
+        html += '<div class="stat-row"><span>AUDIT ID</span><span>' + data.auditId + '</span></div>';
+        html += '<div class="stat-row"><span>CREDIBILITY SCORE</span><span>' + data.credibilityScore + '%</span></div>';
+        html += '<div class="stat-row"><span>TOTAL SENTENCES</span><span>' + data.totalSentences + '</span></div>';
+        html += '<div class="stat-row"><span>SUPPORTED</span><span style="color:#2a6b3c">' + data.supportedCount + '</span></div>';
+        html += '<div class="stat-row"><span>STRETCHED</span><span style="color:#b8860b">' + data.stretchedCount + '</span></div>';
+        html += '<div class="stat-row"><span>UNSUPPORTED</span><span style="color:#8b2a2a">' + data.unsupportedCount + '</span></div>';
+        html += '<div class="stat-row"><span>NOT-A-CLAIM</span><span style="color:#4a4a4a">' + data.notClaimCount + '</span></div>';
+
+        if (data.topUnsupported && data.topUnsupported.length > 0) {
+            html += '<h2 style="margin-top:20px">TOP UNSUPPORTED CLAIMS</h2>';
+            data.topUnsupported.forEach(d => {
+                html += '<div class="damage-item">';
+                html += '<div class="damage-sentence">' + escapeHtml(d.sentence) + '</div>';
+                html += '<div class="damage-explanation">' + escapeHtml(d.explanation) + '</div>';
+                html += '</div>';
+            });
+        }
+
+        el.innerHTML = html;
+    }
+
+    // Override the summary button to fetch data
+    document.querySelector('#page-verdict .action-row button:first-child').onclick = viewSummary;
+
+    // ─── Load History ───
+    async function loadHistory() {
+        try {
+            const response = await fetch('/api/audit/history');
+            const data = await response.json();
+            const el = document.getElementById('history-list');
+            el.innerHTML = '';
+            if (data.length === 0) {
+                el.innerHTML = '<div style="color:#4a4a4a; text-align:center; padding:20px;">NO AUDITS RECORDED</div>';
+                return;
+            }
+            data.forEach(audit => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.onclick = function() {
+                    currentAuditId = audit.id;
+                    fetch('/api/audit/' + audit.id)
+                        .then(r => r.json())
+                        .then(data => {
+                            currentVerdicts = data.verdicts;
+                            currentFilter = 'all';
+                            renderVerdicts(data);
+                            showPage('verdict');
+                        });
+                };
+                div.innerHTML = `
+                    <div>
+                        <div class="h-title">${escapeHtml(audit.claimTitle || 'Untitled')}</div>
+                        <div class="h-date">${audit.createdAt ? new Date(audit.createdAt).toLocaleString() : ''}</div>
+                    </div>
+                    <div class="h-score" style="color:${
+                        audit.credibilityScore >= 70 ? '#2a6b3c' :
+                        audit.credibilityScore >= 40 ? '#b8860b' : '#8b2a2a'
+                    }">${audit.credibilityScore}%</div>
+                `;
+                el.appendChild(div);
+            });
+        } catch (err) {
+            document.getElementById('history-list').innerHTML = '<div style="color:#8b2a2a">ERROR LOADING HISTORY</div>';
+        }
+    }
+
+    // ─── Utility ───
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+================================================================================
+STEP 10 — CREATE THE MAIN APPLICATION CLASS
+================================================================================
+
+  File: src/main/java/com/verdict/VerdictApplication.java
+
+    package com.verdict;
+
+    import org.springframework.boot.SpringApplication;
+    import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+    @SpringBootApplication
+    public class VerdictApplication {
+        public static void main(String[] args) {
+            SpringApplication.run(VerdictApplication.class, args);
+        }
+    }
+
+================================================================================
+STEP 11 — VERIFY IT BUILDS
+================================================================================
+
+  Run this command from the verdict/ project root:
+
+    mvn clean package -DskipTests
+
+  If it compiles successfully, you'll see "BUILD SUCCESS" and a .jar file in
+  the target/ directory.
+
+  Then run:
+
+    java -jar target/verdict.jar
+
+  Open http://localhost:8080 — you should see the VERDICT frontend.
+  Paste a test document, click AUDIT, and see the hardcoded response.
+
+================================================================================
+STEP 12 — EXPORT AS STARTER ZIP
+================================================================================
+
+  Once everything is verified:
+    1. Remove the target/ folder (rm -rf target)
+    2. Remove the .git folder if it exists
+    3. ZIP the entire verdict/ folder
+    4. Save to: your cloud storage, USB drive, and email it to yourself
+
+  Name the ZIP: verdict-starter.zip
+
+  On hackathon day:
+    1. Extract the ZIP
+    2. Open in IntelliJ IDEA
+    3. Start coding the LlmService.auditBatch() method
+    4. That's the only file you need to write on the day
+
+================================================================================
+WHAT THIS STARTER ALREADY DOES FOR YOU
+================================================================================
+
+  ✓ Complete Spring Boot project with all dependencies
+  ✓ H2 database with auto-table creation (no SQL to write)
+  ✓ Full REST API: POST audit, GET audit, GET summary, GET history
+  ✓ Session-based isolation (multi-user safe)
+  ✓ Credibility score formula implemented
+  ✓ Frontend with cold terminal aesthetic (4 pages)
+  ✓ File upload for .txt documents
+  ✓ Filter bar (ALL / PROBLEMS ONLY / PASSED)
+  ✓ Verdict rendering with color-coded badges
+  ✓ History page with clickable past audits
+  ✓ Summary page with score breakdown and top unsupported claims
+  ✓ Loading overlay with blinking cursor
+  ✓ Hardcoded LLM response (for pre-hackathon testing)
+
+  Estimated time saved on hackathon day: 3-4 hours.
+
+================================================================================
+WHAT YOU STILL NEED TO DO ON HACKATHON DAY
+================================================================================
+
+  1. Get an API key for whatever LLM you're using
+  2. Add your API key to application.properties
+  3. Implement LlmService.auditBatch():
+     a) Copy the adversarial system prompt from hackathon-idea.txt
+     b) Send the HTTP request to the LLM API
+     c) Parse the JSON response
+     d) Map it to List<VerdictItem>
+  4. Test with your CV + a job posting
+  5. If the task they give you is different from CV/job-posting,
+     adjust the prompt and UI labels accordingly
+  6. Record a screen capture as backup
+  7. Demo
+
+  That's it. One file. One prompt. Everything else is pre-built.
+
+================================================================================
