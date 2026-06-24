@@ -30,45 +30,6 @@ ABOUT THE HACKATHON (BrainHack_AI 2026)
   Registration: https://forms.gle/p2oHCJApwS1j9ovx9
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ABOUT ME — TORNIKE TABAGARI
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  Contact:
-    Phone:  +995 599 380 822
-    Email:  toktabbusiness@gmail.com
-    LinkedIn: linkedin.com/in/toktab
-    GitHub:   github.com/toktab
-
-  Education:
-    Georgian Technical University — CS (English), 2023-2027, GPA 4.00
-    University of Alicante, Spain — ERASMUS+ (2025-2026)
-    TBC IT Academy — Backend Development + Test Automation (5 months)
-    Computer School "Mziuri" — C++, Algorithms, Java (3 years)
-
-  Technical Skills:
-    Languages:    Java, Python, JavaScript, TypeScript, HTML5, CSS3
-    Frameworks:   Spring Boot, Spring Security, Spring Data JPA,
-                  Hibernate, Maven, Django, Django REST Framework
-    Databases:    PostgreSQL, MySQL, Microsoft SQL Server
-    DevOps:       Docker, Git, GitHub, Azure, Azure DevOps, CI/CD
-    Testing:      JUnit, Mockito, Selenium, Selenide, Playwright, TestNG
-    Other:        REST APIs, Swagger, Postman, Linux, OOP
-
-  Awards:
-    GTU Hackathon (2024) — 2nd Place (solo, 8 hours)
-    ERASMUS+ Scholar — University of Alicante, Spain
-    GDSC Hackathon — Certificate of Participation (2024)
-
-  Relevant Projects:
-    Know-It-All Bot — AI quiz app (Spring Boot, MySQL, 3 AI providers)
-    EV Distributed System — Multi-component system with concurrent users
-    TokoCoin — Full-stack ERC20 token + React website + Solidity
-
-  Languages:
-    Georgian (Native), English (Professional),
-    Spanish (Intermediate), French (Basic)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PROJECT: VERDICT — The AI Lie Detector (Claim Audit System)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -120,9 +81,9 @@ PROJECT: VERDICT — The AI Lie Detector (Claim Audit System)
   2. EMOTIONAL IMPACT
      Helpful AI gets a polite nod. Skeptical AI that's RIGHT gets a
      reaction — the small jolt of "wait, it actually caught that."
-     There is a specific discomfort in watching a tool read your own
-     CV and highlight the one sentence you knew was a stretch when you
-     wrote it. That discomfort is the product. Scrutiny is inherently
+     There is a specific discomfort in watching a tool read a CV
+     and highlight the one sentence the candidate knew was stretched.
+     That discomfort is the product. Scrutiny is inherently
      more interesting than agreement.
 
   3. THREE STRUCTURAL DIFFERENCES FROM EVERY OTHER DEMO
@@ -166,14 +127,9 @@ PROJECT: VERDICT — The AI Lie Detector (Claim Audit System)
     "Candidate claims 'led a team of 10' — no team size, role, or
      duration specified. → UNSUPPORTED as written"
 
-  This is testable beforehand with your own CV and real job postings.
-  You know exactly what VERDICT will say before you demo it live —
-  zero on-stage surprises.
-
-  BONUS: As the creator, you can use YOUR OWN CV as the demo document.
-  Having the tool call out stretches in YOUR OWN application in front
-  of judges is a power move — it proves you trust the tool enough to
-  turn it on yourself first.
+  This is testable beforehand with sample CVs and real job postings,
+  so the demo can be rehearsed with predictable outputs and no
+  on-stage surprises.
 
   ──────────────────────────────────────────────────────────────────────────
   THE EMOTIONAL TONE
@@ -352,7 +308,7 @@ PROJECT: VERDICT — The AI Lie Detector (Claim Audit System)
   POST /api/audit/run
   Request:
   {
-    "claimTitle": "Tornike Tabagari — CV",
+    "claimTitle": "Candidate CV",
     "evidenceTitle": "Senior Backend Engineer — Job Posting",
     "claimText": "Expert in distributed systems. Led a team of 10 engineers.
                   Implemented CI/CD pipelines for 5 microservices.",
@@ -518,8 +474,8 @@ PROJECT: VERDICT — The AI Lie Detector (Claim Audit System)
     generate. It interrogates."
 
   [0:20-0:45] INTRODUCE THE DOCUMENTS
-    "This is my CV. This is a job posting. I wrote this CV. I know
-    exactly what it says and what it stretches."
+    "This is a candidate CV. This is a job posting. The CV sounds
+    confident, but confidence is not evidence."
     (Paste CV on left panel, job posting on right panel)
     "Let's see what VERDICT finds."
 
@@ -531,8 +487,8 @@ PROJECT: VERDICT — The AI Lie Detector (Claim Audit System)
   [1:15-1:45] THE MOMENT
     VERDICT highlights: "Expert in distributed systems — STRETCHED."
     Read the explanation aloud. Pause for half a second.
-    "That's my CV. It's right. I took one university project and
-    called myself an expert. The tool caught it."
+    "The tool is right. One university project is not enough evidence
+    for the word expert. It caught the stretch."
     Then: "Candidate claims 'led a team' — UNSUPPORTED. No team size,
     no role, no duration specified."
     "But this one: 'Implemented CI/CD pipelines' — SUPPORTED. Because
@@ -561,38 +517,6 @@ PROJECT: VERDICT — The AI Lie Detector (Claim Audit System)
     source documents. Because the question isn't whether AI can
     generate confident-sounding answers. The question is whether those
     answers can survive being checked. VERDICT checks."
-
-  ──────────────────────────────────────────────────────────────────────────
-  WHY THIS IS THE BEST FIT FOR YOU SPECIFICALLY
-  ──────────────────────────────────────────────────────────────────────────
-
-  1. NO HEAVY INFRASTRUCTURE — Just Spring Boot + an AI API call.
-     You know Spring Boot inside and out. No vector databases, no
-     embeddings, no PDF parsing nightmares. One controller, one
-     service, one prompt.
-
-  2. YOUR CV IS THE DEMO — You don't need to find or create fake
-     data. Your own CV + a real job posting = instant demo material.
-     And having the tool audit YOUR OWN document live is the most
-     convincing thing you can show.
-
-  3. STAND OUT — You won second place in a GTU hackathon before
-     doing something conventional. VERDICT is unconventional by
-     design. The same instincts that got you second place solo are
-     the ones that make this project work.
-
-  4. PRESENTATION ADVANTAGE — 3-minute demos blur together when
-     everyone shows a chatbot. VERDICT's demo has a built-in
-     narrative arc (setup → audit → reveal → reaction) that no
-     chatbot demo can match. The pause after the tool calls out
-     your OWN stretched claim is more memorable than any feature
-     list.
-
-  5. JUDGE-FRIENDLY SCOPE — The hackathon themes mention BI,
-     reporting, and generative AI. VERDICT touches all three but
-     inverts every one. Judges who've seen 20 "here's my chatbot"
-     demos will remember the one that audited its creator's CV
-     and found him wanting.
 
   ──────────────────────────────────────────────────────────────────────────
   8-HOUR BUILD PLAN
@@ -650,7 +574,7 @@ PROJECT: VERDICT — The AI Lie Detector (Claim Audit System)
     • Add session-based isolation (simple cookie/session ID)
     • Add audit export (plaintext report download)
     • Add SHA-256 document fingerprinting (small touch, big impact)
-    • Test the FULL flow with your own CV + 3 different job postings
+    • Test the FULL flow with sample CVs + 3 different job postings
     • Tune the prompt — make sure it's harsh enough
     • Run the same CV/job-posting pair 4-5 times to check verdict
       stability. If verdicts vary, tighten the prompt before touching
@@ -716,7 +640,7 @@ PROJECT: VERDICT — The AI Lie Detector (Claim Audit System)
 
   ☐ Your laptop with IntelliJ IDEA installed
   ☐ Java 17+ JDK
-  ☐ Your own CV in .txt format (3 different versions if possible)
+  ☐ Sample CVs in .txt format (3 different versions if possible)
   ☐ 5-6 real job postings copied as .txt files (vary the seniority level)
   ☐ A backup CV with intentionally exaggerated claims (for testing)
   ☐ OpenAI API key (or Gemini API key)
@@ -733,8 +657,8 @@ PROJECT: VERDICT — The AI Lie Detector (Claim Audit System)
   "Everyone else built a generator. We built a cross-examiner.
   Upload any claim and the evidence behind it — VERDICT tells you
   exactly which sentences are lying, which are stretching, and
-  which are actually true. It audited my own CV first. It wasn't
-  kind."
+  which are actually true. It turns polished claims back into testable
+  evidence."
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -913,3 +837,41 @@ PROJECT: VERDICT — The AI Lie Detector (Claim Audit System)
   years of a technology that's 3 years old"). Not in scope for the
   8-hour build, but worth keeping on record as a stated next step in
   the demo's closing line if time allows.
+
+  --------------------------------------------------------------------------
+  SHORT SUMMARY
+  --------------------------------------------------------------------------
+
+  VERDICT is an AI claim-audit tool. It checks a claim document against
+  an evidence document, marks each claim as supported, stretched, or
+  unsupported, and produces a credibility score. It works by splitting
+  the claim document into sentences, sending them with the evidence to
+  a strict LLM prompt, then storing the verdicts and explanations.
+  It is good because it is simple to build, easy to demo, and memorable:
+  instead of generating more content, it checks whether existing content
+  is actually true.
+
+  --------------------------------------------------------------------------
+  CLIENT SCENARIO
+  --------------------------------------------------------------------------
+
+  1. The client opens the VERDICT site.
+  2. The site shows two input panels: Claim Document and Evidence Document.
+  3. The client pastes or uploads the claim document, for example a CV,
+     sales pitch, report, product description, or announcement.
+  4. The client pastes or uploads the evidence document, for example a job
+     posting, spreadsheet, source document, product spec, or raw dataset.
+  5. The client clicks AUDIT.
+  6. The site sends both documents to the backend.
+  7. The backend splits the claim document into sentences and sends those
+     sentences plus the evidence document to the LLM in one strict prompt.
+  8. The LLM returns a verdict for each sentence: SUPPORTED, STRETCHED,
+     UNSUPPORTED, or NOT-A-CLAIM.
+  9. The backend calculates the credibility score, stores the audit, and
+     returns the full result to the site.
+  10. The site shows each claim with its verdict, short explanation, and
+      evidence pointer.
+  11. The client opens the Summary page to see the overall score and the
+      biggest weak points.
+  12. The client can export the audit report or open the audit later from
+      history.
