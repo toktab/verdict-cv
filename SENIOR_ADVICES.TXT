@@ -76,9 +76,9 @@ Advice: Add service tests beyond controller smoke flows, especially auth/session
 Fix notes: Added ServiceLayerBehaviorTest covering auth session login/me, audit ownership isolation, and evidence pointer normalization through AuditService. Commit: 343eb91.
 
 14. Pagination
-Status: TODO
+Status: FIXED
 Advice: Add pagination for audits, users, and logs.
-Fix notes: Pending.
+Fix notes: Added limit/offset parameters for admin audits, users, and logs plus admin UI Prev/Next paging controls for each list. Commit: 22684a1.
 
 15. Consistent error codes
 Status: TODO
