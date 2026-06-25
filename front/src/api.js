@@ -37,6 +37,13 @@ export const api = {
   me(token) {
     return request('/api/auth/me', { headers: { 'X-User-Token': token } });
   },
+  updateMe(token, payload) {
+    return request('/api/auth/me', {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'X-User-Token': token },
+      body: JSON.stringify(payload),
+    });
+  },
   logout(token) {
     return request('/api/auth/logout', { method: 'POST', headers: { 'X-User-Token': token } });
   },

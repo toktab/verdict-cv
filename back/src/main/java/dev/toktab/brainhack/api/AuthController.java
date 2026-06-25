@@ -1,15 +1,18 @@
 package dev.toktab.brainhack.api;
 
 import dev.toktab.brainhack.account.UserAccount;
+import dev.toktab.brainhack.account.UserAccountService;
 import dev.toktab.brainhack.account.UserSessionService;
 import dev.toktab.brainhack.api.dto.AuthResponse;
 import dev.toktab.brainhack.api.dto.LoginRequest;
 import dev.toktab.brainhack.api.dto.RegisterRequest;
+import dev.toktab.brainhack.api.dto.UserProfileRequest;
 import dev.toktab.brainhack.api.dto.UserResponse;
 import dev.toktab.brainhack.log.AuditLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -20,10 +23,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/auth")
 public class AuthController {
     private final UserSessionService sessionService;
+    private final UserAccountService accountService;
     private final AuditLogService logService;
 
-    public AuthController(UserSessionService sessionService, AuditLogService logService) {
+    public AuthController(UserSessionService sessionService, UserAccountService accountService, AuditLogService logService) {
         this.sessionService = sessionService;
+        this.accountService = accountService;
         this.logService = logService;
     }
 
@@ -44,6 +49,13 @@ public class AuthController {
     @GetMapping("/me")
     public UserResponse me(@RequestHeader("X-User-Token") String token) {
         return toResponse(sessionService.me(token));
+    }
+
+    @PatchMapping("/me")
+    public UserResponse updateMe(@RequestHeader("X-User-Token") String token, @Valid @RequestBody UserProfileRequest request, HttpServletRequest httpRequest) {
+        UserAccount account = accountService.updateProfile(sessionService.me(token), request);
+        logService.record("USER_PROFILE_UPDATE", httpRequest, 200, 0, account.getUsername(), "userId=" + account.getId());
+        return toResponse(account);
     }
 
     @PostMapping("/logout")

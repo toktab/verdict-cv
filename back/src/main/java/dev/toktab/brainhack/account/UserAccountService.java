@@ -1,6 +1,7 @@
 package dev.toktab.brainhack.account;
 
 import dev.toktab.brainhack.api.dto.UserAdminRequest;
+import dev.toktab.brainhack.api.dto.UserProfileRequest;
 import jakarta.transaction.Transactional;
 import java.util.List;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -69,6 +70,27 @@ public class UserAccountService {
     @Transactional
     public void delete(Long id) {
         userRepository.deleteById(id);
+    }
+
+    @Transactional
+    public UserAccount updateProfile(UserAccount account, UserProfileRequest request) {
+        String email = clean(request.email()).toLowerCase();
+        if (!account.getEmail().equalsIgnoreCase(email) && userRepository.existsByEmailIgnoreCase(email)) {
+            throw new IllegalArgumentException("Email is already registered");
+        }
+        account.setFullName(clean(request.fullName()));
+        account.setEmail(email);
+        account.setCountry(clean(request.country()));
+        account.setAddress(clean(request.address()));
+        account.setOrganization(defaulted(request.organization(), "Independent"));
+        account.setRole(defaulted(request.role(), "Analyst"));
+        if (request.password() != null && !request.password().isBlank()) {
+            if (request.password().length() < 8) {
+                throw new IllegalArgumentException("Password must be at least 8 characters");
+            }
+            account.setPasswordHash(BCrypt.hashpw(request.password(), BCrypt.gensalt(11)));
+        }
+        return userRepository.save(account);
     }
 
     private void apply(UserAccount account, UserAdminRequest request) {
