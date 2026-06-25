@@ -66,9 +66,9 @@ Advice: Split frontend into pages, components, hooks, and API modules instead of
 Fix notes: Extracted shared UI components, audit content/mode data, route state hook, and ProfilePage module while preserving existing app behavior. Commit: 56fd33b.
 
 12. DTO mapper cleanup
-Status: TODO
+Status: FIXED
 Advice: Move repeated response-building logic from controllers into mapper classes.
-Fix notes: Pending.
+Fix notes: Extracted repeated UserResponse construction into UserMapper and wired AuthController/AdminController to use it. Commit: be2aeb7.
 
 13. More service-layer tests
 Status: TODO
