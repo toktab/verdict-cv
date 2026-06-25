@@ -651,6 +651,65 @@ nav button:hover,
     var(--panel);
 }
 
+.suspiciousPanel {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 0 0, rgba(240, 184, 90, 0.12), transparent 18rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+    var(--panel);
+}
+
+.suspiciousPanel h2 {
+  margin: 6px 0 0;
+  font-size: 24px;
+}
+
+.suspiciousPanel > p {
+  color: var(--muted);
+  margin: 12px 0 0;
+}
+
+.suspiciousGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.suspiciousGrid article {
+  border: 1px solid rgba(240, 184, 90, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(240, 184, 90, 0.06);
+}
+
+.suspiciousGrid strong {
+  display: block;
+  font-size: 18px;
+  color: #ffd38b;
+}
+
+.suspiciousGrid span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.suspiciousGrid p {
+  margin: 10px 0 8px;
+  color: var(--soft);
+  line-height: 1.45;
+}
+
+.suspiciousGrid small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 .tableToolbar {
   display: flex;
   align-items: center;

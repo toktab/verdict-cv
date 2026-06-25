@@ -786,6 +786,7 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
                 <pre>{audit.evidenceText}</pre>
               </Panel>
             </section>
+            <SuspiciousWordsPanel text={audit.claimText || verdicts.map((verdict) => verdict.sentence).join(' ')} />
             <section className="detailTableSection">
               <div className="tableToolbar">
                 <h2>Verdicts</h2>
@@ -849,6 +850,58 @@ function EvidenceHighlights({ evidenceText, verdicts }) {
       ))}
     </aside>
   );
+}
+
+const suspiciousWordRules = [
+  ['expert', 'Signals seniority without proof.', 'Specify years, systems, scope, or credentials.'],
+  ['led', 'Can overstate ownership if the evidence only shows participation.', 'Use managed, coordinated, contributed to, or supported with team size.'],
+  ['optimized', 'Needs a measurable before/after baseline.', 'Add metric, timeframe, and method.'],
+  ['proven', 'Sounds absolute unless backed by repeatable evidence.', 'Replace with demonstrated, tested, or documented.'],
+  ['advanced', 'Vague level claim without a standard.', 'Name the technique, tool, or measurable complexity.'],
+  ['strategic', 'Often hides unclear responsibility.', 'State the decision, audience, and outcome.'],
+  ['scalable', 'Requires load, growth, or architecture evidence.', 'Add traffic, volume, latency, or capacity numbers.'],
+  ['innovative', 'Subjective without external validation.', 'Describe what changed and why it was different.'],
+];
+
+function SuspiciousWordsPanel({ text }) {
+  const lower = (text || '').toLowerCase();
+  const hits = suspiciousWordRules
+    .map(([word, risk, safer]) => ({ word, risk, safer, count: countWord(lower, word) }))
+    .filter((item) => item.count > 0);
+  if (hits.length === 0) {
+    return (
+      <section className="suspiciousPanel">
+        <div>
+          <span className="eyebrow">Suspicious words</span>
+          <h2>No risky wording detected</h2>
+        </div>
+        <p>Current claim language avoids the most common inflated terms.</p>
+      </section>
+    );
+  }
+  return (
+    <section className="suspiciousPanel">
+      <div>
+        <span className="eyebrow">Suspicious words</span>
+        <h2>Risky wording found</h2>
+      </div>
+      <div className="suspiciousGrid">
+        {hits.map((item) => (
+          <article key={item.word}>
+            <strong>{item.word}</strong>
+            <span>{item.count} match{item.count === 1 ? '' : 'es'}</span>
+            <p>{item.risk}</p>
+            <small>{item.safer}</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function countWord(text, word) {
+  const matches = text.match(new RegExp(`\\b${escapeRegExp(word)}\\b`, 'g'));
+  return matches ? matches.length : 0;
 }
 
 function evidenceKeywords(verdicts) {
@@ -944,6 +997,7 @@ function AuditResult({ audit }) {
       <div className="verdictGrid">
         {audit.verdicts.map((verdict) => <VerdictCard key={verdict.id || verdict.sentenceIndex} verdict={verdict} />)}
       </div>
+      <SuspiciousWordsPanel text={audit.claimText || audit.verdicts.map((verdict) => verdict.sentence).join(' ')} />
       <div className="summaryStrip">
         <ShieldCheck size={18} />
         <span>Top risk count: {problems.length}. Engine: {audit.engine}. Completed in {audit.processingMillis}ms.</span>
