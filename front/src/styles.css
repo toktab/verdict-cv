@@ -671,6 +671,23 @@ nav button:hover,
   gap: 8px;
 }
 
+.filterStack {
+  display: grid;
+  gap: 8px;
+}
+
+.filterGroup {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.filterGroup > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .filterTabs button {
   min-height: 34px;
   border: 1px solid var(--line);
@@ -720,6 +737,10 @@ nav button:hover,
 .detailTableRow small {
   color: var(--muted);
   line-height: 1.4;
+}
+
+.detailTableRow small b {
+  color: var(--soft);
 }
 
 .statusPill {
@@ -1473,6 +1494,7 @@ select {
 
   .privateStrip,
   .stepActions,
+  .filterGroup,
   .reviewBox div {
     grid-template-columns: 1fr;
     display: grid;

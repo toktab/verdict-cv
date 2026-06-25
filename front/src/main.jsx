@@ -732,9 +732,20 @@ function Loading({ stage }) {
 
 function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, audit, loading, error }) {
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [confidenceFilter, setConfidenceFilter] = useState('ALL');
+  const [severityFilter, setSeverityFilter] = useState('ALL');
   const verdicts = audit?.verdicts || [];
-  const filteredVerdicts = statusFilter === 'ALL' ? verdicts : verdicts.filter((verdict) => verdict.status === statusFilter);
-  const filters = ['ALL', 'SUPPORTED', 'STRETCHED', 'UNSUPPORTED', 'GAP'];
+  const filteredVerdicts = verdicts.filter((verdict) => {
+    const statusMatch = statusFilter === 'ALL' || verdict.status === statusFilter;
+    const confidenceMatch = confidenceFilter === 'ALL' || verdict.confidence === confidenceFilter;
+    const severityMatch = severityFilter === 'ALL'
+      || (severityFilter === 'PROBLEM' && isProblemVerdict(verdict))
+      || verdictSeverity(verdict) === severityFilter;
+    return statusMatch && confidenceMatch && severityMatch;
+  });
+  const statusFilters = ['ALL', 'SUPPORTED', 'STRETCHED', 'UNSUPPORTED', 'GAP'];
+  const confidenceFilters = ['ALL', 'HIGH', 'MEDIUM', 'LOW'];
+  const severityFilters = ['ALL', 'PROBLEM', 'HIGH RISK', 'MEDIUM RISK', 'LOW RISK'];
 
   return (
     <div className="shell">
@@ -778,12 +789,10 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
             <section className="detailTableSection">
               <div className="tableToolbar">
                 <h2>Verdicts</h2>
-                <div className="filterTabs">
-                  {filters.map((filter) => (
-                    <button key={filter} className={statusFilter === filter ? 'active' : ''} onClick={() => setStatusFilter(filter)}>
-                      {filter}
-                    </button>
-                  ))}
+                <div className="filterStack">
+                  <FilterGroup label="Status" filters={statusFilters} value={statusFilter} onChange={setStatusFilter} />
+                  <FilterGroup label="Confidence" filters={confidenceFilters} value={confidenceFilter} onChange={setConfidenceFilter} />
+                  <FilterGroup label="Severity" filters={severityFilters} value={severityFilter} onChange={setSeverityFilter} />
                 </div>
               </div>
               <div className="detailVerdictTable">
@@ -800,7 +809,7 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
                     <strong>{verdict.sentence}</strong>
                     <span className={`statusPill ${verdict.status.toLowerCase().replaceAll('_', '-')}`}>{verdict.status}</span>
                     <span>{verdict.confidence}</span>
-                    <small>{verdict.evidencePointer}</small>
+                    <small><b>{verdictSeverity(verdict)}</b> / {verdict.evidencePointer}</small>
                   </div>
                 ))}
                 {filteredVerdicts.length === 0 && <div className="emptyState">No verdicts match this filter.</div>}
@@ -811,6 +820,38 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
       </main>
     </div>
   );
+}
+
+function FilterGroup({ label, filters, value, onChange }) {
+  return (
+    <div className="filterGroup">
+      <span>{label}</span>
+      <div className="filterTabs">
+        {filters.map((filter) => (
+          <button key={filter} className={value === filter ? 'active' : ''} onClick={() => onChange(filter)}>
+            {filter}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function verdictSeverity(verdict) {
+  if (verdict.status === 'UNSUPPORTED' || verdict.status === 'GAP') {
+    return 'HIGH RISK';
+  }
+  if (verdict.status === 'STRETCHED') {
+    return 'MEDIUM RISK';
+  }
+  if (verdict.status === 'SUPPORTED' || verdict.status === 'NOT_A_CLAIM') {
+    return 'LOW RISK';
+  }
+  return 'PROBLEM';
+}
+
+function isProblemVerdict(verdict) {
+  return ['STRETCHED', 'UNSUPPORTED', 'GAP'].includes(verdict.status);
 }
 
 function formatDateTime(value) {
