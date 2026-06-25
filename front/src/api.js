@@ -4,13 +4,17 @@ async function request(path, options = {}) {
   const response = await fetch(path, options);
   if (!response.ok) {
     let message = `Request failed with ${response.status}`;
+    let code = 'REQUEST_FAILED';
     try {
       const body = await response.json();
       message = body.message || message;
+      code = body.code || code;
     } catch {
       // Keep fallback message.
     }
-    throw new Error(message);
+    const error = new Error(message);
+    error.code = code;
+    throw error;
   }
   if (response.status === 204) {
     return null;
