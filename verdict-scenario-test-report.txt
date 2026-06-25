@@ -1,0 +1,80 @@
+﻿VERDICT Scenario Test Report
+Generated: 2026-06-25 18:58:31 +04:00
+Base URL: http://localhost:8080
+Summary: 25 passed, 0 failed, 25 total
+
+[PASSED] 01 Public page loads
+Reason: HTTP 200
+
+[PASSED] 02 Admin route loads SPA
+Reason: HTTP 200
+
+[PASSED] 03 Database health is UP
+Reason: database=MySQL, valid=True
+
+[PASSED] 04 Audit history endpoint works
+Reason: historyCount=9
+
+[PASSED] 05 Telemetry endpoint logs action
+Reason: logged
+
+[PASSED] 06 Empty audit request fails validation
+Reason: rejected as expected
+
+[PASSED] 07 Too-short audit request fails validation
+Reason: rejected as expected
+
+[PASSED] 08 Valid audit creates multiple verdicts
+Reason: auditId=13, verdicts=3, score=33, engine=LOCAL_HEURISTIC
+
+[PASSED] 09 Get audit by ID works
+Reason: auditId=13
+
+[PASSED] 10 Audit summary works
+Reason: score=33, topProblems=2
+
+[PASSED] 11 Export report works
+Reason: length=1010
+
+[PASSED] 12 Admin wrong login rejected
+Reason: rejected as expected
+
+[PASSED] 13 Admin correct login works
+Reason: tokenLength=48
+
+[PASSED] 14 Admin endpoint rejects missing token
+Reason: unauthorized as expected
+
+[PASSED] 15 Admin audits list works
+Reason: audits=10
+
+[PASSED] 16 Admin verdict edit recalculates audit
+Reason: verdictId=28, supportedCount=2, score=67
+
+[PASSED] 17 Admin verdict delete works and recalculates
+Reason: auditId=14, afterVerdicts=1
+
+[PASSED] 18 Admin audit delete works
+Reason: deletedAuditId=15
+
+[PASSED] 19 Admin logs endpoint works
+Reason: logs=135
+
+[PASSED] 20 Admin log delete works
+Reason: deletedLogId=138
+
+[PASSED] 21 Missing audit ID fails clearly
+Reason: missing audit rejected as expected
+
+[PASSED] 22 Invalid telemetry payload fails validation
+Reason: rejected as expected
+
+[PASSED] 23 Admin create audit endpoint works
+Reason: auditId=16
+
+[PASSED] 24 Public history includes audits
+Reason: historyCount=12
+
+[PASSED] 25 Admin logs include telemetry
+Reason: found=UI_ACTION
+

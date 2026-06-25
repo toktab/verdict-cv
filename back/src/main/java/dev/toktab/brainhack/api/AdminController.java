@@ -5,6 +5,7 @@ import dev.toktab.brainhack.api.dto.AdminLoginRequest;
 import dev.toktab.brainhack.api.dto.AdminLoginResponse;
 import dev.toktab.brainhack.api.dto.AuditResponse;
 import dev.toktab.brainhack.api.dto.AuditRunRequest;
+import dev.toktab.brainhack.api.dto.VerdictResponse;
 import dev.toktab.brainhack.audit.AuditMapper;
 import dev.toktab.brainhack.audit.AuditService;
 import dev.toktab.brainhack.audit.Verdict;
@@ -75,7 +76,7 @@ public class AdminController {
 
     @PatchMapping("/verdicts/{id}")
     @Transactional
-    public Verdict updateVerdict(@PathVariable Long id, @RequestBody Verdict patch) {
+    public VerdictResponse updateVerdict(@PathVariable Long id, @RequestBody Verdict patch) {
         Verdict verdict = verdictRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Verdict not found: " + id));
         if (patch.getStatus() != null) {
             verdict.setStatus(patch.getStatus());
@@ -95,7 +96,7 @@ public class AdminController {
         logService.recordSystem("ADMIN_UPDATE_VERDICT", "verdictId=" + id);
         Verdict saved = verdictRepository.save(verdict);
         auditService.recalculate(saved.getAudit().getId());
-        return saved;
+        return auditMapper.toVerdictResponse(saved);
     }
 
     @DeleteMapping("/verdicts/{id}")
@@ -103,7 +104,7 @@ public class AdminController {
     public void deleteVerdict(@PathVariable Long id) {
         Verdict verdict = verdictRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Verdict not found: " + id));
         Long auditId = verdict.getAudit().getId();
-        verdictRepository.delete(verdict);
+        verdict.getAudit().getVerdicts().removeIf(item -> id.equals(item.getId()));
         auditService.recalculate(auditId);
         logService.recordSystem("ADMIN_DELETE_VERDICT", "verdictId=" + id);
     }
