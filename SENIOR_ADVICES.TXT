@@ -71,9 +71,9 @@ Advice: Move repeated response-building logic from controllers into mapper class
 Fix notes: Extracted repeated UserResponse construction into UserMapper and wired AuthController/AdminController to use it. Commit: be2aeb7.
 
 13. More service-layer tests
-Status: TODO
+Status: FIXED
 Advice: Add service tests beyond controller smoke flows, especially auth/session/audit ownership/evidence normalization.
-Fix notes: Pending.
+Fix notes: Added ServiceLayerBehaviorTest covering auth session login/me, audit ownership isolation, and evidence pointer normalization through AuditService. Commit: 343eb91.
 
 14. Pagination
 Status: TODO
