@@ -13,6 +13,7 @@ import dev.toktab.brainhack.log.AppEventLog;
 import dev.toktab.brainhack.log.AppEventLogRepository;
 import dev.toktab.brainhack.log.AuditLogService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -73,6 +74,7 @@ public class AdminController {
     }
 
     @PatchMapping("/verdicts/{id}")
+    @Transactional
     public Verdict updateVerdict(@PathVariable Long id, @RequestBody Verdict patch) {
         Verdict verdict = verdictRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Verdict not found: " + id));
         if (patch.getStatus() != null) {
@@ -91,12 +93,18 @@ public class AdminController {
             verdict.setEvidencePointer(patch.getEvidencePointer());
         }
         logService.recordSystem("ADMIN_UPDATE_VERDICT", "verdictId=" + id);
-        return verdictRepository.save(verdict);
+        Verdict saved = verdictRepository.save(verdict);
+        auditService.recalculate(saved.getAudit().getId());
+        return saved;
     }
 
     @DeleteMapping("/verdicts/{id}")
+    @Transactional
     public void deleteVerdict(@PathVariable Long id) {
-        verdictRepository.deleteById(id);
+        Verdict verdict = verdictRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Verdict not found: " + id));
+        Long auditId = verdict.getAudit().getId();
+        verdictRepository.delete(verdict);
+        auditService.recalculate(auditId);
         logService.recordSystem("ADMIN_DELETE_VERDICT", "verdictId=" + id);
     }
 

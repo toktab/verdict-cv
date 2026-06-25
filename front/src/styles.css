@@ -21,7 +21,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -149,7 +150,8 @@ nav button,
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   border: 1px solid #243030;
   background: #050707;
@@ -174,8 +176,14 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: #4a90d9;
+}
+
+select {
+  height: 42px;
+  padding: 0 12px;
 }
 
 .commandbar {
@@ -413,6 +421,121 @@ textarea:focus {
   color: #7e8a88;
 }
 
+.rowActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.modal {
+  width: min(1180px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  border: 1px solid #2b3b3b;
+  background: #070a0a;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.55);
+}
+
+.modalHead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid #1e2a2a;
+  background: #070a0a;
+}
+
+.modalHead h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.modalHead span {
+  color: #7e8a88;
+  font-size: 12px;
+}
+
+.verdictTable {
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.tableHead,
+.tableRow {
+  display: grid;
+  grid-template-columns: 42px minmax(260px, 1fr) 150px 120px 190px;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #1e2a2a;
+  padding: 10px;
+}
+
+.tableHead {
+  color: #7e8a88;
+  background: #0a0f0f;
+  font-size: 12px;
+}
+
+.tableRow {
+  background: #050707;
+}
+
+.editPane {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 16px;
+  border-top: 1px solid #1e2a2a;
+  background: #080c0c;
+}
+
+.editPane h3 {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.editPane label {
+  display: grid;
+  gap: 6px;
+  color: #7e8a88;
+  font-size: 12px;
+}
+
+.editPane textarea {
+  min-height: 120px;
+  margin: 0;
+  border: 1px solid #243030;
+}
+
+.editPane label:nth-of-type(4),
+.editPane label:nth-of-type(5),
+.editActions {
+  grid-column: 1 / -1;
+}
+
+.editActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 @media (max-width: 900px) {
   .topbar,
   .scoreBlock {
@@ -422,7 +545,10 @@ textarea:focus {
 
   .intake,
   .adminGrid,
-  .loading {
+  .loading,
+  .tableHead,
+  .tableRow,
+  .editPane {
     grid-template-columns: 1fr;
   }
 

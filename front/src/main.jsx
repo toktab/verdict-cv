@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Activity, Download, FileSearch, Gauge, History, Lock, Play, ShieldCheck, Trash2 } from 'lucide-react';
+import { Activity, Download, Edit3, FileSearch, Gauge, History, Lock, Play, Save, ShieldCheck, Trash2, X } from 'lucide-react';
 import { api } from './api';
 import './styles.css';
 
@@ -237,6 +237,8 @@ function AdminPanel({ setRoute }) {
   const [login, setLogin] = useState({ username: 'admin', password: '' });
   const [audits, setAudits] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [selectedAudit, setSelectedAudit] = useState(null);
+  const [editingVerdict, setEditingVerdict] = useState(null);
   const [error, setError] = useState('');
 
   async function signIn() {
@@ -266,12 +268,53 @@ function AdminPanel({ setRoute }) {
   async function deleteAudit(id) {
     track('admin_delete_audit', 'admin_panel', `auditId=${id}`);
     await api.deleteAudit(token, id);
+    if (selectedAudit?.id === id) {
+      setSelectedAudit(null);
+    }
     await loadAdmin();
   }
 
   async function deleteLog(id) {
     track('admin_delete_log', 'admin_panel', `logId=${id}`);
     await api.deleteLog(token, id);
+    await loadAdmin();
+  }
+
+  async function openAuditEditor(audit) {
+    track('admin_open_audit_editor', 'admin_panel', `auditId=${audit.id}`);
+    const fullAudit = await api.getAudit(audit.id);
+    setSelectedAudit(fullAudit);
+    setEditingVerdict(null);
+  }
+
+  function startVerdictEdit(verdict) {
+    track('admin_start_verdict_edit', 'admin_modal', `verdictId=${verdict.id}`);
+    setEditingVerdict({ ...verdict });
+  }
+
+  async function saveVerdictEdit() {
+    if (!editingVerdict) {
+      return;
+    }
+    track('admin_save_verdict_edit', 'admin_modal', `verdictId=${editingVerdict.id}`);
+    await api.updateVerdict(token, editingVerdict.id, {
+      status: editingVerdict.status,
+      confidence: editingVerdict.confidence,
+      reasonCategory: editingVerdict.reasonCategory,
+      explanation: editingVerdict.explanation,
+      evidencePointer: editingVerdict.evidencePointer,
+    });
+    const refreshed = await api.getAudit(selectedAudit.id);
+    setSelectedAudit(refreshed);
+    setEditingVerdict(null);
+    await loadAdmin();
+  }
+
+  async function deleteVerdictFromAudit(verdictId) {
+    track('admin_delete_verdict', 'admin_modal', `verdictId=${verdictId}`);
+    await requestDeleteVerdict(token, verdictId);
+    const refreshed = await api.getAudit(selectedAudit.id);
+    setSelectedAudit(refreshed);
     await loadAdmin();
   }
 
@@ -300,7 +343,10 @@ function AdminPanel({ setRoute }) {
           {audits.map((audit) => (
             <div className="adminRow" key={audit.id}>
               <span>#{audit.id} {audit.claimTitle} / {audit.credibilityScore}%</span>
-              <button onClick={() => deleteAudit(audit.id)}><Trash2 size={15} /> Delete</button>
+              <div className="rowActions">
+                <button onClick={() => openAuditEditor(audit)}><Edit3 size={15} /> Edit</button>
+                <button onClick={() => deleteAudit(audit.id)}><Trash2 size={15} /> Delete</button>
+              </div>
             </div>
           ))}
         </section>
@@ -316,6 +362,103 @@ function AdminPanel({ setRoute }) {
           ))}
         </section>
       </main>
+      {selectedAudit && (
+        <AuditAdminModal
+          audit={selectedAudit}
+          editingVerdict={editingVerdict}
+          setEditingVerdict={setEditingVerdict}
+          onClose={() => { track('admin_close_audit_editor', 'admin_modal', `auditId=${selectedAudit.id}`); setSelectedAudit(null); }}
+          onEdit={startVerdictEdit}
+          onSave={saveVerdictEdit}
+          onDeleteVerdict={deleteVerdictFromAudit}
+        />
+      )}
+    </div>
+  );
+}
+
+async function requestDeleteVerdict(token, id) {
+  const response = await fetch(`/api/admin/verdicts/${id}`, {
+    method: 'DELETE',
+    headers: { 'X-Admin-Token': token },
+  });
+  if (!response.ok) {
+    throw new Error(`Could not delete verdict ${id}`);
+  }
+}
+
+function AuditAdminModal({ audit, editingVerdict, setEditingVerdict, onClose, onEdit, onSave, onDeleteVerdict }) {
+  return (
+    <div className="modalOverlay" role="dialog" aria-modal="true">
+      <section className="modal">
+        <div className="modalHead">
+          <div>
+            <h2>Audit #{audit.id}</h2>
+            <span>{audit.claimTitle} / score {audit.credibilityScore}%</span>
+          </div>
+          <button onClick={onClose}><X size={18} /> Close</button>
+        </div>
+        <div className="verdictTable">
+          <div className="tableHead">
+            <span>#</span>
+            <span>Claim</span>
+            <span>Status</span>
+            <span>Confidence</span>
+            <span>Actions</span>
+          </div>
+          {audit.verdicts.map((verdict) => (
+            <div className="tableRow" key={verdict.id}>
+              <span>{verdict.sentenceIndex + 1}</span>
+              <span>{verdict.sentence}</span>
+              <span>{verdict.status}</span>
+              <span>{verdict.confidence}</span>
+              <span className="rowActions">
+                <button onClick={() => onEdit(verdict)}><Edit3 size={14} /> Edit</button>
+                <button onClick={() => onDeleteVerdict(verdict.id)}><Trash2 size={14} /> Delete</button>
+              </span>
+            </div>
+          ))}
+        </div>
+        {editingVerdict && (
+          <div className="editPane">
+            <h3>Edit verdict #{editingVerdict.id}</h3>
+            <label>
+              Status
+              <select value={editingVerdict.status} onChange={(event) => setEditingVerdict({ ...editingVerdict, status: event.target.value })}>
+                <option>SUPPORTED</option>
+                <option>STRETCHED</option>
+                <option>UNSUPPORTED</option>
+                <option>NOT_A_CLAIM</option>
+                <option>GAP</option>
+              </select>
+            </label>
+            <label>
+              Confidence
+              <select value={editingVerdict.confidence} onChange={(event) => setEditingVerdict({ ...editingVerdict, confidence: event.target.value })}>
+                <option>HIGH</option>
+                <option>MEDIUM</option>
+                <option>LOW</option>
+              </select>
+            </label>
+            <label>
+              Reason category
+              <input value={editingVerdict.reasonCategory} onChange={(event) => setEditingVerdict({ ...editingVerdict, reasonCategory: event.target.value })} />
+            </label>
+            <label>
+              Explanation
+              <textarea value={editingVerdict.explanation} onChange={(event) => setEditingVerdict({ ...editingVerdict, explanation: event.target.value })} />
+            </label>
+            <label>
+              Evidence pointer
+              <textarea value={editingVerdict.evidencePointer} onChange={(event) => setEditingVerdict({ ...editingVerdict, evidencePointer: event.target.value })} />
+            </label>
+            <div className="editActions">
+              <button className="primary" onClick={onSave}><Save size={16} /> Save verdict</button>
+              <button onClick={() => setEditingVerdict(null)}><X size={16} /> Cancel</button>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

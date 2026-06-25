@@ -92,6 +92,24 @@ public class AuditService {
         auditRepository.deleteById(id);
     }
 
+    @Transactional
+    public Audit recalculate(Long id) {
+        Audit audit = get(id);
+        List<AnalyzedVerdict> analyzed = audit.getVerdicts().stream()
+                .map(verdict -> new AnalyzedVerdict(
+                        verdict.getSentenceIndex(),
+                        verdict.getSentence(),
+                        verdict.getStatus(),
+                        verdict.getConfidence(),
+                        verdict.getReasonCategory(),
+                        verdict.getExplanation(),
+                        verdict.getEvidencePointer()))
+                .toList();
+        audit.setCredibilityScore(scoringService.score(analyzed));
+        countStatuses(audit);
+        return auditRepository.save(audit);
+    }
+
     private AuditAnalysisResult analyze(List<String> sentences, String evidenceText) {
         if (llmAuditAnalyzer.configured()) {
             try {
