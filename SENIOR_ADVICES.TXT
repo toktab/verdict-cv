@@ -16,9 +16,9 @@ Advice: Add a dashboard after login with recent audits, average credibility scor
 Fix notes: Added /dashboard SPA route, dashboard header navigation, post-login redirect to dashboard, private workspace hero, recent audits, average score, risky claims, saved reports, last activity, lowest/highest score, and quick new-audit action. Commit: 15c4230.
 
 2. Stronger audit ownership UX
-Status: TODO
+Status: FIXED
 Advice: Make it visually obvious that audits are private to the logged-in user with labels like My audits, Private workspace, user profile chip, audit count, and last activity.
-Fix notes: Pending.
+Fix notes: Added private workspace strip to the audit page with signed-in identity, My audits count, last activity, and styled account chip in the header. Commit: 173d1ff.
 
 3. Dedicated audit detail page
 Status: TODO
