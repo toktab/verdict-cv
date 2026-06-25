@@ -62,4 +62,14 @@ export const api = {
       body: JSON.stringify(payload),
     });
   },
+  telemetry(payload) {
+    return request('/api/telemetry', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }).catch(() => null);
+  },
+  health() {
+    return request('/api/system/health');
+  },
 };

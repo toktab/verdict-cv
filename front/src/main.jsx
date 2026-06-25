@@ -13,6 +13,10 @@ const demoCase = {
     'Senior Backend Engineer role. Requirements: Java, Spring Boot, REST APIs, MySQL, CI/CD experience, Docker, and distributed systems exposure. Team lead experience preferred. No mention of cloud cost optimization. Candidate portfolio shows one university distributed systems project and a Spring Boot API with MySQL. Deployment notes mention CI/CD pipeline work for microservices.',
 };
 
+function track(action, target = '', detail = '') {
+  api.telemetry({ action, target, detail });
+}
+
 function App() {
   const [route, setRoute] = useState(window.location.pathname === '/admin' ? 'admin' : 'app');
   const [form, setForm] = useState(demoCase);
@@ -23,6 +27,7 @@ function App() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    track('page_view', route, window.location.pathname);
     loadHistory();
   }, []);
 
@@ -35,6 +40,7 @@ function App() {
   }
 
   async function runAudit() {
+    track('audit_clicked', 'commandbar', `claimChars=${form.claimText.length};evidenceChars=${form.evidenceText.length}`);
     setError('');
     setLoading(true);
     const stages = ['NORMALIZING DOCUMENTS', 'SPLITTING CLAIMS', 'CROSS-EXAMINING EVIDENCE', 'SCORING CREDIBILITY', 'WRITING AUDIT RECORD'];
@@ -58,6 +64,7 @@ function App() {
   }
 
   async function openAudit(id) {
+    track('history_open_audit', 'history', `auditId=${id}`);
     setAudit(await api.getAudit(id));
   }
 
@@ -81,7 +88,7 @@ function App() {
         </section>
 
         <section className="commandbar">
-          <button className="ghost" onClick={() => setForm(demoCase)}>Load Demo Case</button>
+          <button className="ghost" onClick={() => { track('load_demo_case', 'commandbar'); setForm(demoCase); }}>Load Demo Case</button>
           <button className="primary" disabled={loading} onClick={runAudit}>
             <Play size={18} /> AUDIT
           </button>
@@ -99,6 +106,12 @@ function App() {
 }
 
 function Header({ setRoute }) {
+  function navigate(next) {
+    track('navigation_clicked', next);
+    setRoute(next);
+    window.history.replaceState(null, '', next === 'admin' ? '/admin' : '/');
+  }
+
   return (
     <header className="topbar">
       <div>
@@ -106,8 +119,8 @@ function Header({ setRoute }) {
         <div className="tagline">Confidence is not evidence.</div>
       </div>
       <nav>
-        <button onClick={() => setRoute('app')}><FileSearch size={16} /> Audit</button>
-        <button onClick={() => setRoute('admin')}><Lock size={16} /> Admin</button>
+        <button onClick={() => navigate('app')}><FileSearch size={16} /> Audit</button>
+        <button onClick={() => navigate('admin')}><Lock size={16} /> Admin</button>
       </nav>
     </header>
   );
@@ -174,7 +187,7 @@ function AuditResult({ audit }) {
           <b>{audit.stretchedCount}</b> stretched
           <b>{audit.unsupportedCount}</b> unsupported
         </div>
-        <a className="download" href={`/api/audit/${audit.id}/export`}>
+        <a className="download" href={`/api/audit/${audit.id}/export`} onClick={() => track('export_clicked', 'audit_result', `auditId=${audit.id}`)}>
           <Download size={16} /> Export
         </a>
       </div>
@@ -227,6 +240,7 @@ function AdminPanel({ setRoute }) {
   const [error, setError] = useState('');
 
   async function signIn() {
+    track('admin_login_clicked', 'admin_login', login.username);
     setError('');
     try {
       const result = await api.adminLogin(login);
@@ -238,6 +252,7 @@ function AdminPanel({ setRoute }) {
   }
 
   async function loadAdmin() {
+    track('admin_refresh', 'admin_panel');
     setAudits(await api.adminAudits(token));
     setLogs(await api.adminLogs(token));
   }
@@ -249,11 +264,13 @@ function AdminPanel({ setRoute }) {
   }, [token]);
 
   async function deleteAudit(id) {
+    track('admin_delete_audit', 'admin_panel', `auditId=${id}`);
     await api.deleteAudit(token, id);
     await loadAdmin();
   }
 
   async function deleteLog(id) {
+    track('admin_delete_log', 'admin_panel', `logId=${id}`);
     await api.deleteLog(token, id);
     await loadAdmin();
   }
