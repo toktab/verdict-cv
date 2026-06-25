@@ -709,6 +709,12 @@ nav button:hover,
   padding: 14px;
 }
 
+.detailResultsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: start;
+}
+
 .detailTableHead,
 .detailTableRow {
   display: grid;
@@ -756,6 +762,50 @@ nav button:hover,
 .statusPill.stretched { color: var(--amber); border-color: rgba(240, 184, 90, 0.42); }
 .statusPill.unsupported,
 .statusPill.gap { color: #ff8585; border-color: rgba(255, 105, 105, 0.44); }
+
+.evidencePanel {
+  position: sticky;
+  top: 94px;
+  display: grid;
+  gap: 10px;
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+  border-left: 1px solid var(--line);
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.evidencePanel h3 {
+  margin: 4px 0 0;
+  font-size: 18px;
+}
+
+.evidenceSnippet {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.evidenceSnippet strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.evidenceSnippet p {
+  margin: 0;
+  color: var(--soft);
+  line-height: 1.5;
+}
+
+mark {
+  border-radius: 4px;
+  padding: 0 2px;
+  color: #fff;
+  background: rgba(255, 59, 59, 0.46);
+}
 
 .dashboardHero {
   display: flex;
@@ -1450,6 +1500,7 @@ select {
   .detailHero,
   .detailMeta,
   .documentCompare,
+  .detailResultsGrid,
   .detailTableHead,
   .detailTableRow,
   .editPane,
@@ -1506,5 +1557,12 @@ select {
 
   .reviewBox strong {
     text-align: left;
+  }
+
+  .evidencePanel {
+    position: static;
+    max-height: none;
+    border-left: 0;
+    border-top: 1px solid var(--line);
   }
 }

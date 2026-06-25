@@ -795,24 +795,27 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
                   <FilterGroup label="Severity" filters={severityFilters} value={severityFilter} onChange={setSeverityFilter} />
                 </div>
               </div>
-              <div className="detailVerdictTable">
-                <div className="detailTableHead">
-                  <span>#</span>
-                  <span>Claim</span>
-                  <span>Status</span>
-                  <span>Confidence</span>
-                  <span>Evidence</span>
-                </div>
-                {filteredVerdicts.map((verdict) => (
-                  <div className="detailTableRow" key={verdict.id || verdict.sentenceIndex}>
-                    <span>{verdict.sentenceIndex + 1}</span>
-                    <strong>{verdict.sentence}</strong>
-                    <span className={`statusPill ${verdict.status.toLowerCase().replaceAll('_', '-')}`}>{verdict.status}</span>
-                    <span>{verdict.confidence}</span>
-                    <small><b>{verdictSeverity(verdict)}</b> / {verdict.evidencePointer}</small>
+              <div className="detailResultsGrid">
+                <div className="detailVerdictTable">
+                  <div className="detailTableHead">
+                    <span>#</span>
+                    <span>Claim</span>
+                    <span>Status</span>
+                    <span>Confidence</span>
+                    <span>Evidence</span>
                   </div>
-                ))}
-                {filteredVerdicts.length === 0 && <div className="emptyState">No verdicts match this filter.</div>}
+                  {filteredVerdicts.map((verdict) => (
+                    <div className="detailTableRow" key={verdict.id || verdict.sentenceIndex}>
+                      <span>{verdict.sentenceIndex + 1}</span>
+                      <strong>{verdict.sentence}</strong>
+                      <span className={`statusPill ${verdict.status.toLowerCase().replaceAll('_', '-')}`}>{verdict.status}</span>
+                      <span>{verdict.confidence}</span>
+                      <small><b>{verdictSeverity(verdict)}</b> / {verdict.evidencePointer}</small>
+                    </div>
+                  ))}
+                  {filteredVerdicts.length === 0 && <div className="emptyState">No verdicts match this filter.</div>}
+                </div>
+                <EvidenceHighlights evidenceText={audit.evidenceText} verdicts={filteredVerdicts} />
               </div>
             </section>
           </>
@@ -820,6 +823,63 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
       </main>
     </div>
   );
+}
+
+function EvidenceHighlights({ evidenceText, verdicts }) {
+  const keywords = evidenceKeywords(verdicts);
+  const paragraphs = (evidenceText || '').split(/\n+/).map((value) => value.trim()).filter(Boolean);
+  const highlighted = paragraphs
+    .map((paragraph, index) => ({ paragraph, index, score: matchScore(paragraph, keywords) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6);
+
+  return (
+    <aside className="evidencePanel">
+      <div>
+        <span className="eyebrow">Matching evidence</span>
+        <h3>Snippets beside results</h3>
+      </div>
+      {highlighted.length === 0 && <div className="emptyState">No matching evidence snippets for this filter.</div>}
+      {highlighted.map((item) => (
+        <article className="evidenceSnippet" key={`${item.index}-${item.paragraph}`}>
+          <strong>Evidence paragraph {item.index + 1}</strong>
+          <p>{highlightText(item.paragraph, keywords)}</p>
+        </article>
+      ))}
+    </aside>
+  );
+}
+
+function evidenceKeywords(verdicts) {
+  const words = verdicts.flatMap((verdict) => `${verdict.sentence} ${verdict.evidencePointer || ''}`
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((word) => word.length >= 5));
+  return [...new Set(words)].slice(0, 30);
+}
+
+function matchScore(text, keywords) {
+  const lower = text.toLowerCase();
+  return keywords.reduce((score, keyword) => score + (lower.includes(keyword) ? 1 : 0), 0);
+}
+
+function highlightText(text, keywords) {
+  const sorted = keywords.filter(Boolean).sort((a, b) => b.length - a.length);
+  if (sorted.length === 0) {
+    return text;
+  }
+  const pattern = new RegExp(`(${sorted.map(escapeRegExp).join('|')})`, 'ig');
+  return text.split(pattern).map((part, index) => (
+    sorted.some((keyword) => part.toLowerCase() === keyword.toLowerCase())
+      ? <mark key={`${part}-${index}`}>{part}</mark>
+      : part
+  ));
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function FilterGroup({ label, filters, value, onChange }) {
