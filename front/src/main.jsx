@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import IntroAnimation from "./IntroAnimation";
 import { createRoot } from 'react-dom/client';
 import { Activity, ArrowRight, CheckCircle2, Download, Edit3, FileSearch, Gauge, History, Lock, Play, Save, ShieldCheck, Sparkles, Trash2, UserPlus, X } from 'lucide-react';
 import { api } from './api';
@@ -27,6 +28,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [stage, setStage] = useState('');
   const [error, setError] = useState('');
+  const [introVisible, setIntroVisible] = useState(true);
 
   useEffect(() => {
     track('page_view', route, window.location.pathname);
@@ -85,60 +87,58 @@ function App() {
     setAudit(await api.getAudit(id, userToken));
   }
 
-  if (route === 'admin') {
-    return <AdminPanel setRoute={setRoute} />;
+  if (introVisible) {
+    return <IntroAnimation onDone={() => setIntroVisible(false)} />;
   }
 
-  if (route === 'dashboard') {
-    return <DashboardPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} openAudit={openAudit} />;
-  }
+  let content;
+    if (route === 'admin') {
+      content = <AdminPanel setRoute={setRoute} />;
+    } else if (route === 'dashboard') {
+      content = <DashboardPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} openAudit={openAudit} />;
+    } else if (route === 'login') {
+      content = <AuthPage mode="login" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
+    } else if (route === 'register') {
+      content = <AuthPage mode="register" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
+    } else if (route === 'home') {
+      content = <HomePage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
+    } else {
+      content = (
+        <div className="shell">
+        <div className="pageGlow contentFadeIn" />
+          <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
+          <main className="workspace contentFadeIn">
+            {!userToken && (
+              <div className="error">Sign in or create an account before running private claim audits.</div>
+            )}
+            <section className="intake">
+              <Panel title="Claim Document" subtitle="Statements to audit">
+                <Input label="Claim title" value={form.claimTitle} onChange={(claimTitle) => setForm({ ...form, claimTitle })} />
+                <Textarea value={form.claimText} onChange={(claimText) => setForm({ ...form, claimText })} />
+              </Panel>
+              <Panel title="Evidence Document" subtitle="Factual basis">
+                <Input label="Evidence title" value={form.evidenceTitle} onChange={(evidenceTitle) => setForm({ ...form, evidenceTitle })} />
+                <Textarea value={form.evidenceText} onChange={(evidenceText) => setForm({ ...form, evidenceText })} />
+              </Panel>
+            </section>
+            <section className="commandbar">
+              <button className="ghost" onClick={() => { track('load_demo_case', 'commandbar'); setForm(demoCase); }}>Load Demo Case</button>
+              <button className="primary" disabled={loading || !userToken} onClick={runAudit}>
+                <Play size={18} /> AUDIT
+              </button>
+              <Metric label="Claim chars" value={form.claimText.length} />
+              <Metric label="Evidence chars" value={form.evidenceText.length} />
+            </section>
+            {error && <div className="error">{error}</div>}
+            {loading && <Loading stage={stage} />}
+            {audit && <AuditResult audit={audit} />}
+            <HistoryPanel history={history} openAudit={openAudit} />
+          </main>
+        </div>
+      );
+    }
 
-  if (route === 'login') {
-    return <AuthPage mode="login" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
-  }
-
-  if (route === 'register') {
-    return <AuthPage mode="register" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
-  }
-
-  if (route === 'home') {
-    return <HomePage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
-  }
-
-  return (
-    <div className="shell">
-      <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-      <main className="workspace">
-        {!userToken && (
-          <div className="error">Sign in or create an account before running private claim audits.</div>
-        )}
-        <section className="intake">
-          <Panel title="Claim Document" subtitle="Statements to audit">
-            <Input label="Claim title" value={form.claimTitle} onChange={(claimTitle) => setForm({ ...form, claimTitle })} />
-            <Textarea value={form.claimText} onChange={(claimText) => setForm({ ...form, claimText })} />
-          </Panel>
-          <Panel title="Evidence Document" subtitle="Factual basis">
-            <Input label="Evidence title" value={form.evidenceTitle} onChange={(evidenceTitle) => setForm({ ...form, evidenceTitle })} />
-            <Textarea value={form.evidenceText} onChange={(evidenceText) => setForm({ ...form, evidenceText })} />
-          </Panel>
-        </section>
-
-        <section className="commandbar">
-          <button className="ghost" onClick={() => { track('load_demo_case', 'commandbar'); setForm(demoCase); }}>Load Demo Case</button>
-          <button className="primary" disabled={loading || !userToken} onClick={runAudit}>
-            <Play size={18} /> AUDIT
-          </button>
-          <Metric label="Claim chars" value={form.claimText.length} />
-          <Metric label="Evidence chars" value={form.evidenceText.length} />
-        </section>
-
-        {error && <div className="error">{error}</div>}
-        {loading && <Loading stage={stage} />}
-        {audit && <AuditResult audit={audit} />}
-        <HistoryPanel history={history} openAudit={openAudit} />
-      </main>
-    </div>
-  );
+    return content;
 }
 
 function routeFromPath() {
@@ -175,6 +175,7 @@ function Header({ setRoute, user, userToken, setUser, setUserToken }) {
 
   return (
     <header className="topbar">
+      <div className="topbarBg contentFadeIn" />
       <div>
         <div className="brand">VERDICT</div>
         <div className="tagline">Confidence is not evidence.</div>
@@ -216,8 +217,9 @@ function HomePage({ setRoute, user, userToken, setUser, setUserToken }) {
   ];
   return (
     <div className="shell">
+    <div className="pageGlow contentFadeIn" />
       <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-      <main className="home">
+      <main className="home contentFadeIn">
         <section className="hero">
           <div className="heroCopy">
             <span className="eyebrow">AI claim auditing for serious documents</span>
@@ -276,8 +278,9 @@ function DashboardPage({ setRoute, user, userToken, setUser, setUserToken, histo
   const stats = dashboardStats(history);
   return (
     <div className="shell">
+    <div className="pageGlow contentFadeIn" />
       <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-      <main className="dashboard">
+      <main className="dashboard contentFadeIn">
         <section className="dashboardHero">
           <div>
             <span className="eyebrow">Private workspace</span>
@@ -377,8 +380,9 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
 
   return (
     <div className="shell">
+    <div className="pageGlow contentFadeIn" />
       <Header setRoute={setRoute} user={null} userToken="" setUser={setUser} setUserToken={setUserToken} />
-      <main className="authWrap">
+      <main className="authWrap contentFadeIn">
         <section className="authCard">
           <span className="eyebrow">{isRegister ? 'Create account' : 'Welcome back'}</span>
           <h1>{isRegister ? 'Start with your private audit workspace.' : 'Login to continue auditing.'}</h1>
@@ -710,8 +714,9 @@ function AdminPanel({ setRoute }) {
 
   return (
     <div className="shell">
+    <div className="pageGlow contentFadeIn" />
       <Header setRoute={setRoute} />
-      <main className="adminGrid">
+      <main className="adminGrid contentFadeIn">
         {error && <div className="error">{error}</div>}
         <section className="adminSection adminWide">
           <h2><UserPlus size={18} /> Users</h2>

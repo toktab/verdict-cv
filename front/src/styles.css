@@ -579,6 +579,10 @@ select {
   color: var(--text);
 }
 
+.contentFadeIn {
+  animation: fadeIn 3.5s ease forwards;
+}
+
 .error {
   border: 1px solid rgba(255, 80, 80, 0.48);
   border-radius: 8px;
@@ -643,6 +647,11 @@ select {
 @keyframes sweep {
   from { left: -40%; }
   to { left: 120%; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .loading strong {
@@ -1009,8 +1018,22 @@ select {
   justify-content: flex-end;
 }
 
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  /* background and backdrop-filter removed from here */
+}
+
+.topbarBg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: rgba(5, 5, 6, 0.78);
+  backdrop-filter: blur(22px);
+}
+
 @media (max-width: 900px) {
-  .topbar,
   .scoreBlock {
     grid-template-columns: 1fr;
     display: grid;
