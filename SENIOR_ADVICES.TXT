@@ -51,9 +51,9 @@ Advice: Add modes such as CV vs job posting, sales claim vs source docs, pitch d
 Fix notes: Added mode selector for CV, sales, pitch deck, and report audits with mode-specific panel labels, subtitles, and audit action copy while keeping the API payload compatible. Commit: f808c3b.
 
 9. User profile page
-Status: TODO
+Status: FIXED
 Advice: Let users view/edit full name, email, country, address, organization, role, and password from their own account page.
-Fix notes: Pending.
+Fix notes: Added authenticated PATCH /api/auth/me, user-safe profile request DTO, profile update service logic, /profile SPA route, editable account form, and password update support. Commit: 3baa1c1.
 
 10. Soft delete
 Status: TODO
