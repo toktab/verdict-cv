@@ -3,61 +3,18 @@ import IntroAnimation from "./IntroAnimation";
 import { createRoot } from 'react-dom/client';
 import { Activity, ArrowRight, CheckCircle2, Download, Edit3, FileSearch, Gauge, History, Lock, Play, Save, ShieldCheck, Sparkles, Trash2, UserPlus, X } from 'lucide-react';
 import { api } from './api';
+import { Input, Loading, Metric, Panel, Textarea } from './components/ui';
+import { auditModes, demoCase } from './content/auditContent';
+import { useRouteState } from './hooks/useRouteState';
+import { ProfilePage } from './pages/ProfilePage';
 import './styles.css';
-
-const demoCase = {
-  auditMode: 'cv',
-  claimTitle: 'Candidate CV',
-  evidenceTitle: 'Senior Backend Engineer Job Posting',
-  claimText:
-    'Expert in distributed systems.\nLed a team of 10 engineers.\nImplemented CI/CD pipelines for 5 microservices.\nBuilt REST APIs with Spring Boot and MySQL.\nOptimized cloud costs by 60% in one quarter.',
-  evidenceText:
-    'Senior Backend Engineer role. Requirements: Java, Spring Boot, REST APIs, MySQL, CI/CD experience, Docker, and distributed systems exposure. Team lead experience preferred. No mention of cloud cost optimization. Candidate portfolio shows one university distributed systems project and a Spring Boot API with MySQL. Deployment notes mention CI/CD pipeline work for microservices.',
-};
-
-const auditModes = {
-  cv: {
-    name: 'CV vs job posting',
-    claimTitle: 'Candidate document',
-    claimSubtitle: 'CV, resume, or profile claims',
-    evidenceTitle: 'Job posting',
-    evidenceSubtitle: 'Requirements and supporting proof',
-    actionCopy: 'Audit CV claims',
-  },
-  sales: {
-    name: 'Sales claim vs source docs',
-    claimTitle: 'Sales claim',
-    claimSubtitle: 'Marketing, landing page, or pitch claim',
-    evidenceTitle: 'Source documents',
-    evidenceSubtitle: 'Specs, studies, contracts, or proof',
-    actionCopy: 'Audit sales claims',
-  },
-  pitch: {
-    name: 'Pitch deck vs evidence',
-    claimTitle: 'Pitch deck claims',
-    claimSubtitle: 'Investor-facing assertions',
-    evidenceTitle: 'Evidence pack',
-    evidenceSubtitle: 'Metrics, research, and source material',
-    actionCopy: 'Audit pitch claims',
-  },
-  report: {
-    name: 'Report vs references',
-    claimTitle: 'Report claims',
-    claimSubtitle: 'Report statements to verify',
-    evidenceTitle: 'References',
-    evidenceSubtitle: 'Citations, appendices, or datasets',
-    actionCopy: 'Audit report claims',
-  },
-};
 
 function track(action, target = '', detail = '') {
   api.telemetry({ action, target, detail });
 }
 
 function App() {
-  const initialRoute = routeFromPath();
-  const [route, setRoute] = useState(initialRoute.route);
-  const [detailAuditId, setDetailAuditId] = useState(initialRoute.auditId);
+  const { route, setRoute, detailAuditId, setDetailAuditId } = useRouteState(routeFromPath);
   const [userToken, setUserToken] = useState(localStorage.getItem('verdictUserToken') || '');
   const [user, setUser] = useState(null);
   const [form, setForm] = useState(demoCase);
@@ -159,7 +116,7 @@ function App() {
     } else if (route === 'auditDetail') {
       content = <AuditDetailPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} />;
     } else if (route === 'profile') {
-      content = <ProfilePage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
+      content = <ProfilePage Header={Header} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
     } else if (route === 'login') {
       content = <AuthPage mode="login" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
     } else if (route === 'register') {
@@ -439,94 +396,6 @@ function AuditModeSelector({ value, onChange }) {
       </div>
     </section>
   );
-}
-
-function ProfilePage({ setRoute, user, userToken, setUser, setUserToken }) {
-  const [form, setForm] = useState(() => ({
-    fullName: user?.fullName || '',
-    email: user?.email || '',
-    country: user?.country || '',
-    address: user?.address || '',
-    organization: user?.organization || '',
-    role: user?.role || '',
-    password: '',
-  }));
-  const [error, setError] = useState('');
-  const [saved, setSaved] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      setForm({
-        fullName: user.fullName || '',
-        email: user.email || '',
-        country: user.country || '',
-        address: user.address || '',
-        organization: user.organization || '',
-        role: user.role || '',
-        password: '',
-      });
-    }
-  }, [user?.id]);
-
-  async function saveProfile() {
-    setError('');
-    setSaved('');
-    const validation = profileValidation(form);
-    if (validation) {
-      setError(validation);
-      return;
-    }
-    setLoading(true);
-    try {
-      const updated = await api.updateMe(userToken, form);
-      setUser(updated);
-      setForm((current) => ({ ...current, password: '' }));
-      setSaved('Profile saved.');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="shell">
-      <div className="pageGlow contentFadeIn" />
-      <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-      <main className="profilePage contentFadeIn">
-        <section className="profileHero">
-          <div>
-            <span className="eyebrow">Account profile</span>
-            <h1>{user?.username || 'Your account'}</h1>
-            <p>Update your private workspace identity and optional password.</p>
-          </div>
-          <button className="primary" disabled={loading || !userToken} onClick={saveProfile}><Save size={16} /> {loading ? 'Saving...' : 'Save profile'}</button>
-        </section>
-        {!userToken && <div className="error">Login before editing your profile.</div>}
-        {error && <div className="error">{error}</div>}
-        {saved && <div className="success">{saved}</div>}
-        <section className="profileGrid">
-          <Input label="Full name" value={form.fullName} onChange={(fullName) => setForm({ ...form, fullName })} />
-          <Input label="Email" value={form.email} onChange={(email) => setForm({ ...form, email })} />
-          <Input label="Country" value={form.country} onChange={(country) => setForm({ ...form, country })} />
-          <Input label="Address" value={form.address} onChange={(address) => setForm({ ...form, address })} />
-          <Input label="Organization" value={form.organization} onChange={(organization) => setForm({ ...form, organization })} />
-          <Input label="Role" value={form.role} onChange={(role) => setForm({ ...form, role })} />
-          <Input type="password" label="New password optional" value={form.password} onChange={(password) => setForm({ ...form, password })} />
-        </section>
-      </main>
-    </div>
-  );
-}
-
-function profileValidation(form) {
-  if (form.fullName.trim().length < 2) return 'Full name is required.';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return 'Email format is invalid.';
-  if (form.country.trim().length < 2) return 'Country is required.';
-  if (form.address.trim().length < 6) return 'Address must be at least 6 characters.';
-  if (form.password && form.password.length < 8) return 'New password must be at least 8 characters.';
-  return '';
 }
 
 function currentAuditMode(form) {
@@ -840,52 +709,6 @@ function ValidationList({ checks }) {
           <span>{check.label}</span>
         </div>
       ))}
-    </div>
-  );
-}
-
-function Panel({ title, subtitle, children }) {
-  return (
-    <div className="panel">
-      <div className="panelHead">
-        <span>{title}</span>
-        <small>{subtitle}</small>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function Input({ label, value, onChange, type = 'text' }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-}
-
-function Textarea({ value, onChange }) {
-  return <textarea value={value} onChange={(event) => onChange(event.target.value)} spellCheck="false" />;
-}
-
-function Metric({ label, value }) {
-  return (
-    <div className="metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function Loading({ stage }) {
-  return (
-    <div className="loading">
-      <div className="scanner"><span /></div>
-      <div>
-        <strong>{stage}</strong>
-        <p>Audit engine is checking claims against evidence.</p>
-      </div>
     </div>
   );
 }
