@@ -1095,7 +1095,19 @@ function HistoryPanel({ history, openAudit }) {
   );
 }
 
+function PaginationControls({ offset, count, pageSize, onPrev, onNext }) {
+  const page = Math.floor(offset / pageSize) + 1;
+  return (
+    <div className="paginationControls">
+      <span>Page {page}</span>
+      <button disabled={offset === 0} onClick={onPrev}>Prev</button>
+      <button disabled={count < pageSize} onClick={onNext}>Next</button>
+    </div>
+  );
+}
+
 function AdminPanel({ setRoute }) {
+  const pageSize = 20;
   const [token, setToken] = useState(localStorage.getItem('verdictAdminToken') || '');
   const [login, setLogin] = useState({ username: 'admin', password: '' });
   const [audits, setAudits] = useState([]);
@@ -1103,6 +1115,9 @@ function AdminPanel({ setRoute }) {
   const [users, setUsers] = useState([]);
   const [settings, setSettings] = useState({ requireEmailVerification: false });
   const [userSearch, setUserSearch] = useState('');
+  const [auditOffset, setAuditOffset] = useState(0);
+  const [userOffset, setUserOffset] = useState(0);
+  const [logOffset, setLogOffset] = useState(0);
   const [selectedAudit, setSelectedAudit] = useState(null);
   const [editingVerdict, setEditingVerdict] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
@@ -1124,9 +1139,9 @@ function AdminPanel({ setRoute }) {
   async function loadAdmin() {
     track('admin_refresh', 'admin_panel');
     const [auditRows, logRows, userRows, settingRows] = await Promise.all([
-      api.adminAudits(token),
-      api.adminLogs(token),
-      api.adminUsers(token),
+      api.adminAudits(token, auditOffset, pageSize),
+      api.adminLogs(token, logOffset, pageSize),
+      api.adminUsers(token, userOffset, pageSize),
       api.adminSettings(token),
     ]);
     setAudits(auditRows);
@@ -1139,7 +1154,7 @@ function AdminPanel({ setRoute }) {
     if (token) {
       loadAdmin().catch((err) => setError(err.message));
     }
-  }, [token]);
+  }, [token, auditOffset, userOffset, logOffset]);
 
   async function deleteAudit(id) {
     if (!window.confirm(`Delete audit #${id}?`)) {
@@ -1300,6 +1315,7 @@ function AdminPanel({ setRoute }) {
             </div>
           </div>
           <Input label="Search users" value={userSearch} onChange={setUserSearch} />
+          <PaginationControls offset={userOffset} count={users.length} pageSize={pageSize} onPrev={() => setUserOffset(Math.max(0, userOffset - pageSize))} onNext={() => setUserOffset(userOffset + pageSize)} />
           <div className="userRows">
             {filteredUsers(users, userSearch).length === 0 && <div className="emptyState">No users match this search.</div>}
             {filteredUsers(users, userSearch).map((user) => (
@@ -1315,6 +1331,7 @@ function AdminPanel({ setRoute }) {
         </section>
         <section className="adminSection">
           <h2><Activity size={18} /> Audits</h2>
+          <PaginationControls offset={auditOffset} count={audits.length} pageSize={pageSize} onPrev={() => setAuditOffset(Math.max(0, auditOffset - pageSize))} onNext={() => setAuditOffset(auditOffset + pageSize)} />
           {audits.length === 0 && <div className="emptyState">No audits have been created yet.</div>}
           {audits.map((audit) => (
             <div className="adminRow" key={audit.id}>
@@ -1328,6 +1345,7 @@ function AdminPanel({ setRoute }) {
         </section>
         <section className="adminSection">
           <h2><Activity size={18} /> Logs</h2>
+          <PaginationControls offset={logOffset} count={logs.length} pageSize={pageSize} onPrev={() => setLogOffset(Math.max(0, logOffset - pageSize))} onNext={() => setLogOffset(logOffset + pageSize)} />
           {logs.length === 0 && <div className="emptyState">No logs are available.</div>}
           {logs.map((log) => (
             <div className="logRow" key={log.id}>

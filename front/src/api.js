@@ -70,17 +70,17 @@ export const api = {
       body: JSON.stringify(payload),
     });
   },
-  adminAudits(token) {
-    return request('/api/admin/audits', { headers: { 'X-Admin-Token': token } });
+  adminAudits(token, offset = 0, limit = 20) {
+    return request(`/api/admin/audits?offset=${offset}&limit=${limit}`, { headers: { 'X-Admin-Token': token } });
   },
   adminAudit(token, id) {
     return request(`/api/admin/audits/${id}`, { headers: { 'X-Admin-Token': token } });
   },
-  adminLogs(token) {
-    return request('/api/admin/logs', { headers: { 'X-Admin-Token': token } });
+  adminLogs(token, offset = 0, limit = 20) {
+    return request(`/api/admin/logs?offset=${offset}&limit=${limit}`, { headers: { 'X-Admin-Token': token } });
   },
-  adminUsers(token) {
-    return request('/api/admin/users', { headers: { 'X-Admin-Token': token } });
+  adminUsers(token, offset = 0, limit = 20) {
+    return request(`/api/admin/users?offset=${offset}&limit=${limit}`, { headers: { 'X-Admin-Token': token } });
   },
   createUser(token, payload) {
     return request('/api/admin/users', {

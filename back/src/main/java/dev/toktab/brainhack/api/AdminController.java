@@ -26,6 +26,7 @@ import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -77,8 +79,12 @@ public class AdminController {
     }
 
     @GetMapping("/audits")
-    public List<AuditResponse> audits() {
-        return auditService.history().stream().map(auditMapper::toResponse).toList();
+    public List<AuditResponse> audits(@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "20") int limit) {
+        return auditService.history().stream()
+                .skip(safeOffset(offset))
+                .limit(safeLimit(limit))
+                .map(auditMapper::toResponse)
+                .toList();
     }
 
     @GetMapping("/audits/{id}")
@@ -98,8 +104,12 @@ public class AdminController {
     }
 
     @GetMapping("/users")
-    public List<UserResponse> users() {
-        return userAccountService.users().stream().map(userMapper::toResponse).toList();
+    public List<UserResponse> users(@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "20") int limit) {
+        return userAccountService.users().stream()
+                .skip(safeOffset(offset))
+                .limit(safeLimit(limit))
+                .map(userMapper::toResponse)
+                .toList();
     }
 
     @PostMapping("/users")
@@ -170,8 +180,9 @@ public class AdminController {
     }
 
     @GetMapping("/logs")
-    public List<AppEventLog> logs() {
-        return logRepository.findTop250ByDeletedAtIsNullOrderByCreatedAtDesc();
+    public List<AppEventLog> logs(@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "20") int limit) {
+        int safeLimit = safeLimit(limit);
+        return logRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(PageRequest.of(safeOffset(offset) / safeLimit, safeLimit));
     }
 
     @DeleteMapping("/logs/{id}")
@@ -179,5 +190,13 @@ public class AdminController {
         AppEventLog log = logRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Log not found: " + id));
         log.setDeletedAt(Instant.now());
         logRepository.save(log);
+    }
+
+    private int safeOffset(int offset) {
+        return Math.max(offset, 0);
+    }
+
+    private int safeLimit(int limit) {
+        return Math.min(Math.max(limit, 1), 100);
     }
 }

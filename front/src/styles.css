@@ -1562,6 +1562,34 @@ select {
   margin-top: 14px;
 }
 
+.paginationControls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.paginationControls span {
+  color: var(--muted);
+  font-size: 12px;
+  margin-right: auto;
+}
+
+.paginationControls button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.paginationControls button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .modalOverlay {
   position: fixed;
   inset: 0;
