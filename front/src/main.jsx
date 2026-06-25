@@ -6,12 +6,48 @@ import { api } from './api';
 import './styles.css';
 
 const demoCase = {
+  auditMode: 'cv',
   claimTitle: 'Candidate CV',
   evidenceTitle: 'Senior Backend Engineer Job Posting',
   claimText:
     'Expert in distributed systems.\nLed a team of 10 engineers.\nImplemented CI/CD pipelines for 5 microservices.\nBuilt REST APIs with Spring Boot and MySQL.\nOptimized cloud costs by 60% in one quarter.',
   evidenceText:
     'Senior Backend Engineer role. Requirements: Java, Spring Boot, REST APIs, MySQL, CI/CD experience, Docker, and distributed systems exposure. Team lead experience preferred. No mention of cloud cost optimization. Candidate portfolio shows one university distributed systems project and a Spring Boot API with MySQL. Deployment notes mention CI/CD pipeline work for microservices.',
+};
+
+const auditModes = {
+  cv: {
+    name: 'CV vs job posting',
+    claimTitle: 'Candidate document',
+    claimSubtitle: 'CV, resume, or profile claims',
+    evidenceTitle: 'Job posting',
+    evidenceSubtitle: 'Requirements and supporting proof',
+    actionCopy: 'Audit CV claims',
+  },
+  sales: {
+    name: 'Sales claim vs source docs',
+    claimTitle: 'Sales claim',
+    claimSubtitle: 'Marketing, landing page, or pitch claim',
+    evidenceTitle: 'Source documents',
+    evidenceSubtitle: 'Specs, studies, contracts, or proof',
+    actionCopy: 'Audit sales claims',
+  },
+  pitch: {
+    name: 'Pitch deck vs evidence',
+    claimTitle: 'Pitch deck claims',
+    claimSubtitle: 'Investor-facing assertions',
+    evidenceTitle: 'Evidence pack',
+    evidenceSubtitle: 'Metrics, research, and source material',
+    actionCopy: 'Audit pitch claims',
+  },
+  report: {
+    name: 'Report vs references',
+    claimTitle: 'Report claims',
+    claimSubtitle: 'Report statements to verify',
+    evidenceTitle: 'References',
+    evidenceSubtitle: 'Citations, appendices, or datasets',
+    actionCopy: 'Audit report claims',
+  },
 };
 
 function track(action, target = '', detail = '') {
@@ -80,7 +116,7 @@ function App() {
       setStage(stages[index]);
     }, 700);
     try {
-      const result = await api.runAudit(form, userToken);
+      const result = await api.runAudit(auditPayload(form), userToken);
       setAudit(result);
       await loadHistory();
     } catch (err) {
@@ -134,6 +170,7 @@ function App() {
         <div className="pageGlow contentFadeIn" />
           <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
           <main className="workspace contentFadeIn">
+            <AuditModeSelector value={form.auditMode || 'cv'} onChange={(auditMode) => setForm({ ...form, auditMode })} />
             {!userToken && (
               <div className="error">Sign in or create an account before running private claim audits.</div>
             )}
@@ -148,11 +185,11 @@ function App() {
               </section>
             )}
             <section className="intake">
-              <Panel title="Claim Document" subtitle="Statements to audit">
+              <Panel title={currentAuditMode(form).claimTitle} subtitle={currentAuditMode(form).claimSubtitle}>
                 <Input label="Claim title" value={form.claimTitle} onChange={(claimTitle) => setForm({ ...form, claimTitle })} />
                 <Textarea value={form.claimText} onChange={(claimText) => setForm({ ...form, claimText })} />
               </Panel>
-              <Panel title="Evidence Document" subtitle="Factual basis">
+              <Panel title={currentAuditMode(form).evidenceTitle} subtitle={currentAuditMode(form).evidenceSubtitle}>
                 <Input label="Evidence title" value={form.evidenceTitle} onChange={(evidenceTitle) => setForm({ ...form, evidenceTitle })} />
                 <Textarea value={form.evidenceText} onChange={(evidenceText) => setForm({ ...form, evidenceText })} />
               </Panel>
@@ -160,7 +197,7 @@ function App() {
             <section className="commandbar">
               <button className="ghost" onClick={() => { track('load_demo_case', 'commandbar'); setForm(demoCase); }}>Load Demo Case</button>
               <button className="primary" disabled={loading || !userToken} onClick={runAudit}>
-                <Play size={18} /> AUDIT
+                <Play size={18} /> {currentAuditMode(form).actionCopy}
               </button>
               <Metric label="Claim chars" value={form.claimText.length} />
               <Metric label="Evidence chars" value={form.evidenceText.length} />
@@ -379,6 +416,37 @@ function dashboardStats(history) {
     highestScore: Math.max(...scores),
     lastActivity: latest,
     commonIssue,
+  };
+}
+
+function AuditModeSelector({ value, onChange }) {
+  return (
+    <section className="modeSelector">
+      <div>
+        <span className="eyebrow">Audit mode</span>
+        <h2>{auditModes[value]?.name || auditModes.cv.name}</h2>
+      </div>
+      <div className="modeTabs">
+        {Object.entries(auditModes).map(([key, mode]) => (
+          <button key={key} className={value === key ? 'active' : ''} onClick={() => onChange(key)}>
+            {mode.name}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function currentAuditMode(form) {
+  return auditModes[form.auditMode] || auditModes.cv;
+}
+
+function auditPayload(form) {
+  return {
+    claimTitle: form.claimTitle,
+    evidenceTitle: form.evidenceTitle,
+    claimText: form.claimText,
+    evidenceText: form.evidenceText,
   };
 }
 
