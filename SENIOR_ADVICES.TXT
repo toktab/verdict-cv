@@ -36,9 +36,9 @@ Advice: Show the evidence document beside results and highlight matching evidenc
 Fix notes: Added evidence companion panel beside the verdict table, keyword matching from filtered verdicts, ranked evidence snippets, and highlighted matching terms. Commit: c580e8f.
 
 6. Suspicious words panel
-Status: TODO
+Status: FIXED
 Advice: Add a panel for risky words like expert, led, optimized, proven, advanced, explaining risk and suggesting safer wording.
-Fix notes: Pending.
+Fix notes: Added reusable suspicious-words scanner to audit results and detail pages with match counts, risk explanations, and safer wording guidance. Commit: 03d6c4f.
 
 7. Rewrite suggestions
 Status: TODO
