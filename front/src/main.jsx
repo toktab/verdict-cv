@@ -19,13 +19,17 @@ function track(action, target = '', detail = '') {
 }
 
 function App() {
-  const [route, setRoute] = useState(routeFromPath());
+  const initialRoute = routeFromPath();
+  const [route, setRoute] = useState(initialRoute.route);
+  const [detailAuditId, setDetailAuditId] = useState(initialRoute.auditId);
   const [userToken, setUserToken] = useState(localStorage.getItem('verdictUserToken') || '');
   const [user, setUser] = useState(null);
   const [form, setForm] = useState(demoCase);
   const [audit, setAudit] = useState(null);
+  const [detailAudit, setDetailAudit] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [stage, setStage] = useState('');
   const [error, setError] = useState('');
   const [introVisible, setIntroVisible] = useState(true);
@@ -41,6 +45,12 @@ function App() {
       });
     }
   }, []);
+
+  useEffect(() => {
+    if (route === 'auditDetail' && detailAuditId && userToken) {
+      loadAuditDetail(detailAuditId);
+    }
+  }, [route, detailAuditId, userToken]);
 
   async function loadHistory() {
     if (!userToken) {
@@ -84,7 +94,21 @@ function App() {
 
   async function openAudit(id) {
     track('history_open_audit', 'history', `auditId=${id}`);
-    setAudit(await api.getAudit(id, userToken));
+    setDetailAuditId(id);
+    navigateTo(setRoute, 'auditDetail', id);
+    await loadAuditDetail(id);
+  }
+
+  async function loadAuditDetail(id) {
+    setError('');
+    setDetailLoading(true);
+    try {
+      setDetailAudit(await api.getAudit(id, userToken));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDetailLoading(false);
+    }
   }
 
   if (introVisible) {
@@ -96,6 +120,8 @@ function App() {
       content = <AdminPanel setRoute={setRoute} />;
     } else if (route === 'dashboard') {
       content = <DashboardPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} openAudit={openAudit} />;
+    } else if (route === 'auditDetail') {
+      content = <AuditDetailPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} />;
     } else if (route === 'login') {
       content = <AuthPage mode="login" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
     } else if (route === 'register') {
@@ -152,17 +178,19 @@ function App() {
 }
 
 function routeFromPath() {
-  if (window.location.pathname === '/admin') return 'admin';
-  if (window.location.pathname === '/dashboard') return 'dashboard';
-  if (window.location.pathname === '/audit') return 'app';
-  if (window.location.pathname === '/login') return 'login';
-  if (window.location.pathname === '/register') return 'register';
-  return 'home';
+  if (window.location.pathname === '/admin') return { route: 'admin' };
+  if (window.location.pathname === '/dashboard') return { route: 'dashboard' };
+  const auditMatch = window.location.pathname.match(/^\/audit\/(\d+)$/);
+  if (auditMatch) return { route: 'auditDetail', auditId: Number(auditMatch[1]) };
+  if (window.location.pathname === '/audit') return { route: 'app' };
+  if (window.location.pathname === '/login') return { route: 'login' };
+  if (window.location.pathname === '/register') return { route: 'register' };
+  return { route: 'home' };
 }
 
-function navigateTo(setRoute, next) {
+function navigateTo(setRoute, next, id) {
   setRoute(next);
-  const path = next === 'admin' ? '/admin' : next === 'dashboard' ? '/dashboard' : next === 'app' ? '/audit' : next === 'login' ? '/login' : next === 'register' ? '/register' : '/';
+  const path = next === 'admin' ? '/admin' : next === 'dashboard' ? '/dashboard' : next === 'auditDetail' ? `/audit/${id}` : next === 'app' ? '/audit' : next === 'login' ? '/login' : next === 'register' ? '/register' : '/';
   window.history.replaceState(null, '', path);
 }
 
@@ -700,6 +728,97 @@ function Loading({ stage }) {
       </div>
     </div>
   );
+}
+
+function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, audit, loading, error }) {
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const verdicts = audit?.verdicts || [];
+  const filteredVerdicts = statusFilter === 'ALL' ? verdicts : verdicts.filter((verdict) => verdict.status === statusFilter);
+  const filters = ['ALL', 'SUPPORTED', 'STRETCHED', 'UNSUPPORTED', 'GAP'];
+
+  return (
+    <div className="shell">
+      <div className="pageGlow contentFadeIn" />
+      <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
+      <main className="detailPage contentFadeIn">
+        <button className="ghost" onClick={() => navigateTo(setRoute, 'dashboard')}>Back to dashboard</button>
+        {error && <div className="error">{error}</div>}
+        {loading && <Loading stage="LOADING AUDIT DETAIL" />}
+        {!loading && !audit && <div className="emptyState">Audit detail is not available.</div>}
+        {audit && (
+          <>
+            <section className="detailHero">
+              <div>
+                <span className="eyebrow">Private audit #{audit.id}</span>
+                <h1>{audit.claimTitle}</h1>
+                <p>{audit.evidenceTitle}</p>
+              </div>
+              <div className="detailScore">
+                <Gauge size={28} />
+                <span>Credibility</span>
+                <strong>{audit.credibilityScore}%</strong>
+              </div>
+              <button className="download" onClick={() => exportAudit(audit.id)}><Download size={16} /> Export</button>
+            </section>
+            <section className="detailMeta">
+              <Metric label="Created" value={formatDateTime(audit.createdAt)} />
+              <Metric label="Engine" value={audit.engine} />
+              <Metric label="Runtime" value={`${audit.processingMillis}ms`} />
+              <Metric label="Claim hash" value={shortHash(audit.claimFingerprint)} />
+              <Metric label="Evidence hash" value={shortHash(audit.evidenceFingerprint)} />
+            </section>
+            <section className="documentCompare">
+              <Panel title="Original claim" subtitle={audit.claimTitle}>
+                <pre>{audit.claimText}</pre>
+              </Panel>
+              <Panel title="Original evidence" subtitle={audit.evidenceTitle}>
+                <pre>{audit.evidenceText}</pre>
+              </Panel>
+            </section>
+            <section className="detailTableSection">
+              <div className="tableToolbar">
+                <h2>Verdicts</h2>
+                <div className="filterTabs">
+                  {filters.map((filter) => (
+                    <button key={filter} className={statusFilter === filter ? 'active' : ''} onClick={() => setStatusFilter(filter)}>
+                      {filter}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="detailVerdictTable">
+                <div className="detailTableHead">
+                  <span>#</span>
+                  <span>Claim</span>
+                  <span>Status</span>
+                  <span>Confidence</span>
+                  <span>Evidence</span>
+                </div>
+                {filteredVerdicts.map((verdict) => (
+                  <div className="detailTableRow" key={verdict.id || verdict.sentenceIndex}>
+                    <span>{verdict.sentenceIndex + 1}</span>
+                    <strong>{verdict.sentence}</strong>
+                    <span className={`statusPill ${verdict.status.toLowerCase().replaceAll('_', '-')}`}>{verdict.status}</span>
+                    <span>{verdict.confidence}</span>
+                    <small>{verdict.evidencePointer}</small>
+                  </div>
+                ))}
+                {filteredVerdicts.length === 0 && <div className="emptyState">No verdicts match this filter.</div>}
+              </div>
+            </section>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function formatDateTime(value) {
+  return value ? new Date(value).toLocaleString() : 'Unknown';
+}
+
+function shortHash(value) {
+  return value ? `${value.slice(0, 8)}...` : 'None';
 }
 
 function AuditResult({ audit }) {

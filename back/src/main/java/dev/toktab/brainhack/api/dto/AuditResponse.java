@@ -7,6 +7,8 @@ public record AuditResponse(
         Long id,
         String claimTitle,
         String evidenceTitle,
+        String claimText,
+        String evidenceText,
         int credibilityScore,
         int supportedCount,
         int stretchedCount,

@@ -14,6 +14,8 @@ public class AuditMapper {
                 audit.getId(),
                 audit.getClaimTitle(),
                 audit.getEvidenceTitle(),
+                audit.getClaimText(),
+                audit.getEvidenceText(),
                 audit.getCredibilityScore(),
                 audit.getSupportedCount(),
                 audit.getStretchedCount(),
