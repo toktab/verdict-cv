@@ -710,6 +710,15 @@ select {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.emptyState {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  margin-top: 12px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.028);
+}
+
 .adminLogin {
   min-height: 100vh;
   display: grid;

@@ -1,5 +1,6 @@
 package dev.toktab.brainhack.audit;
 
+import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.api.dto.AuditRunRequest;
 import dev.toktab.brainhack.events.RabbitEventPublisher;
 import dev.toktab.brainhack.log.AuditLogService;
@@ -7,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -48,6 +50,11 @@ public class AuditService {
 
     @Transactional
     public Audit run(AuditRunRequest request, HttpServletRequest httpRequest) {
+        return run(request, httpRequest, null);
+    }
+
+    @Transactional
+    public Audit run(AuditRunRequest request, HttpServletRequest httpRequest, UserAccount owner) {
         long started = System.currentTimeMillis();
         String claimText = trim(request.claimText(), maxClaimChars);
         String evidenceText = trim(request.evidenceText(), maxEvidenceChars);
@@ -57,6 +64,7 @@ public class AuditService {
         }
         rabbitEventPublisher.publish("audit.requested", Map.of("claimTitle", title(request.claimTitle(), "Claim Document"), "sentenceCount", sentences.size()));
         AuditAnalysisResult analysis = analyze(sentences, evidenceText);
+        List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(analysis.verdicts(), evidenceText);
         Audit audit = new Audit();
         audit.setClaimTitle(title(request.claimTitle(), "Claim Document"));
         audit.setEvidenceTitle(title(request.evidenceTitle(), "Evidence Document"));
@@ -65,15 +73,17 @@ public class AuditService {
         audit.setClaimFingerprint(fingerprintService.sha256(claimText));
         audit.setEvidenceFingerprint(fingerprintService.sha256(evidenceText));
         audit.setEngine(analysis.engine());
-        audit.setCredibilityScore(scoringService.score(analysis.verdicts()));
+        audit.setOwner(owner);
+        audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
         audit.setProcessingMillis(System.currentTimeMillis() - started);
-        for (AnalyzedVerdict analyzed : analysis.verdicts()) {
+        for (AnalyzedVerdict analyzed : normalizedVerdicts) {
             audit.addVerdict(toEntity(analyzed));
         }
         countStatuses(audit);
         Audit saved = auditRepository.save(audit);
         rabbitEventPublisher.publish("audit.completed", Map.of("auditId", saved.getId(), "score", saved.getCredibilityScore(), "engine", saved.getEngine()));
-        logService.record("AUDIT_RUN", httpRequest, 200, saved.getProcessingMillis(), "visitor", "auditId=" + saved.getId() + "; score=" + saved.getCredibilityScore() + "; engine=" + saved.getEngine());
+        String actor = owner == null ? "visitor" : owner.getUsername();
+        logService.record("AUDIT_RUN", httpRequest, 200, saved.getProcessingMillis(), actor, "auditId=" + saved.getId() + "; score=" + saved.getCredibilityScore() + "; engine=" + saved.getEngine());
         return saved;
     }
 
@@ -81,10 +91,18 @@ public class AuditService {
         return auditRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Audit not found: " + id));
     }
 
+    public Audit getForUser(Long id, UserAccount owner) {
+        return auditRepository.findByIdAndOwnerId(id, owner.getId()).orElseThrow(() -> new IllegalArgumentException("Audit not found: " + id));
+    }
+
     public List<Audit> history() {
         return auditRepository.findAll().stream()
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .toList();
+    }
+
+    public List<Audit> historyForUser(UserAccount owner) {
+        return auditRepository.findByOwnerIdOrderByCreatedAtDesc(owner.getId());
     }
 
     @Transactional
@@ -119,6 +137,56 @@ public class AuditService {
             }
         }
         return localAuditAnalyzer.analyze(sentences, evidenceText);
+    }
+
+    private List<AnalyzedVerdict> normalizeEvidencePointers(List<AnalyzedVerdict> verdicts, String evidenceText) {
+        return verdicts.stream()
+                .map(verdict -> new AnalyzedVerdict(
+                        verdict.sentenceIndex(),
+                        verdict.sentence(),
+                        verdict.status(),
+                        verdict.confidence(),
+                        verdict.reasonCategory(),
+                        verdict.explanation(),
+                        normalizeEvidencePointer(verdict, evidenceText)))
+                .toList();
+    }
+
+    private String normalizeEvidencePointer(AnalyzedVerdict verdict, String evidenceText) {
+        if (verdict.status() == VerdictStatus.UNSUPPORTED) {
+            return "No evidence found.";
+        }
+        String pointer = verdict.evidencePointer();
+        if (pointer != null && evidenceText.toLowerCase(Locale.ROOT).contains(pointer.toLowerCase(Locale.ROOT))) {
+            return pointer;
+        }
+        String sentence = verdict.sentence();
+        String fallback = bestEvidenceSnippet(sentence, evidenceText);
+        if (!fallback.isBlank()) {
+            return fallback;
+        }
+        return pointer == null || pointer.isBlank() ? "No exact evidence pointer found." : pointer;
+    }
+
+    private String bestEvidenceSnippet(String sentence, String evidenceText) {
+        String[] words = sentence.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9 ]", " ").split("\\s+");
+        String[] chunks = evidenceText.split("(?<=[.!?])\\s+|\\n+");
+        String best = "";
+        int bestScore = 0;
+        for (String chunk : chunks) {
+            String lower = chunk.toLowerCase(Locale.ROOT);
+            int score = 0;
+            for (String word : words) {
+                if (word.length() >= 4 && lower.contains(word)) {
+                    score++;
+                }
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                best = chunk.trim();
+            }
+        }
+        return bestScore >= 2 ? best : "";
     }
 
     private Verdict toEntity(AnalyzedVerdict analyzed) {

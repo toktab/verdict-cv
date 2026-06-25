@@ -6,8 +6,6 @@ import jakarta.transaction.Transactional;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
@@ -15,12 +13,13 @@ import org.springframework.stereotype.Service;
 public class UserSessionService {
     private final UserAccountRepository userRepository;
     private final AccountSettingsService settingsService;
+    private final UserSessionRepository sessionRepository;
     private final SecureRandom secureRandom = new SecureRandom();
-    private final Map<String, Long> sessions = new ConcurrentHashMap<>();
 
-    public UserSessionService(UserAccountRepository userRepository, AccountSettingsService settingsService) {
+    public UserSessionService(UserAccountRepository userRepository, AccountSettingsService settingsService, UserSessionRepository sessionRepository) {
         this.userRepository = userRepository;
         this.settingsService = settingsService;
+        this.sessionRepository = sessionRepository;
     }
 
     @Transactional
@@ -67,24 +66,33 @@ public class UserSessionService {
     }
 
     public UserAccount me(String token) {
-        Long userId = sessions.get(token);
-        if (userId == null) {
+        UserSession session = sessionRepository.findById(token).orElseThrow(() -> new IllegalArgumentException("User authentication required"));
+        if (session.getExpiresAt().isBefore(Instant.now())) {
+            sessionRepository.deleteById(token);
             throw new IllegalArgumentException("User authentication required");
         }
-        return userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("User account not found"));
+        return session.getUser();
     }
 
+    @Transactional
     public void logout(String token) {
         if (token != null) {
-            sessions.remove(token);
+            sessionRepository.deleteById(token);
         }
     }
 
+    @Transactional
     private String token(Long userId) {
         byte[] bytes = new byte[36];
         secureRandom.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        sessions.put(token, userId);
+        UserAccount account = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("User account not found"));
+        UserSession session = new UserSession();
+        session.setToken(token);
+        session.setUser(account);
+        session.setExpiresAt(Instant.now().plusSeconds(60L * 60L * 24L * 14L));
+        sessionRepository.deleteByExpiresAtBefore(Instant.now());
+        sessionRepository.save(session);
         return token;
     }
 

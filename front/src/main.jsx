@@ -41,8 +41,12 @@ function App() {
   }, []);
 
   async function loadHistory() {
+    if (!userToken) {
+      setHistory([]);
+      return;
+    }
     try {
-      setHistory(await api.history());
+      setHistory(await api.history(userToken));
     } catch {
       setHistory([]);
     }
@@ -51,6 +55,10 @@ function App() {
   async function runAudit() {
     track('audit_clicked', 'commandbar', `claimChars=${form.claimText.length};evidenceChars=${form.evidenceText.length}`);
     setError('');
+    if (!userToken) {
+      setError('Sign in before running an audit.');
+      return;
+    }
     setLoading(true);
     const stages = ['NORMALIZING DOCUMENTS', 'SPLITTING CLAIMS', 'CROSS-EXAMINING EVIDENCE', 'SCORING CREDIBILITY', 'WRITING AUDIT RECORD'];
     let index = 0;
@@ -60,7 +68,7 @@ function App() {
       setStage(stages[index]);
     }, 700);
     try {
-      const result = await api.runAudit(form);
+      const result = await api.runAudit(form, userToken);
       setAudit(result);
       await loadHistory();
     } catch (err) {
@@ -74,7 +82,7 @@ function App() {
 
   async function openAudit(id) {
     track('history_open_audit', 'history', `auditId=${id}`);
-    setAudit(await api.getAudit(id));
+    setAudit(await api.getAudit(id, userToken));
   }
 
   if (route === 'admin') {
@@ -394,9 +402,9 @@ function AuditResult({ audit }) {
           <b>{audit.stretchedCount}</b> stretched
           <b>{audit.unsupportedCount}</b> unsupported
         </div>
-        <a className="download" href={`/api/audit/${audit.id}/export`} onClick={() => track('export_clicked', 'audit_result', `auditId=${audit.id}`)}>
+        <button className="download" onClick={() => exportAudit(audit.id)}>
           <Download size={16} /> Export
-        </a>
+        </button>
       </div>
       <div className="verdictGrid">
         {audit.verdicts.map((verdict) => <VerdictCard key={verdict.id || verdict.sentenceIndex} verdict={verdict} />)}
@@ -407,6 +415,21 @@ function AuditResult({ audit }) {
       </div>
     </section>
   );
+}
+
+async function exportAudit(id) {
+  const token = localStorage.getItem('verdictUserToken') || '';
+  const response = await fetch(`/api/audit/${id}/export`, { headers: { 'X-User-Token': token } });
+  if (!response.ok) {
+    throw new Error('Export failed');
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `verdict-audit-${id}.txt`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function VerdictCard({ verdict }) {
@@ -426,8 +449,9 @@ function VerdictCard({ verdict }) {
 function HistoryPanel({ history, openAudit }) {
   return (
     <section className="history">
-      <h2><History size={18} /> Audit History</h2>
+      <h2><History size={18} /> My Audit History</h2>
       <div className="historyRows">
+        {history.length === 0 && <div className="emptyState">No audits yet. Run your first private claim audit.</div>}
         {history.map((item) => (
           <button key={item.id} onClick={() => openAudit(item.id)}>
             <span>#{item.id} {item.claimTitle}</span>
@@ -446,6 +470,7 @@ function AdminPanel({ setRoute }) {
   const [logs, setLogs] = useState([]);
   const [users, setUsers] = useState([]);
   const [settings, setSettings] = useState({ requireEmailVerification: false });
+  const [userSearch, setUserSearch] = useState('');
   const [selectedAudit, setSelectedAudit] = useState(null);
   const [editingVerdict, setEditingVerdict] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
@@ -485,6 +510,9 @@ function AdminPanel({ setRoute }) {
   }, [token]);
 
   async function deleteAudit(id) {
+    if (!window.confirm(`Delete audit #${id}?`)) {
+      return;
+    }
     track('admin_delete_audit', 'admin_panel', `auditId=${id}`);
     await api.deleteAudit(token, id);
     if (selectedAudit?.id === id) {
@@ -494,6 +522,9 @@ function AdminPanel({ setRoute }) {
   }
 
   async function deleteLog(id) {
+    if (!window.confirm(`Delete log #${id}?`)) {
+      return;
+    }
     track('admin_delete_log', 'admin_panel', `logId=${id}`);
     await api.deleteLog(token, id);
     await loadAdmin();
@@ -534,6 +565,9 @@ function AdminPanel({ setRoute }) {
   }
 
   async function deleteUser(id) {
+    if (!window.confirm(`Delete user #${id}? This removes their account.`)) {
+      return;
+    }
     track('admin_delete_user', 'admin_panel', `userId=${id}`);
     await api.deleteUser(token, id);
     if (editingUser?.id === id) {
@@ -551,7 +585,7 @@ function AdminPanel({ setRoute }) {
 
   async function openAuditEditor(audit) {
     track('admin_open_audit_editor', 'admin_panel', `auditId=${audit.id}`);
-    const fullAudit = await api.getAudit(audit.id);
+    const fullAudit = await api.adminAudit(token, audit.id);
     setSelectedAudit(fullAudit);
     setEditingVerdict(null);
   }
@@ -573,7 +607,7 @@ function AdminPanel({ setRoute }) {
       explanation: editingVerdict.explanation,
       evidencePointer: editingVerdict.evidencePointer,
     });
-    const refreshed = await api.getAudit(selectedAudit.id);
+    const refreshed = await api.adminAudit(token, selectedAudit.id);
     setSelectedAudit(refreshed);
     setEditingVerdict(null);
     await loadAdmin();
@@ -582,7 +616,7 @@ function AdminPanel({ setRoute }) {
   async function deleteVerdictFromAudit(verdictId) {
     track('admin_delete_verdict', 'admin_modal', `verdictId=${verdictId}`);
     await requestDeleteVerdict(token, verdictId);
-    const refreshed = await api.getAudit(selectedAudit.id);
+    const refreshed = await api.adminAudit(token, selectedAudit.id);
     setSelectedAudit(refreshed);
     await loadAdmin();
   }
@@ -632,8 +666,10 @@ function AdminPanel({ setRoute }) {
               <button onClick={newUser}><X size={16} /> Clear</button>
             </div>
           </div>
+          <Input label="Search users" value={userSearch} onChange={setUserSearch} />
           <div className="userRows">
-            {users.map((user) => (
+            {filteredUsers(users, userSearch).length === 0 && <div className="emptyState">No users match this search.</div>}
+            {filteredUsers(users, userSearch).map((user) => (
               <div className="adminRow" key={user.id}>
                 <span>#{user.id} {user.fullName} / {user.username} / {user.email} / {user.emailVerified ? 'verified' : 'unverified'}</span>
                 <div className="rowActions">
@@ -646,6 +682,7 @@ function AdminPanel({ setRoute }) {
         </section>
         <section className="adminSection">
           <h2><Activity size={18} /> Audits</h2>
+          {audits.length === 0 && <div className="emptyState">No audits have been created yet.</div>}
           {audits.map((audit) => (
             <div className="adminRow" key={audit.id}>
               <span>#{audit.id} {audit.claimTitle} / {audit.credibilityScore}%</span>
@@ -658,6 +695,7 @@ function AdminPanel({ setRoute }) {
         </section>
         <section className="adminSection">
           <h2><Activity size={18} /> Logs</h2>
+          {logs.length === 0 && <div className="emptyState">No logs are available.</div>}
           {logs.map((log) => (
             <div className="logRow" key={log.id}>
               <code>#{log.sequence} {log.eventType} {log.method} {log.path} {log.statusCode}</code>
@@ -695,6 +733,16 @@ function emptyUserForm() {
     password: '',
     emailVerified: true,
   };
+}
+
+function filteredUsers(users, search) {
+  const needle = search.trim().toLowerCase();
+  if (!needle) {
+    return users;
+  }
+  return users.filter((user) => [user.fullName, user.username, user.email, user.country, user.organization, user.role]
+    .filter(Boolean)
+    .some((value) => value.toLowerCase().includes(needle)));
 }
 
 async function requestDeleteVerdict(token, id) {

@@ -40,21 +40,21 @@ export const api = {
   logout(token) {
     return request('/api/auth/logout', { method: 'POST', headers: { 'X-User-Token': token } });
   },
-  runAudit(payload) {
+  runAudit(payload, token) {
     return request('/api/audit/run', {
       method: 'POST',
-      headers: jsonHeaders,
+      headers: { ...jsonHeaders, 'X-User-Token': token },
       body: JSON.stringify(payload),
     });
   },
-  history() {
-    return request('/api/audit/history');
+  history(token) {
+    return request('/api/audit/history', { headers: { 'X-User-Token': token } });
   },
-  getAudit(id) {
-    return request(`/api/audit/${id}`);
+  getAudit(id, token) {
+    return request(`/api/audit/${id}`, { headers: { 'X-User-Token': token } });
   },
-  exportAudit(id) {
-    return request(`/api/audit/${id}/export`);
+  exportAudit(id, token) {
+    return request(`/api/audit/${id}/export`, { headers: { 'X-User-Token': token } });
   },
   adminLogin(payload) {
     return request('/api/admin/login', {
@@ -65,6 +65,9 @@ export const api = {
   },
   adminAudits(token) {
     return request('/api/admin/audits', { headers: { 'X-Admin-Token': token } });
+  },
+  adminAudit(token, id) {
+    return request(`/api/admin/audits/${id}`, { headers: { 'X-Admin-Token': token } });
   },
   adminLogs(token) {
     return request('/api/admin/logs', { headers: { 'X-Admin-Token': token } });

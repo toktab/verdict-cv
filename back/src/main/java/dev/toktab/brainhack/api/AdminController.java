@@ -76,6 +76,11 @@ public class AdminController {
         return auditService.history().stream().map(auditMapper::toResponse).toList();
     }
 
+    @GetMapping("/audits/{id}")
+    public AuditResponse audit(@PathVariable Long id) {
+        return auditMapper.toResponse(auditService.get(id));
+    }
+
     @PostMapping("/audits")
     public AuditResponse createAudit(@Valid @RequestBody AuditRunRequest request, HttpServletRequest httpRequest) {
         return auditMapper.toResponse(auditService.run(request, httpRequest));
