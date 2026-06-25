@@ -41,9 +41,9 @@ Advice: Add a panel for risky words like expert, led, optimized, proven, advance
 Fix notes: Added reusable suspicious-words scanner to audit results and detail pages with match counts, risk explanations, and safer wording guidance. Commit: 03d6c4f.
 
 7. Rewrite suggestions
-Status: TODO
+Status: FIXED
 Advice: For stretched/unsupported claims, suggest safer replacement wording.
-Fix notes: Pending.
+Fix notes: Added rewrite panel for stretched and unsupported verdicts with original wording, safer replacement wording, and verdict explanation context. Commit: 36ca89b.
 
 8. Audit modes
 Status: TODO
