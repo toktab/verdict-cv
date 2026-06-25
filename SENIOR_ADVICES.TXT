@@ -26,9 +26,9 @@ Advice: Add an audit detail route/view with score, verdict table, filters, origi
 Fix notes: Added /audit/:id detail route, authorized detail loading, score hero, export, timestamp/engine/fingerprint metadata, side-by-side original claim/evidence documents, and verdict table with status filters. Commit: 367b386.
 
 4. Verdict filters
-Status: TODO
+Status: FIXED
 Advice: Add filters for SUPPORTED, STRETCHED, UNSUPPORTED, GAP, confidence, and severity/problem status.
-Fix notes: Pending.
+Fix notes: Added detail-page filters for status, confidence, problem-only, and high/medium/low risk severity. Commit: cc6f7fa.
 
 5. Better evidence view
 Status: TODO
