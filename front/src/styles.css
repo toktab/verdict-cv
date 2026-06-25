@@ -149,6 +149,224 @@ nav button:hover,
   z-index: 1;
 }
 
+.home {
+  width: min(1240px, calc(100vw - 36px));
+  margin: 0 auto 78px;
+  position: relative;
+  z-index: 1;
+}
+
+.hero {
+  min-height: calc(100vh - 84px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(360px, 0.78fr);
+  gap: 42px;
+  align-items: center;
+  padding: 64px 0 48px;
+}
+
+.heroCopy h1 {
+  margin: 10px 0 14px;
+  font-size: clamp(58px, 10vw, 134px);
+  line-height: 0.86;
+  font-weight: 900;
+}
+
+.heroCopy p,
+.marketingGrid p {
+  max-width: 660px;
+  color: var(--soft);
+  line-height: 1.7;
+  font-size: 18px;
+}
+
+.eyebrow {
+  color: #ff7777;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  font-weight: 850;
+}
+
+.heroActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+
+.productShot {
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 50% 0, rgba(255, 59, 59, 0.16), transparent 18rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    rgba(12, 12, 14, 0.94);
+  box-shadow: 0 36px 120px rgba(0, 0, 0, 0.55);
+}
+
+.shotTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  color: var(--muted);
+}
+
+.shotTop strong {
+  color: var(--text);
+}
+
+.shotLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  margin-top: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--soft);
+}
+
+.shotLine.good { border-color: rgba(102, 217, 145, 0.35); }
+.shotLine.warn { border-color: rgba(240, 184, 90, 0.42); }
+.shotLine.bad { border-color: rgba(255, 105, 105, 0.44); color: #ffd5d5; }
+
+.shotMeter {
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+  margin-top: 18px;
+}
+
+.shotMeter span {
+  display: block;
+  width: 87%;
+  height: 100%;
+  background: linear-gradient(90deg, #ff3535, #ff7676);
+  box-shadow: 0 0 24px rgba(255, 59, 59, 0.5);
+}
+
+.proofGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.proofCard,
+.marketingGrid > div,
+.magnet,
+.authCard {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    var(--panel);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.35);
+}
+
+.proofCard {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+}
+
+.proofCard strong {
+  font-size: 34px;
+}
+
+.proofCard span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.marketingGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.marketingGrid > div,
+.magnet {
+  padding: 28px;
+}
+
+.marketingGrid h2,
+.magnet h2 {
+  margin: 10px 0 0;
+  font-size: clamp(28px, 4vw, 48px);
+  line-height: 1;
+}
+
+.magnet {
+  margin-top: 14px;
+}
+
+.magnetList {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.magnetList div {
+  min-height: 96px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--soft);
+  line-height: 1.45;
+}
+
+.authWrap {
+  width: min(920px, calc(100vw - 36px));
+  min-height: calc(100vh - 92px);
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  position: relative;
+  z-index: 1;
+  padding: 42px 0;
+}
+
+.authCard {
+  width: 100%;
+  padding: 30px;
+}
+
+.authCard h1 {
+  max-width: 760px;
+  margin: 10px 0 20px;
+  font-size: clamp(32px, 5vw, 58px);
+  line-height: 0.98;
+}
+
+.authGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.authGrid.single {
+  grid-template-columns: 1fr;
+}
+
+.authCard .field {
+  padding: 0;
+}
+
+.authSubmit {
+  width: 100%;
+  margin-top: 14px;
+}
+
 .intake {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -660,11 +878,35 @@ select {
   .loading,
   .tableHead,
   .tableRow,
-  .editPane {
+  .editPane,
+  .hero,
+  .proofGrid,
+  .marketingGrid,
+  .magnetList,
+  .authGrid {
     grid-template-columns: 1fr;
   }
 
   .counts {
     flex-wrap: wrap;
+  }
+
+  nav,
+  .heroActions {
+    width: 100%;
+  }
+
+  nav button,
+  .heroActions button {
+    flex: 1 1 auto;
+  }
+
+  .hero {
+    min-height: auto;
+    padding-top: 42px;
+  }
+
+  .productShot {
+    min-width: 0;
   }
 }

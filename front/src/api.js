@@ -20,6 +20,26 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  register(payload) {
+    return request('/api/auth/register', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    });
+  },
+  login(payload) {
+    return request('/api/auth/login', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    });
+  },
+  me(token) {
+    return request('/api/auth/me', { headers: { 'X-User-Token': token } });
+  },
+  logout(token) {
+    return request('/api/auth/logout', { method: 'POST', headers: { 'X-User-Token': token } });
+  },
   runAudit(payload) {
     return request('/api/audit/run', {
       method: 'POST',

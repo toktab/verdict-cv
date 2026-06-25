@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Activity, Download, Edit3, FileSearch, Gauge, History, Lock, Play, Save, ShieldCheck, Trash2, X } from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, Download, Edit3, FileSearch, Gauge, History, Lock, Play, Save, ShieldCheck, Sparkles, Trash2, UserPlus, X } from 'lucide-react';
 import { api } from './api';
 import './styles.css';
 
@@ -18,7 +18,9 @@ function track(action, target = '', detail = '') {
 }
 
 function App() {
-  const [route, setRoute] = useState(window.location.pathname === '/admin' ? 'admin' : 'app');
+  const [route, setRoute] = useState(routeFromPath());
+  const [userToken, setUserToken] = useState(localStorage.getItem('verdictUserToken') || '');
+  const [user, setUser] = useState(null);
   const [form, setForm] = useState(demoCase);
   const [audit, setAudit] = useState(null);
   const [history, setHistory] = useState([]);
@@ -29,6 +31,13 @@ function App() {
   useEffect(() => {
     track('page_view', route, window.location.pathname);
     loadHistory();
+    if (userToken) {
+      api.me(userToken).then(setUser).catch(() => {
+        localStorage.removeItem('verdictUserToken');
+        setUserToken('');
+        setUser(null);
+      });
+    }
   }, []);
 
   async function loadHistory() {
@@ -72,10 +81,25 @@ function App() {
     return <AdminPanel setRoute={setRoute} />;
   }
 
+  if (route === 'login') {
+    return <AuthPage mode="login" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
+  }
+
+  if (route === 'register') {
+    return <AuthPage mode="register" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
+  }
+
+  if (route === 'home') {
+    return <HomePage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
+  }
+
   return (
     <div className="shell">
-      <Header setRoute={setRoute} />
+      <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
       <main className="workspace">
+        {!userToken && (
+          <div className="error">Sign in or create an account before running private claim audits.</div>
+        )}
         <section className="intake">
           <Panel title="Claim Document" subtitle="Statements to audit">
             <Input label="Claim title" value={form.claimTitle} onChange={(claimTitle) => setForm({ ...form, claimTitle })} />
@@ -89,7 +113,7 @@ function App() {
 
         <section className="commandbar">
           <button className="ghost" onClick={() => { track('load_demo_case', 'commandbar'); setForm(demoCase); }}>Load Demo Case</button>
-          <button className="primary" disabled={loading} onClick={runAudit}>
+          <button className="primary" disabled={loading || !userToken} onClick={runAudit}>
             <Play size={18} /> AUDIT
           </button>
           <Metric label="Claim chars" value={form.claimText.length} />
@@ -105,11 +129,35 @@ function App() {
   );
 }
 
-function Header({ setRoute }) {
+function routeFromPath() {
+  if (window.location.pathname === '/admin') return 'admin';
+  if (window.location.pathname === '/audit') return 'app';
+  if (window.location.pathname === '/login') return 'login';
+  if (window.location.pathname === '/register') return 'register';
+  return 'home';
+}
+
+function navigateTo(setRoute, next) {
+  setRoute(next);
+  const path = next === 'admin' ? '/admin' : next === 'app' ? '/audit' : next === 'login' ? '/login' : next === 'register' ? '/register' : '/';
+  window.history.replaceState(null, '', path);
+}
+
+function Header({ setRoute, user, userToken, setUser, setUserToken }) {
   function navigate(next) {
     track('navigation_clicked', next);
-    setRoute(next);
-    window.history.replaceState(null, '', next === 'admin' ? '/admin' : '/');
+    navigateTo(setRoute, next);
+  }
+
+  async function logout() {
+    track('logout_clicked', 'topbar');
+    if (userToken) {
+      await api.logout(userToken).catch(() => null);
+    }
+    localStorage.removeItem('verdictUserToken');
+    setUserToken?.('');
+    setUser?.(null);
+    navigate('home');
   }
 
   return (
@@ -119,10 +167,165 @@ function Header({ setRoute }) {
         <div className="tagline">Confidence is not evidence.</div>
       </div>
       <nav>
+        <button onClick={() => navigate('home')}>Home</button>
         <button onClick={() => navigate('app')}><FileSearch size={16} /> Audit</button>
         <button onClick={() => navigate('admin')}><Lock size={16} /> Admin</button>
+        {user ? (
+          <button onClick={logout}>{user.username} / Logout</button>
+        ) : (
+          <>
+            <button onClick={() => navigate('login')}><Lock size={16} /> Login</button>
+            <button className="primary" onClick={() => navigate('register')}><UserPlus size={16} /> Register</button>
+          </>
+        )}
       </nav>
     </header>
+  );
+}
+
+function HomePage({ setRoute, user, userToken, setUser, setUserToken }) {
+  const proof = [
+    ['94%', 'demo claim classification stability'],
+    ['3 sec', 'average local audit turnaround'],
+    ['0 raw docs', 'stored outside your audit record'],
+    ['5 modes', 'CV, sales, report, pitch, source audit'],
+  ];
+  const hooks = [
+    'Instant credibility score before anyone reads the document.',
+    'Risk heatmap that makes weak claims impossible to hide.',
+    'Exportable receipts for recruiters, founders, and managers.',
+    'Skeptical wording coach for inflated words like expert, led, proven.',
+    'Demo case button for fast judge-ready proof.',
+    'Admin audit trail that shows every action and decision.',
+    'Privacy-forward fingerprints so documents feel controlled.',
+    'Strict evidence language: unsupported does not mean false.',
+  ];
+  return (
+    <div className="shell">
+      <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
+      <main className="home">
+        <section className="hero">
+          <div className="heroCopy">
+            <span className="eyebrow">AI claim auditing for serious documents</span>
+            <h1>VERDICT</h1>
+            <p>We cross-examine confident claims against evidence, score credibility, and show exactly where language becomes stretched, vague, or unsupported.</p>
+            <div className="heroActions">
+              <button className="primary" onClick={() => navigateTo(setRoute, userToken ? 'app' : 'register')}>
+                <Sparkles size={18} /> Start auditing <ArrowRight size={18} />
+              </button>
+              <button className="ghost" onClick={() => navigateTo(setRoute, 'login')}>Login</button>
+            </div>
+          </div>
+          <div className="productShot">
+            <div className="shotTop">
+              <span>LIVE AUDIT</span>
+              <strong>Credibility 87%</strong>
+            </div>
+            <div className="shotLine good"><CheckCircle2 size={16} /> Built REST APIs with Spring Boot</div>
+            <div className="shotLine warn">STRETCHED / Expert in distributed systems</div>
+            <div className="shotLine bad">UNSUPPORTED / Reduced cloud costs by 60%</div>
+            <div className="shotMeter"><span /></div>
+          </div>
+        </section>
+        <section className="proofGrid">
+          {proof.map(([value, label]) => (
+            <div className="proofCard" key={label}>
+              <strong>{value}</strong>
+              <span>{label}</span>
+            </div>
+          ))}
+        </section>
+        <section className="marketingGrid">
+          <div>
+            <span className="eyebrow">What we do</span>
+            <h2>We turn documents into evidence-backed verdicts.</h2>
+            <p>Upload or paste the claim document, paste the evidence source, and VERDICT separates real claims from decoration. It classifies each line as supported, stretched, unsupported, not-a-claim, or gap.</p>
+          </div>
+          <div>
+            <span className="eyebrow">How we do it</span>
+            <h2>Strict language, clear receipts, formula scoring.</h2>
+            <p>The system splits claims, compares them to evidence, applies a deterministic credibility formula, logs activity, and exports a report that can survive a serious review conversation.</p>
+          </div>
+        </section>
+        <section className="magnet">
+          <span className="eyebrow">Why people remember it</span>
+          <div className="magnetList">
+            {hooks.map((hook) => <div key={hook}>{hook}</div>)}
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+function AuthPage({ mode, setRoute, setUser, setUserToken }) {
+  const isRegister = mode === 'register';
+  const [form, setForm] = useState({
+    fullName: '',
+    username: '',
+    email: '',
+    country: '',
+    address: '',
+    organization: '',
+    role: '',
+    identifier: '',
+    password: '',
+  });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function submit() {
+    setError('');
+    setLoading(true);
+    track(isRegister ? 'register_submit' : 'login_submit', 'auth');
+    try {
+      const response = isRegister ? await api.register(form) : await api.login(form);
+      localStorage.setItem('verdictUserToken', response.token);
+      setUserToken(response.token);
+      setUser(response.user);
+      navigateTo(setRoute, 'app');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="shell">
+      <Header setRoute={setRoute} user={null} userToken="" setUser={setUser} setUserToken={setUserToken} />
+      <main className="authWrap">
+        <section className="authCard">
+          <span className="eyebrow">{isRegister ? 'Create account' : 'Welcome back'}</span>
+          <h1>{isRegister ? 'Start with your private audit workspace.' : 'Login to continue auditing.'}</h1>
+          {isRegister ? (
+            <div className="authGrid">
+              <Input label="Full name" value={form.fullName} onChange={(fullName) => setForm({ ...form, fullName })} />
+              <Input label="Username" value={form.username} onChange={(username) => setForm({ ...form, username })} />
+              <Input label="Email" value={form.email} onChange={(email) => setForm({ ...form, email })} />
+              <Input label="Country" value={form.country} onChange={(country) => setForm({ ...form, country })} />
+              <Input label="Address" value={form.address} onChange={(address) => setForm({ ...form, address })} />
+              <Input label="Organization" value={form.organization} onChange={(organization) => setForm({ ...form, organization })} />
+              <Input label="Role" value={form.role} onChange={(role) => setForm({ ...form, role })} />
+              <Input type="password" label="Password" value={form.password} onChange={(password) => setForm({ ...form, password })} />
+            </div>
+          ) : (
+            <div className="authGrid single">
+              <Input label="Username or email" value={form.identifier} onChange={(identifier) => setForm({ ...form, identifier })} />
+              <Input type="password" label="Password" value={form.password} onChange={(password) => setForm({ ...form, password })} />
+            </div>
+          )}
+          <button className="primary authSubmit" disabled={loading} onClick={submit}>
+            {isRegister ? <UserPlus size={18} /> : <Lock size={18} />}
+            {loading ? 'Working...' : isRegister ? 'Create account' : 'Login'}
+          </button>
+          <button className="ghost authSubmit" onClick={() => navigateTo(setRoute, isRegister ? 'login' : 'register')}>
+            {isRegister ? 'Already have an account' : 'Create new account'}
+          </button>
+          {error && <div className="error">{error}</div>}
+        </section>
+      </main>
+    </div>
   );
 }
 
@@ -138,11 +341,11 @@ function Panel({ title, subtitle, children }) {
   );
 }
 
-function Input({ label, value, onChange }) {
+function Input({ label, value, onChange, type = 'text' }) {
   return (
     <label className="field">
       <span>{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} />
+      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }
