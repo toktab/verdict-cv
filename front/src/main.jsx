@@ -280,6 +280,10 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
     track(isRegister ? 'register_submit' : 'login_submit', 'auth');
     try {
       const response = isRegister ? await api.register(form) : await api.login(form);
+      if (!response.token) {
+        setError('Account created. Email verification is required before login; ask an admin to verify the account.');
+        return;
+      }
       localStorage.setItem('verdictUserToken', response.token);
       setUserToken(response.token);
       setUser(response.user);
@@ -440,8 +444,12 @@ function AdminPanel({ setRoute }) {
   const [login, setLogin] = useState({ username: 'admin', password: '' });
   const [audits, setAudits] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [settings, setSettings] = useState({ requireEmailVerification: false });
   const [selectedAudit, setSelectedAudit] = useState(null);
   const [editingVerdict, setEditingVerdict] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
+  const [userForm, setUserForm] = useState(emptyUserForm());
   const [error, setError] = useState('');
 
   async function signIn() {
@@ -458,8 +466,16 @@ function AdminPanel({ setRoute }) {
 
   async function loadAdmin() {
     track('admin_refresh', 'admin_panel');
-    setAudits(await api.adminAudits(token));
-    setLogs(await api.adminLogs(token));
+    const [auditRows, logRows, userRows, settingRows] = await Promise.all([
+      api.adminAudits(token),
+      api.adminLogs(token),
+      api.adminUsers(token),
+      api.adminSettings(token),
+    ]);
+    setAudits(auditRows);
+    setLogs(logRows);
+    setUsers(userRows);
+    setSettings(settingRows);
   }
 
   useEffect(() => {
@@ -481,6 +497,56 @@ function AdminPanel({ setRoute }) {
     track('admin_delete_log', 'admin_panel', `logId=${id}`);
     await api.deleteLog(token, id);
     await loadAdmin();
+  }
+
+  function editUser(user) {
+    track('admin_edit_user', 'admin_panel', `userId=${user.id}`);
+    setEditingUser(user);
+    setUserForm({
+      fullName: user.fullName || '',
+      username: user.username || '',
+      email: user.email || '',
+      country: user.country || '',
+      address: user.address || '',
+      organization: user.organization || '',
+      role: user.role || '',
+      password: '',
+      emailVerified: Boolean(user.emailVerified),
+    });
+  }
+
+  function newUser() {
+    track('admin_new_user', 'admin_panel');
+    setEditingUser(null);
+    setUserForm(emptyUserForm());
+  }
+
+  async function saveUser() {
+    track(editingUser ? 'admin_update_user' : 'admin_create_user', 'admin_panel', editingUser ? `userId=${editingUser.id}` : userForm.username);
+    if (editingUser) {
+      await api.updateUser(token, editingUser.id, userForm);
+    } else {
+      await api.createUser(token, userForm);
+    }
+    setEditingUser(null);
+    setUserForm(emptyUserForm());
+    await loadAdmin();
+  }
+
+  async function deleteUser(id) {
+    track('admin_delete_user', 'admin_panel', `userId=${id}`);
+    await api.deleteUser(token, id);
+    if (editingUser?.id === id) {
+      setEditingUser(null);
+      setUserForm(emptyUserForm());
+    }
+    await loadAdmin();
+  }
+
+  async function toggleRequireEmailVerification() {
+    const next = !settings.requireEmailVerification;
+    track('admin_toggle_mail_verification', 'admin_settings', `required=${next}`);
+    setSettings(await api.updateAdminSettings(token, { requireEmailVerification: next }));
   }
 
   async function openAuditEditor(audit) {
@@ -541,6 +607,43 @@ function AdminPanel({ setRoute }) {
       <Header setRoute={setRoute} />
       <main className="adminGrid">
         {error && <div className="error">{error}</div>}
+        <section className="adminSection adminWide">
+          <h2><UserPlus size={18} /> Users</h2>
+          <label className="toggleRow">
+            <input type="checkbox" checked={settings.requireEmailVerification} onChange={toggleRequireEmailVerification} />
+            <span>Require mail verification for registration</span>
+            <small>Default is off. When on, new users are created unverified and cannot login until admin verifies them.</small>
+          </label>
+          <div className="userEditor">
+            <Input label="Full name" value={userForm.fullName} onChange={(fullName) => setUserForm({ ...userForm, fullName })} />
+            <Input label="Username" value={userForm.username} onChange={(username) => setUserForm({ ...userForm, username })} />
+            <Input label="Email" value={userForm.email} onChange={(email) => setUserForm({ ...userForm, email })} />
+            <Input label="Country" value={userForm.country} onChange={(country) => setUserForm({ ...userForm, country })} />
+            <Input label="Address" value={userForm.address} onChange={(address) => setUserForm({ ...userForm, address })} />
+            <Input label="Organization" value={userForm.organization} onChange={(organization) => setUserForm({ ...userForm, organization })} />
+            <Input label="Role" value={userForm.role} onChange={(role) => setUserForm({ ...userForm, role })} />
+            <Input type="password" label={editingUser ? 'New password optional' : 'Password'} value={userForm.password} onChange={(password) => setUserForm({ ...userForm, password })} />
+            <label className="toggleRow compact">
+              <input type="checkbox" checked={userForm.emailVerified} onChange={(event) => setUserForm({ ...userForm, emailVerified: event.target.checked })} />
+              <span>Email verified</span>
+            </label>
+            <div className="editActions">
+              <button className="primary" onClick={saveUser}><Save size={16} /> {editingUser ? 'Save user' : 'Add user'}</button>
+              <button onClick={newUser}><X size={16} /> Clear</button>
+            </div>
+          </div>
+          <div className="userRows">
+            {users.map((user) => (
+              <div className="adminRow" key={user.id}>
+                <span>#{user.id} {user.fullName} / {user.username} / {user.email} / {user.emailVerified ? 'verified' : 'unverified'}</span>
+                <div className="rowActions">
+                  <button onClick={() => editUser(user)}><Edit3 size={15} /> Edit</button>
+                  <button onClick={() => deleteUser(user.id)}><Trash2 size={15} /> Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
         <section className="adminSection">
           <h2><Activity size={18} /> Audits</h2>
           {audits.map((audit) => (
@@ -578,6 +681,20 @@ function AdminPanel({ setRoute }) {
       )}
     </div>
   );
+}
+
+function emptyUserForm() {
+  return {
+    fullName: '',
+    username: '',
+    email: '',
+    country: '',
+    address: '',
+    organization: '',
+    role: '',
+    password: '',
+    emailVerified: true,
+  };
 }
 
 async function requestDeleteVerdict(token, id) {

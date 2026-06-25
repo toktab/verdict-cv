@@ -11,6 +11,7 @@ public record UserResponse(
         String address,
         String organization,
         String role,
+        boolean emailVerified,
         Instant createdAt,
         Instant lastLoginAt
 ) {

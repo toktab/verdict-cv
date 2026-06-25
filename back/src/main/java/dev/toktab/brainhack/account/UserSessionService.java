@@ -14,11 +14,13 @@ import org.springframework.stereotype.Service;
 @Service
 public class UserSessionService {
     private final UserAccountRepository userRepository;
+    private final AccountSettingsService settingsService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final Map<String, Long> sessions = new ConcurrentHashMap<>();
 
-    public UserSessionService(UserAccountRepository userRepository) {
+    public UserSessionService(UserAccountRepository userRepository, AccountSettingsService settingsService) {
         this.userRepository = userRepository;
+        this.settingsService = settingsService;
     }
 
     @Transactional
@@ -39,9 +41,13 @@ public class UserSessionService {
         account.setAddress(clean(request.address()));
         account.setOrganization(defaulted(request.organization(), "Independent"));
         account.setRole(defaulted(request.role(), "Analyst"));
+        account.setEmailVerified(!settingsService.requireEmailVerification());
         account.setPasswordHash(BCrypt.hashpw(request.password(), BCrypt.gensalt(11)));
-        account.setLastLoginAt(Instant.now());
         UserAccount saved = userRepository.save(account);
+        if (!saved.isEmailVerified()) {
+            return new SessionResult("", saved);
+        }
+        saved.setLastLoginAt(Instant.now());
         return new SessionResult(token(saved.getId()), saved);
     }
 
@@ -52,6 +58,9 @@ public class UserSessionService {
                 .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
         if (!BCrypt.checkpw(request.password(), account.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid credentials");
+        }
+        if (settingsService.requireEmailVerification() && !account.isEmailVerified()) {
+            throw new IllegalArgumentException("Email verification is required before login");
         }
         account.setLastLoginAt(Instant.now());
         return new SessionResult(token(account.getId()), userRepository.save(account));

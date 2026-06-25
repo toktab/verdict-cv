@@ -69,6 +69,36 @@ export const api = {
   adminLogs(token) {
     return request('/api/admin/logs', { headers: { 'X-Admin-Token': token } });
   },
+  adminUsers(token) {
+    return request('/api/admin/users', { headers: { 'X-Admin-Token': token } });
+  },
+  createUser(token, payload) {
+    return request('/api/admin/users', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'X-Admin-Token': token },
+      body: JSON.stringify(payload),
+    });
+  },
+  updateUser(token, id, payload) {
+    return request(`/api/admin/users/${id}`, {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'X-Admin-Token': token },
+      body: JSON.stringify(payload),
+    });
+  },
+  deleteUser(token, id) {
+    return request(`/api/admin/users/${id}`, { method: 'DELETE', headers: { 'X-Admin-Token': token } });
+  },
+  adminSettings(token) {
+    return request('/api/admin/settings', { headers: { 'X-Admin-Token': token } });
+  },
+  updateAdminSettings(token, payload) {
+    return request('/api/admin/settings', {
+      method: 'PATCH',
+      headers: { ...jsonHeaders, 'X-Admin-Token': token },
+      body: JSON.stringify(payload),
+    });
+  },
   deleteAudit(token, id) {
     return request(`/api/admin/audits/${id}`, { method: 'DELETE', headers: { 'X-Admin-Token': token } });
   },

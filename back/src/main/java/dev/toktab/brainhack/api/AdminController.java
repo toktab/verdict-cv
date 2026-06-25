@@ -1,10 +1,17 @@
 package dev.toktab.brainhack.api;
 
 import dev.toktab.brainhack.admin.AdminSessionService;
+import dev.toktab.brainhack.account.AccountSettingsService;
+import dev.toktab.brainhack.account.UserAccount;
+import dev.toktab.brainhack.account.UserAccountService;
 import dev.toktab.brainhack.api.dto.AdminLoginRequest;
 import dev.toktab.brainhack.api.dto.AdminLoginResponse;
+import dev.toktab.brainhack.api.dto.AdminSettingsRequest;
+import dev.toktab.brainhack.api.dto.AdminSettingsResponse;
 import dev.toktab.brainhack.api.dto.AuditResponse;
 import dev.toktab.brainhack.api.dto.AuditRunRequest;
+import dev.toktab.brainhack.api.dto.UserAdminRequest;
+import dev.toktab.brainhack.api.dto.UserResponse;
 import dev.toktab.brainhack.api.dto.VerdictResponse;
 import dev.toktab.brainhack.audit.AuditMapper;
 import dev.toktab.brainhack.audit.AuditService;
@@ -35,6 +42,8 @@ public class AdminController {
     private final VerdictRepository verdictRepository;
     private final AppEventLogRepository logRepository;
     private final AuditLogService logService;
+    private final UserAccountService userAccountService;
+    private final AccountSettingsService accountSettingsService;
 
     public AdminController(
             AdminSessionService adminSessionService,
@@ -42,13 +51,17 @@ public class AdminController {
             AuditMapper auditMapper,
             VerdictRepository verdictRepository,
             AppEventLogRepository logRepository,
-            AuditLogService logService) {
+            AuditLogService logService,
+            UserAccountService userAccountService,
+            AccountSettingsService accountSettingsService) {
         this.adminSessionService = adminSessionService;
         this.auditService = auditService;
         this.auditMapper = auditMapper;
         this.verdictRepository = verdictRepository;
         this.logRepository = logRepository;
         this.logService = logService;
+        this.userAccountService = userAccountService;
+        this.accountSettingsService = accountSettingsService;
     }
 
     @PostMapping("/login")
@@ -72,6 +85,43 @@ public class AdminController {
     public void deleteAudit(@PathVariable Long id) {
         auditService.delete(id);
         logService.recordSystem("ADMIN_DELETE_AUDIT", "auditId=" + id);
+    }
+
+    @GetMapping("/users")
+    public List<UserResponse> users() {
+        return userAccountService.users().stream().map(this::toUserResponse).toList();
+    }
+
+    @PostMapping("/users")
+    public UserResponse createUser(@Valid @RequestBody UserAdminRequest request) {
+        UserAccount user = userAccountService.create(request);
+        logService.recordSystem("ADMIN_CREATE_USER", "userId=" + user.getId());
+        return toUserResponse(user);
+    }
+
+    @PatchMapping("/users/{id}")
+    public UserResponse updateUser(@PathVariable Long id, @Valid @RequestBody UserAdminRequest request) {
+        UserAccount user = userAccountService.update(id, request);
+        logService.recordSystem("ADMIN_UPDATE_USER", "userId=" + id);
+        return toUserResponse(user);
+    }
+
+    @DeleteMapping("/users/{id}")
+    public void deleteUser(@PathVariable Long id) {
+        userAccountService.delete(id);
+        logService.recordSystem("ADMIN_DELETE_USER", "userId=" + id);
+    }
+
+    @GetMapping("/settings")
+    public AdminSettingsResponse settings() {
+        return new AdminSettingsResponse(accountSettingsService.requireEmailVerification());
+    }
+
+    @PatchMapping("/settings")
+    public AdminSettingsResponse updateSettings(@RequestBody AdminSettingsRequest request) {
+        boolean required = accountSettingsService.setRequireEmailVerification(request.requireEmailVerification());
+        logService.recordSystem("ADMIN_UPDATE_SETTINGS", "requireEmailVerification=" + required);
+        return new AdminSettingsResponse(required);
     }
 
     @PatchMapping("/verdicts/{id}")
@@ -117,5 +167,21 @@ public class AdminController {
     @DeleteMapping("/logs/{id}")
     public void deleteLog(@PathVariable Long id) {
         logRepository.deleteById(id);
+    }
+
+    private UserResponse toUserResponse(UserAccount account) {
+        return new UserResponse(
+                account.getId(),
+                account.getFullName(),
+                account.getUsername(),
+                account.getEmail(),
+                account.getCountry(),
+                account.getAddress(),
+                account.getOrganization(),
+                account.getRole(),
+                account.isEmailVerified(),
+                account.getCreatedAt(),
+                account.getLastLoginAt()
+        );
     }
 }

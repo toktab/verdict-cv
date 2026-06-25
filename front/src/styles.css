@@ -439,6 +439,13 @@ input {
   padding: 0 12px;
 }
 
+input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
 textarea {
   min-height: 360px;
   resize: vertical;
@@ -729,6 +736,10 @@ select {
   padding: 16px;
 }
 
+.adminWide {
+  grid-column: 1 / -1;
+}
+
 .adminRow,
 .logRow {
   margin-top: 10px;
@@ -751,6 +762,45 @@ select {
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+.toggleRow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.toggleRow small {
+  grid-column: 2;
+  color: var(--muted);
+}
+
+.toggleRow.compact {
+  margin: 0;
+  align-self: end;
+}
+
+.userEditor {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.userEditor .field {
+  padding: 0;
+}
+
+.userRows {
+  margin-top: 14px;
 }
 
 .modalOverlay {
@@ -883,7 +933,8 @@ select {
   .proofGrid,
   .marketingGrid,
   .magnetList,
-  .authGrid {
+  .authGrid,
+  .userEditor {
     grid-template-columns: 1fr;
   }
 

@@ -42,6 +42,9 @@ public class UserAccount {
     @Column(nullable = false, length = 120)
     private String passwordHash;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean emailVerified = true;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -126,6 +129,14 @@ public class UserAccount {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
     }
 
     public Instant getCreatedAt() {

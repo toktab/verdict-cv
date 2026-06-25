@@ -61,6 +61,7 @@ public class AuthController {
                 account.getAddress(),
                 account.getOrganization(),
                 account.getRole(),
+                account.isEmailVerified(),
                 account.getCreatedAt(),
                 account.getLastLoginAt()
         );
