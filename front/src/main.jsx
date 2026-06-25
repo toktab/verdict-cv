@@ -787,6 +787,7 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
               </Panel>
             </section>
             <SuspiciousWordsPanel text={audit.claimText || verdicts.map((verdict) => verdict.sentence).join(' ')} />
+            <RewriteSuggestions verdicts={verdicts} />
             <section className="detailTableSection">
               <div className="tableToolbar">
                 <h2>Verdicts</h2>
@@ -899,6 +900,64 @@ function SuspiciousWordsPanel({ text }) {
   );
 }
 
+function RewriteSuggestions({ verdicts }) {
+  const suggestions = (verdicts || [])
+    .filter((verdict) => ['STRETCHED', 'UNSUPPORTED'].includes(verdict.status))
+    .map((verdict) => ({
+      id: verdict.id || verdict.sentenceIndex,
+      status: verdict.status,
+      original: verdict.sentence,
+      replacement: saferRewrite(verdict),
+      reason: verdict.explanation,
+    }));
+  if (suggestions.length === 0) {
+    return (
+      <section className="rewritePanel">
+        <div>
+          <span className="eyebrow">Rewrite suggestions</span>
+          <h2>No rewrites needed</h2>
+        </div>
+        <p>There are no stretched or unsupported claims in the current verdict set.</p>
+      </section>
+    );
+  }
+  return (
+    <section className="rewritePanel">
+      <div>
+        <span className="eyebrow">Rewrite suggestions</span>
+        <h2>Safer replacement wording</h2>
+      </div>
+      <div className="rewriteList">
+        {suggestions.map((suggestion) => (
+          <article key={suggestion.id}>
+            <span className={`statusPill ${suggestion.status.toLowerCase()}`}>{suggestion.status}</span>
+            <p><b>Original:</b> {suggestion.original}</p>
+            <p><b>Safer:</b> {suggestion.replacement}</p>
+            <small>{suggestion.reason}</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function saferRewrite(verdict) {
+  const sentence = verdict.sentence.replace(/\.$/, '');
+  if (verdict.status === 'UNSUPPORTED') {
+    return `Evidence does not currently verify: ${softenInflatedWords(sentence)}.`;
+  }
+  return `${softenInflatedWords(sentence)} based on the available evidence.`;
+}
+
+function softenInflatedWords(sentence) {
+  return sentence
+    .replace(/\b[Ee]xpert in\b/g, 'Experience with')
+    .replace(/\b[Ll]ed\b/g, 'Contributed to')
+    .replace(/\b[Oo]ptimized\b/g, 'Worked on improving')
+    .replace(/\b[Pp]roven\b/g, 'Documented')
+    .replace(/\b[Aa]dvanced\b/g, 'Specific');
+}
+
 function countWord(text, word) {
   const matches = text.match(new RegExp(`\\b${escapeRegExp(word)}\\b`, 'g'));
   return matches ? matches.length : 0;
@@ -998,6 +1057,7 @@ function AuditResult({ audit }) {
         {audit.verdicts.map((verdict) => <VerdictCard key={verdict.id || verdict.sentenceIndex} verdict={verdict} />)}
       </div>
       <SuspiciousWordsPanel text={audit.claimText || audit.verdicts.map((verdict) => verdict.sentence).join(' ')} />
+      <RewriteSuggestions verdicts={audit.verdicts} />
       <div className="summaryStrip">
         <ShieldCheck size={18} />
         <span>Top risk count: {problems.length}. Engine: {audit.engine}. Completed in {audit.processingMillis}ms.</span>

@@ -662,6 +662,55 @@ nav button:hover,
     var(--panel);
 }
 
+.rewritePanel {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 100% 0, rgba(102, 217, 145, 0.1), transparent 18rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+    var(--panel);
+}
+
+.rewritePanel h2 {
+  margin: 6px 0 0;
+  font-size: 24px;
+}
+
+.rewritePanel > p {
+  margin: 12px 0 0;
+  color: var(--muted);
+}
+
+.rewriteList {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.rewriteList article {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.rewriteList p {
+  margin: 9px 0;
+  color: var(--soft);
+  line-height: 1.5;
+}
+
+.rewriteList b {
+  color: var(--text);
+}
+
+.rewriteList small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 .suspiciousPanel h2 {
   margin: 6px 0 0;
   font-size: 24px;
