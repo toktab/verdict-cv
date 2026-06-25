@@ -111,6 +111,16 @@ function App() {
             {!userToken && (
               <div className="error">Sign in or create an account before running private claim audits.</div>
             )}
+            {userToken && (
+              <section className="privateStrip">
+                <div>
+                  <span className="eyebrow">Private workspace</span>
+                  <strong>{user?.fullName || user?.username || 'Signed-in user'}</strong>
+                </div>
+                <Metric label="My audits" value={history.length} />
+                <Metric label="Last activity" value={history[0]?.createdAt ? new Date(history[0].createdAt).toLocaleDateString() : 'None'} />
+              </section>
+            )}
             <section className="intake">
               <Panel title="Claim Document" subtitle="Statements to audit">
                 <Input label="Claim title" value={form.claimTitle} onChange={(claimTitle) => setForm({ ...form, claimTitle })} />
@@ -186,7 +196,10 @@ function Header({ setRoute, user, userToken, setUser, setUserToken }) {
         <button onClick={() => navigate('app')}><FileSearch size={16} /> Audit</button>
         <button onClick={() => navigate('admin')}><Lock size={16} /> Admin</button>
         {user ? (
-          <button onClick={logout}>{user.username} / Logout</button>
+          <button className="accountChip" onClick={logout}>
+            <span>{user.username}</span>
+            <small>Logout</small>
+          </button>
         ) : (
           <>
             <button onClick={() => navigate('login')}><Lock size={16} /> Login</button>
@@ -344,6 +357,8 @@ function dashboardStats(history) {
 function AuthPage({ mode, setRoute, setUser, setUserToken }) {
   const isRegister = mode === 'register';
   const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
     fullName: '',
     username: '',
     email: '',
@@ -353,16 +368,30 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
     role: '',
     identifier: '',
     password: '',
+    confirmInfo: false,
   });
+  const [registerStep, setRegisterStep] = useState(0);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const registerSteps = getRegisterSteps(form);
+  const activeStep = registerSteps[registerStep] || registerSteps[0];
+  const activeChecks = activeStep?.checks || [];
+  const stepValid = activeChecks.every((check) => check.valid);
 
   async function submit() {
     setError('');
+    if (isRegister) {
+      const invalidStep = registerSteps.findIndex((step) => step.checks.some((check) => !check.valid));
+      if (invalidStep >= 0) {
+        setRegisterStep(invalidStep);
+        setError('Finish the highlighted step before creating the account.');
+        return;
+      }
+    }
     setLoading(true);
     track(isRegister ? 'register_submit' : 'login_submit', 'auth');
     try {
-      const response = isRegister ? await api.register(form) : await api.login(form);
+      const response = isRegister ? await api.register(registerPayload(form)) : await api.login(form);
       if (!response.token) {
         setError('Account created. Email verification is required before login; ask an admin to verify the account.');
         return;
@@ -378,6 +407,25 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
     }
   }
 
+  function updateForm(patch) {
+    setForm((current) => ({ ...current, ...patch }));
+    setError('');
+  }
+
+  function nextStep() {
+    if (!stepValid) {
+      setError('Complete the checks on this step before continuing.');
+      return;
+    }
+    setError('');
+    setRegisterStep((current) => Math.min(current + 1, registerSteps.length - 1));
+  }
+
+  function previousStep() {
+    setError('');
+    setRegisterStep((current) => Math.max(current - 1, 0));
+  }
+
   return (
     <div className="shell">
     <div className="pageGlow contentFadeIn" />
@@ -387,15 +435,97 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
           <span className="eyebrow">{isRegister ? 'Create account' : 'Welcome back'}</span>
           <h1>{isRegister ? 'Start with your private audit workspace.' : 'Login to continue auditing.'}</h1>
           {isRegister ? (
-            <div className="authGrid">
-              <Input label="Full name" value={form.fullName} onChange={(fullName) => setForm({ ...form, fullName })} />
-              <Input label="Username" value={form.username} onChange={(username) => setForm({ ...form, username })} />
-              <Input label="Email" value={form.email} onChange={(email) => setForm({ ...form, email })} />
-              <Input label="Country" value={form.country} onChange={(country) => setForm({ ...form, country })} />
-              <Input label="Address" value={form.address} onChange={(address) => setForm({ ...form, address })} />
-              <Input label="Organization" value={form.organization} onChange={(organization) => setForm({ ...form, organization })} />
-              <Input label="Role" value={form.role} onChange={(role) => setForm({ ...form, role })} />
-              <Input type="password" label="Password" value={form.password} onChange={(password) => setForm({ ...form, password })} />
+            <div className="registerWizard">
+              <div className="registerProgress" aria-label="Registration progress">
+                <div className="progressTop">
+                  <strong>{registerStep + 1}/{registerSteps.length}</strong>
+                  <span>{activeStep.title}</span>
+                </div>
+                <div className="progressRail">
+                  <span style={{ width: `${((registerStep + 1) / registerSteps.length) * 100}%` }} />
+                </div>
+                <div className="stepDots">
+                  {registerSteps.map((step, index) => (
+                    <button
+                      key={step.title}
+                      className={index === registerStep ? 'active' : index < registerStep ? 'done' : ''}
+                      onClick={() => index <= registerStep && setRegisterStep(index)}
+                      disabled={index > registerStep}
+                      aria-label={`Step ${index + 1}: ${step.title}`}
+                    >
+                      {index + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="registerStepPanel" key={registerStep}>
+                <div className="stepHead">
+                  <span className="eyebrow">Step {registerStep + 1}</span>
+                  <h2>{activeStep.title}</h2>
+                </div>
+                {registerStep === 0 && (
+                  <div className="authGrid">
+                    <Input label="First name" value={form.firstName} onChange={(firstName) => updateForm({ firstName })} />
+                    <Input label="Last name" value={form.lastName} onChange={(lastName) => updateForm({ lastName })} />
+                  </div>
+                )}
+                {registerStep === 1 && (
+                  <div className="authGrid single">
+                    <Input label="Username" value={form.username} onChange={(username) => updateForm({ username })} />
+                  </div>
+                )}
+                {registerStep === 2 && (
+                  <div className="authGrid single">
+                    <Input label="Email" value={form.email} onChange={(email) => updateForm({ email })} />
+                  </div>
+                )}
+                {registerStep === 3 && (
+                  <div className="authGrid">
+                    <Input label="Country" value={form.country} onChange={(country) => updateForm({ country })} />
+                    <Input label="Address" value={form.address} onChange={(address) => updateForm({ address })} />
+                  </div>
+                )}
+                {registerStep === 4 && (
+                  <div className="authGrid">
+                    <Input label="Organization" value={form.organization} onChange={(organization) => updateForm({ organization })} />
+                    <Input label="Role" value={form.role} onChange={(role) => updateForm({ role })} />
+                  </div>
+                )}
+                {registerStep === 5 && (
+                  <div className="authGrid single">
+                    <Input type="password" label="Password" value={form.password} onChange={(password) => updateForm({ password })} />
+                  </div>
+                )}
+                {registerStep === 6 && (
+                  <>
+                    <div className="reviewBox">
+                      {reviewRows(form).map(([label, value]) => (
+                        <div key={label}>
+                          <span>{label}</span>
+                          <strong>{value || 'Not provided'}</strong>
+                        </div>
+                      ))}
+                    </div>
+                    <label className="confirmRow">
+                      <input type="checkbox" checked={form.confirmInfo} onChange={(event) => updateForm({ confirmInfo: event.target.checked })} />
+                      <span>All information is correct.</span>
+                    </label>
+                  </>
+                )}
+                <ValidationList checks={activeChecks} />
+                <div className="stepActions">
+                  <button className="ghost" disabled={registerStep === 0 || loading} onClick={previousStep}>Back</button>
+                  {registerStep < registerSteps.length - 1 ? (
+                    <button className="primary" disabled={!stepValid || loading} onClick={nextStep}>
+                      Next <ArrowRight size={18} />
+                    </button>
+                  ) : (
+                    <button className="primary" disabled={!stepValid || loading} onClick={submit}>
+                      <UserPlus size={18} /> {loading ? 'Working...' : 'Create account'}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           ) : (
             <div className="authGrid single">
@@ -403,16 +533,125 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
               <Input type="password" label="Password" value={form.password} onChange={(password) => setForm({ ...form, password })} />
             </div>
           )}
-          <button className="primary authSubmit" disabled={loading} onClick={submit}>
-            {isRegister ? <UserPlus size={18} /> : <Lock size={18} />}
-            {loading ? 'Working...' : isRegister ? 'Create account' : 'Login'}
-          </button>
+          {!isRegister && (
+            <button className="primary authSubmit" disabled={loading} onClick={submit}>
+              <Lock size={18} />
+              {loading ? 'Working...' : 'Login'}
+            </button>
+          )}
           <button className="ghost authSubmit" onClick={() => navigateTo(setRoute, isRegister ? 'login' : 'register')}>
             {isRegister ? 'Already have an account' : 'Create new account'}
           </button>
           {error && <div className="error">{error}</div>}
         </section>
       </main>
+    </div>
+  );
+}
+
+function getRegisterSteps(form) {
+  const firstName = form.firstName.trim();
+  const lastName = form.lastName.trim();
+  const username = form.username.trim();
+  const email = form.email.trim();
+  const country = form.country.trim();
+  const address = form.address.trim();
+  const organization = form.organization.trim();
+  const role = form.role.trim();
+  const password = form.password;
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const usernameOk = /^[a-zA-Z0-9_-]+$/.test(username);
+  const passwordDigits = (password.match(/\d/g) || []).length;
+  return [
+    {
+      title: 'First name and last name',
+      checks: [
+        { label: 'First name has at least 2 letters', valid: firstName.length >= 2 },
+        { label: 'Last name has at least 2 letters', valid: lastName.length >= 2 },
+      ],
+    },
+    {
+      title: 'Username',
+      checks: [
+        { label: 'Username is 3 to 80 characters', valid: username.length >= 3 && username.length <= 80 },
+        { label: 'Only letters, numbers, underscore, or dash', valid: usernameOk },
+      ],
+    },
+    {
+      title: 'Email address',
+      checks: [
+        { label: 'Email format is valid', valid: emailOk },
+        { label: 'Email is under 160 characters', valid: email.length > 0 && email.length <= 160 },
+      ],
+    },
+    {
+      title: 'Location',
+      checks: [
+        { label: 'Country is filled in', valid: country.length >= 2 && country.length <= 120 },
+        { label: 'Address is at least 6 characters', valid: address.length >= 6 && address.length <= 220 },
+        { label: 'Address includes at least one number', valid: /\d/.test(address) },
+      ],
+    },
+    {
+      title: 'Work profile',
+      checks: [
+        { label: 'Organization is 80 characters or less', valid: organization.length <= 80 },
+        { label: 'Role is 80 characters or less', valid: role.length <= 80 },
+      ],
+    },
+    {
+      title: 'Password',
+      checks: [
+        { label: 'Password is at least 8 characters', valid: password.length >= 8 },
+        { label: 'Password includes at least 1 digit', valid: passwordDigits >= 1 },
+        { label: 'Password includes at least 1 letter', valid: /[a-zA-Z]/.test(password) },
+      ],
+    },
+    {
+      title: 'Is all information correct?',
+      checks: [
+        { label: 'Name, email, location, and password checks are complete', valid: firstName.length >= 2 && lastName.length >= 2 && username.length >= 3 && emailOk && country.length >= 2 && address.length >= 6 && password.length >= 8 && passwordDigits >= 1 },
+        { label: 'You confirmed the information is correct', valid: form.confirmInfo },
+      ],
+    },
+  ];
+}
+
+function registerPayload(form) {
+  return {
+    fullName: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
+    username: form.username.trim(),
+    email: form.email.trim(),
+    country: form.country.trim(),
+    address: form.address.trim(),
+    organization: form.organization.trim(),
+    role: form.role.trim(),
+    password: form.password,
+  };
+}
+
+function reviewRows(form) {
+  const payload = registerPayload(form);
+  return [
+    ['Full name', payload.fullName],
+    ['Username', payload.username],
+    ['Email', payload.email],
+    ['Country', payload.country],
+    ['Address', payload.address],
+    ['Organization', payload.organization || 'Independent'],
+    ['Role', payload.role || 'Analyst'],
+  ];
+}
+
+function ValidationList({ checks }) {
+  return (
+    <div className="validationList">
+      {checks.map((check) => (
+        <div className={check.valid ? 'valid' : ''} key={check.label}>
+          <CheckCircle2 size={16} />
+          <span>{check.label}</span>
+        </div>
+      ))}
     </div>
   );
 }
