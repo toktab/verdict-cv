@@ -4,6 +4,7 @@ import dev.toktab.brainhack.admin.AdminSessionService;
 import dev.toktab.brainhack.account.AccountSettingsService;
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.account.UserAccountService;
+import dev.toktab.brainhack.account.UserMapper;
 import dev.toktab.brainhack.api.dto.AdminLoginRequest;
 import dev.toktab.brainhack.api.dto.AdminLoginResponse;
 import dev.toktab.brainhack.api.dto.AdminSettingsRequest;
@@ -44,6 +45,7 @@ public class AdminController {
     private final AppEventLogRepository logRepository;
     private final AuditLogService logService;
     private final UserAccountService userAccountService;
+    private final UserMapper userMapper;
     private final AccountSettingsService accountSettingsService;
 
     public AdminController(
@@ -54,6 +56,7 @@ public class AdminController {
             AppEventLogRepository logRepository,
             AuditLogService logService,
             UserAccountService userAccountService,
+            UserMapper userMapper,
             AccountSettingsService accountSettingsService) {
         this.adminSessionService = adminSessionService;
         this.auditService = auditService;
@@ -62,6 +65,7 @@ public class AdminController {
         this.logRepository = logRepository;
         this.logService = logService;
         this.userAccountService = userAccountService;
+        this.userMapper = userMapper;
         this.accountSettingsService = accountSettingsService;
     }
 
@@ -95,21 +99,21 @@ public class AdminController {
 
     @GetMapping("/users")
     public List<UserResponse> users() {
-        return userAccountService.users().stream().map(this::toUserResponse).toList();
+        return userAccountService.users().stream().map(userMapper::toResponse).toList();
     }
 
     @PostMapping("/users")
     public UserResponse createUser(@Valid @RequestBody UserAdminRequest request) {
         UserAccount user = userAccountService.create(request);
         logService.recordSystem("ADMIN_CREATE_USER", "userId=" + user.getId());
-        return toUserResponse(user);
+        return userMapper.toResponse(user);
     }
 
     @PatchMapping("/users/{id}")
     public UserResponse updateUser(@PathVariable Long id, @Valid @RequestBody UserAdminRequest request) {
         UserAccount user = userAccountService.update(id, request);
         logService.recordSystem("ADMIN_UPDATE_USER", "userId=" + id);
-        return toUserResponse(user);
+        return userMapper.toResponse(user);
     }
 
     @DeleteMapping("/users/{id}")
@@ -175,21 +179,5 @@ public class AdminController {
         AppEventLog log = logRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Log not found: " + id));
         log.setDeletedAt(Instant.now());
         logRepository.save(log);
-    }
-
-    private UserResponse toUserResponse(UserAccount account) {
-        return new UserResponse(
-                account.getId(),
-                account.getFullName(),
-                account.getUsername(),
-                account.getEmail(),
-                account.getCountry(),
-                account.getAddress(),
-                account.getOrganization(),
-                account.getRole(),
-                account.isEmailVerified(),
-                account.getCreatedAt(),
-                account.getLastLoginAt()
-        );
     }
 }
