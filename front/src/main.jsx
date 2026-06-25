@@ -89,6 +89,10 @@ function App() {
     return <AdminPanel setRoute={setRoute} />;
   }
 
+  if (route === 'dashboard') {
+    return <DashboardPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} openAudit={openAudit} />;
+  }
+
   if (route === 'login') {
     return <AuthPage mode="login" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
   }
@@ -139,6 +143,7 @@ function App() {
 
 function routeFromPath() {
   if (window.location.pathname === '/admin') return 'admin';
+  if (window.location.pathname === '/dashboard') return 'dashboard';
   if (window.location.pathname === '/audit') return 'app';
   if (window.location.pathname === '/login') return 'login';
   if (window.location.pathname === '/register') return 'register';
@@ -147,7 +152,7 @@ function routeFromPath() {
 
 function navigateTo(setRoute, next) {
   setRoute(next);
-  const path = next === 'admin' ? '/admin' : next === 'app' ? '/audit' : next === 'login' ? '/login' : next === 'register' ? '/register' : '/';
+  const path = next === 'admin' ? '/admin' : next === 'dashboard' ? '/dashboard' : next === 'app' ? '/audit' : next === 'login' ? '/login' : next === 'register' ? '/register' : '/';
   window.history.replaceState(null, '', path);
 }
 
@@ -176,6 +181,7 @@ function Header({ setRoute, user, userToken, setUser, setUserToken }) {
       </div>
       <nav>
         <button onClick={() => navigate('home')}>Home</button>
+        {user && <button onClick={() => navigate('dashboard')}><Gauge size={16} /> Dashboard</button>}
         <button onClick={() => navigate('app')}><FileSearch size={16} /> Audit</button>
         <button onClick={() => navigate('admin')}><Lock size={16} /> Admin</button>
         {user ? (
@@ -266,6 +272,72 @@ function HomePage({ setRoute, user, userToken, setUser, setUserToken }) {
   );
 }
 
+function DashboardPage({ setRoute, user, userToken, setUser, setUserToken, history, openAudit }) {
+  const stats = dashboardStats(history);
+  return (
+    <div className="shell">
+      <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
+      <main className="dashboard">
+        <section className="dashboardHero">
+          <div>
+            <span className="eyebrow">Private workspace</span>
+            <h1>{user ? `Welcome, ${user.fullName}` : 'Welcome back'}</h1>
+            <p>{user?.organization || 'Independent'} / {user?.role || 'Analyst'} / {user?.email}</p>
+          </div>
+          <button className="primary" onClick={() => navigateTo(setRoute, 'app')}><Play size={18} /> New audit</button>
+        </section>
+        <section className="dashboardStats">
+          <Metric label="Private audits" value={history.length} />
+          <Metric label="Average score" value={`${stats.averageScore}%`} />
+          <Metric label="Risky claims" value={stats.riskyClaims} />
+          <Metric label="Saved reports" value={history.length} />
+        </section>
+        <section className="dashboardGrid">
+          <div className="dashboardPanel">
+            <h2><History size={18} /> Recent audits</h2>
+            {history.length === 0 && <div className="emptyState">No private audits yet. Start with the demo case or paste your own claim and evidence.</div>}
+            {history.slice(0, 5).map((item) => (
+              <button className="dashboardAuditRow" key={item.id} onClick={() => openAudit(item.id)}>
+                <span>#{item.id} {item.claimTitle}</span>
+                <strong>{item.credibilityScore}%</strong>
+              </button>
+            ))}
+          </div>
+          <div className="dashboardPanel">
+            <h2><ShieldCheck size={18} /> Workspace health</h2>
+            <div className="healthLine"><span>Last activity</span><strong>{stats.lastActivity}</strong></div>
+            <div className="healthLine"><span>Lowest score</span><strong>{stats.lowestScore}%</strong></div>
+            <div className="healthLine"><span>Highest score</span><strong>{stats.highestScore}%</strong></div>
+            <div className="healthLine"><span>Most common issue</span><strong>{stats.commonIssue}</strong></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+function dashboardStats(history) {
+  if (history.length === 0) {
+    return { averageScore: 0, riskyClaims: 0, lowestScore: 0, highestScore: 0, lastActivity: 'No audits yet', commonIssue: 'None' };
+  }
+  const total = history.reduce((sum, audit) => sum + audit.credibilityScore, 0);
+  const riskyClaims = history.reduce((sum, audit) => sum + audit.stretchedCount + audit.unsupportedCount + audit.gapCount, 0);
+  const scores = history.map((audit) => audit.credibilityScore);
+  const latest = history[0]?.createdAt ? new Date(history[0].createdAt).toLocaleString() : 'Unknown';
+  const unsupported = history.reduce((sum, audit) => sum + audit.unsupportedCount, 0);
+  const stretched = history.reduce((sum, audit) => sum + audit.stretchedCount, 0);
+  const gaps = history.reduce((sum, audit) => sum + audit.gapCount, 0);
+  const commonIssue = unsupported >= stretched && unsupported >= gaps ? 'Unsupported claims' : stretched >= gaps ? 'Stretched wording' : 'Requirement gaps';
+  return {
+    averageScore: Math.round(total / history.length),
+    riskyClaims,
+    lowestScore: Math.min(...scores),
+    highestScore: Math.max(...scores),
+    lastActivity: latest,
+    commonIssue,
+  };
+}
+
 function AuthPage({ mode, setRoute, setUser, setUserToken }) {
   const isRegister = mode === 'register';
   const [form, setForm] = useState({
@@ -295,7 +367,7 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
       localStorage.setItem('verdictUserToken', response.token);
       setUserToken(response.token);
       setUser(response.user);
-      navigateTo(setRoute, 'app');
+      navigateTo(setRoute, 'dashboard');
     } catch (err) {
       setError(err.message);
     } finally {

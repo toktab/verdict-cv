@@ -11,9 +11,9 @@ Excluded by user, do not implement:
 - Security hardening items such as CORS restriction, CSRF hardening, rate limiting, account lockout, and removing default admin credentials.
 
 1. Real logged-in dashboard
-Status: TODO
+Status: FIXED
 Advice: Add a dashboard after login with recent audits, average credibility score, risky claims count, saved reports, and quick action to start a new audit.
-Fix notes: Pending.
+Fix notes: Added /dashboard SPA route, dashboard header navigation, post-login redirect to dashboard, private workspace hero, recent audits, average score, risky claims, saved reports, last activity, lowest/highest score, and quick new-audit action. Commit: pending.
 
 2. Stronger audit ownership UX
 Status: TODO

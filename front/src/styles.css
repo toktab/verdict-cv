@@ -367,6 +367,90 @@ nav button:hover,
   margin-top: 14px;
 }
 
+.dashboard {
+  width: min(1240px, calc(100vw - 36px));
+  margin: 34px auto 72px;
+  position: relative;
+  z-index: 1;
+}
+
+.dashboardHero {
+  display: flex;
+  justify-content: space-between;
+  gap: 22px;
+  align-items: end;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 30px;
+  background:
+    radial-gradient(circle at 20% 0, rgba(255, 59, 59, 0.12), transparent 20rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    var(--panel);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+}
+
+.dashboardHero h1 {
+  margin: 8px 0;
+  font-size: clamp(34px, 6vw, 74px);
+  line-height: 0.95;
+}
+
+.dashboardHero p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.dashboardStats,
+.dashboardGrid {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.dashboardStats {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.dashboardGrid {
+  grid-template-columns: 1.1fr 0.9fr;
+}
+
+.dashboardPanel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)),
+    var(--panel);
+}
+
+.dashboardPanel h2 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 12px;
+}
+
+.dashboardAuditRow,
+.healthLine {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.healthLine span {
+  color: var(--muted);
+}
+
 .intake {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -943,7 +1027,9 @@ select {
   .marketingGrid,
   .magnetList,
   .authGrid,
-  .userEditor {
+  .userEditor,
+  .dashboardStats,
+  .dashboardGrid {
     grid-template-columns: 1fr;
   }
 
@@ -968,5 +1054,10 @@ select {
 
   .productShot {
     min-width: 0;
+  }
+
+  .dashboardHero {
+    display: grid;
+    align-items: start;
   }
 }
