@@ -1,0 +1,146 @@
+VERDICT Senior Full-Stack Improvement Checklist
+
+Rules for this file:
+- This is the running checklist for senior-level improvements.
+- After each completed item, mark it FIXED and include the commit hash.
+- Do not implement excluded items from project-review-fixes.txt.
+
+Excluded by user, do not implement:
+- Mailing / real email sending / verification email delivery.
+- Database migrations with Flyway or Liquibase.
+- Security hardening items such as CORS restriction, CSRF hardening, rate limiting, account lockout, and removing default admin credentials.
+
+1. Real logged-in dashboard
+Status: TODO
+Advice: Add a dashboard after login with recent audits, average credibility score, risky claims count, saved reports, and quick action to start a new audit.
+Fix notes: Pending.
+
+2. Stronger audit ownership UX
+Status: TODO
+Advice: Make it visually obvious that audits are private to the logged-in user with labels like My audits, Private workspace, user profile chip, audit count, and last activity.
+Fix notes: Pending.
+
+3. Dedicated audit detail page
+Status: TODO
+Advice: Add an audit detail route/view with score, verdict table, filters, original claim/evidence side-by-side, export, timestamps, and engine metadata.
+Fix notes: Pending.
+
+4. Verdict filters
+Status: TODO
+Advice: Add filters for SUPPORTED, STRETCHED, UNSUPPORTED, GAP, confidence, and severity/problem status.
+Fix notes: Pending.
+
+5. Better evidence view
+Status: TODO
+Advice: Show the evidence document beside results and highlight matching evidence snippets.
+Fix notes: Pending.
+
+6. Suspicious words panel
+Status: TODO
+Advice: Add a panel for risky words like expert, led, optimized, proven, advanced, explaining risk and suggesting safer wording.
+Fix notes: Pending.
+
+7. Rewrite suggestions
+Status: TODO
+Advice: For stretched/unsupported claims, suggest safer replacement wording.
+Fix notes: Pending.
+
+8. Audit modes
+Status: TODO
+Advice: Add modes such as CV vs job posting, sales claim vs source docs, pitch deck vs evidence, and report vs references. The selected mode should adjust labels and copy.
+Fix notes: Pending.
+
+9. User profile page
+Status: TODO
+Advice: Let users view/edit full name, email, country, address, organization, role, and password from their own account page.
+Fix notes: Pending.
+
+10. Soft delete
+Status: TODO
+Advice: Prefer deletedAt soft-delete for users/audits/logs instead of permanent delete, with admin restore/purge later.
+Fix notes: Pending.
+
+11. Split React structure
+Status: TODO
+Advice: Split frontend into pages, components, hooks, and API modules instead of keeping everything in main.jsx.
+Fix notes: Pending.
+
+12. DTO mapper cleanup
+Status: TODO
+Advice: Move repeated response-building logic from controllers into mapper classes.
+Fix notes: Pending.
+
+13. More service-layer tests
+Status: TODO
+Advice: Add service tests beyond controller smoke flows, especially auth/session/audit ownership/evidence normalization.
+Fix notes: Pending.
+
+14. Pagination
+Status: TODO
+Advice: Add pagination for audits, users, and logs.
+Fix notes: Pending.
+
+15. Consistent error codes
+Status: TODO
+Advice: Return structured error codes with messages so frontend can handle states more cleanly.
+Fix notes: Pending.
+
+16. Request IDs
+Status: TODO
+Advice: Add request IDs to logs and API responses for traceability.
+Fix notes: Pending.
+
+17. Database indexes
+Status: TODO
+Advice: Add JPA indexes on owner_id, created_at, username, email where appropriate. This is not a migration file; it is entity metadata only.
+Fix notes: Pending.
+
+18. Audit status lifecycle
+Status: TODO
+Advice: Track audit status such as RUNNING, COMPLETED, FAILED.
+Fix notes: Pending.
+
+19. Async audit jobs
+Status: TODO
+Advice: Move long audits to async jobs instead of blocking the request.
+Fix notes: Pending.
+
+20. Prompt version stored per audit
+Status: TODO
+Advice: Store analyzer/prompt version with each audit for reproducibility.
+Fix notes: Pending.
+
+21. Demo mode sample records
+Status: TODO
+Advice: Add stable demo sample records or loadable demo cases for presentation reliability.
+Fix notes: Pending.
+
+22. Visual result table density
+Status: TODO
+Advice: Add a more compact professional results table for scanning many claims.
+Fix notes: Pending.
+
+23. Sticky result summary bar
+Status: TODO
+Advice: Add a sticky summary bar on result/detail views with score, counts, export, and key metadata.
+Fix notes: Pending.
+
+24. Better mobile admin layout
+Status: TODO
+Advice: Make admin controls more usable on small screens.
+Fix notes: Pending.
+
+25. Skeleton loaders
+Status: TODO
+Advice: Add skeleton loaders for admin, users, history, and audit result loading states.
+Fix notes: Pending.
+
+26. Button hierarchy polish
+Status: TODO
+Advice: Make primary, secondary, destructive, and quiet buttons visually distinct.
+Fix notes: Pending.
+
+27. Profile/account dropdown
+Status: TODO
+Advice: Add a polished account dropdown in the header for profile, dashboard, audit, logout.
+Fix notes: Pending.
