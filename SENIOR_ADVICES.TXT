@@ -61,9 +61,9 @@ Advice: Prefer deletedAt soft-delete for users/audits/logs instead of permanent 
 Fix notes: Added deletedAt to users, audits, and logs; admin delete actions now timestamp records; normal auth, history, admin lists, and detail queries ignore soft-deleted records. Commit: ec477f8.
 
 11. Split React structure
-Status: TODO
+Status: FIXED
 Advice: Split frontend into pages, components, hooks, and API modules instead of keeping everything in main.jsx.
-Fix notes: Pending.
+Fix notes: Extracted shared UI components, audit content/mode data, route state hook, and ProfilePage module while preserving existing app behavior. Commit: 56fd33b.
 
 12. DTO mapper cleanup
 Status: TODO
