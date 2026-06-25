@@ -31,9 +31,9 @@ Advice: Add filters for SUPPORTED, STRETCHED, UNSUPPORTED, GAP, confidence, and 
 Fix notes: Added detail-page filters for status, confidence, problem-only, and high/medium/low risk severity. Commit: cc6f7fa.
 
 5. Better evidence view
-Status: TODO
+Status: FIXED
 Advice: Show the evidence document beside results and highlight matching evidence snippets.
-Fix notes: Pending.
+Fix notes: Added evidence companion panel beside the verdict table, keyword matching from filtered verdicts, ranked evidence snippets, and highlighted matching terms. Commit: c580e8f.
 
 6. Suspicious words panel
 Status: TODO
