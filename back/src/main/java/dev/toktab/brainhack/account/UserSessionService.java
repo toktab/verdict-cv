@@ -55,6 +55,9 @@ public class UserSessionService {
         String identifier = clean(request.identifier()).toLowerCase();
         UserAccount account = userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase(identifier, identifier)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+        if (account.getDeletedAt() != null) {
+            throw new IllegalArgumentException("Invalid credentials");
+        }
         if (!BCrypt.checkpw(request.password(), account.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid credentials");
         }
@@ -68,6 +71,10 @@ public class UserSessionService {
     public UserAccount me(String token) {
         UserSession session = sessionRepository.findById(token).orElseThrow(() -> new IllegalArgumentException("User authentication required"));
         if (session.getExpiresAt().isBefore(Instant.now())) {
+            sessionRepository.deleteById(token);
+            throw new IllegalArgumentException("User authentication required");
+        }
+        if (session.getUser().getDeletedAt() != null) {
             sessionRepository.deleteById(token);
             throw new IllegalArgumentException("User authentication required");
         }

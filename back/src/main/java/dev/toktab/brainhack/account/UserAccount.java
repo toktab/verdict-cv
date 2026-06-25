@@ -50,6 +50,8 @@ public class UserAccount {
 
     private Instant lastLoginAt;
 
+    private Instant deletedAt;
+
     public Long getId() {
         return id;
     }
@@ -153,5 +155,13 @@ public class UserAccount {
 
     public void setLastLoginAt(Instant lastLoginAt) {
         this.lastLoginAt = lastLoginAt;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(Instant deletedAt) {
+        this.deletedAt = deletedAt;
     }
 }

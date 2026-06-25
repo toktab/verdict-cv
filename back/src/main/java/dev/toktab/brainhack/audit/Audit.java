@@ -69,6 +69,8 @@ public class Audit {
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
+    private Instant deletedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id")
     private UserAccount owner;
@@ -203,6 +205,14 @@ public class Audit {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(Instant deletedAt) {
+        this.deletedAt = deletedAt;
     }
 
     public List<Verdict> getVerdicts() {

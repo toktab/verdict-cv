@@ -5,7 +5,11 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AuditRepository extends JpaRepository<Audit, Long> {
-    List<Audit> findByOwnerIdOrderByCreatedAtDesc(Long ownerId);
+    List<Audit> findByDeletedAtIsNullOrderByCreatedAtDesc();
 
-    Optional<Audit> findByIdAndOwnerId(Long id, Long ownerId);
+    List<Audit> findByOwnerIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long ownerId);
+
+    Optional<Audit> findByIdAndDeletedAtIsNull(Long id);
+
+    Optional<Audit> findByIdAndOwnerIdAndDeletedAtIsNull(Long id, Long ownerId);
 }

@@ -23,6 +23,7 @@ import dev.toktab.brainhack.log.AuditLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
+import java.time.Instant;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -166,12 +167,14 @@ public class AdminController {
 
     @GetMapping("/logs")
     public List<AppEventLog> logs() {
-        return logRepository.findTop250ByOrderByCreatedAtDesc();
+        return logRepository.findTop250ByDeletedAtIsNullOrderByCreatedAtDesc();
     }
 
     @DeleteMapping("/logs/{id}")
     public void deleteLog(@PathVariable Long id) {
-        logRepository.deleteById(id);
+        AppEventLog log = logRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Log not found: " + id));
+        log.setDeletedAt(Instant.now());
+        logRepository.save(log);
     }
 
     private UserResponse toUserResponse(UserAccount account) {

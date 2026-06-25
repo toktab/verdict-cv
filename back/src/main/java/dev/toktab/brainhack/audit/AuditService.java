@@ -6,6 +6,7 @@ import dev.toktab.brainhack.events.RabbitEventPublisher;
 import dev.toktab.brainhack.log.AuditLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Locale;
@@ -88,26 +89,26 @@ public class AuditService {
     }
 
     public Audit get(Long id) {
-        return auditRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Audit not found: " + id));
+        return auditRepository.findByIdAndDeletedAtIsNull(id).orElseThrow(() -> new IllegalArgumentException("Audit not found: " + id));
     }
 
     public Audit getForUser(Long id, UserAccount owner) {
-        return auditRepository.findByIdAndOwnerId(id, owner.getId()).orElseThrow(() -> new IllegalArgumentException("Audit not found: " + id));
+        return auditRepository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner.getId()).orElseThrow(() -> new IllegalArgumentException("Audit not found: " + id));
     }
 
     public List<Audit> history() {
-        return auditRepository.findAll().stream()
-                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
-                .toList();
+        return auditRepository.findByDeletedAtIsNullOrderByCreatedAtDesc();
     }
 
     public List<Audit> historyForUser(UserAccount owner) {
-        return auditRepository.findByOwnerIdOrderByCreatedAtDesc(owner.getId());
+        return auditRepository.findByOwnerIdAndDeletedAtIsNullOrderByCreatedAtDesc(owner.getId());
     }
 
     @Transactional
     public void delete(Long id) {
-        auditRepository.deleteById(id);
+        Audit audit = get(id);
+        audit.setDeletedAt(Instant.now());
+        auditRepository.save(audit);
     }
 
     @Transactional

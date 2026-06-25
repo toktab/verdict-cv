@@ -3,6 +3,7 @@ package dev.toktab.brainhack.account;
 import dev.toktab.brainhack.api.dto.UserAdminRequest;
 import dev.toktab.brainhack.api.dto.UserProfileRequest;
 import jakarta.transaction.Transactional;
+import java.time.Instant;
 import java.util.List;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ public class UserAccountService {
 
     public List<UserAccount> users() {
         return userRepository.findAll().stream()
+                .filter(user -> user.getDeletedAt() == null)
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .toList();
     }
@@ -69,7 +71,9 @@ public class UserAccountService {
 
     @Transactional
     public void delete(Long id) {
-        userRepository.deleteById(id);
+        UserAccount account = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
+        account.setDeletedAt(Instant.now());
+        userRepository.save(account);
     }
 
     @Transactional

@@ -45,6 +45,8 @@ public class AppEventLog {
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
+    private Instant deletedAt;
+
     public Long getId() {
         return id;
     }
@@ -131,5 +133,13 @@ public class AppEventLog {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(Instant deletedAt) {
+        this.deletedAt = deletedAt;
     }
 }
