@@ -49,12 +49,10 @@ public class AuditService {
         this.maxEvidenceChars = maxEvidenceChars;
     }
 
-    @Transactional
     public Audit run(AuditRunRequest request, HttpServletRequest httpRequest) {
         return run(request, httpRequest, null);
     }
 
-    @Transactional
     public Audit run(AuditRunRequest request, HttpServletRequest httpRequest, UserAccount owner) {
         long started = System.currentTimeMillis();
         String claimText = trim(request.claimText(), maxClaimChars);
@@ -64,8 +62,6 @@ public class AuditService {
             throw new IllegalArgumentException("Claim document does not contain auditable text.");
         }
         rabbitEventPublisher.publish("audit.requested", Map.of("claimTitle", title(request.claimTitle(), "Claim Document"), "sentenceCount", sentences.size()));
-        AuditAnalysisResult analysis = analyze(sentences, evidenceText);
-        List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(analysis.verdicts(), evidenceText);
         Audit audit = new Audit();
         audit.setClaimTitle(title(request.claimTitle(), "Claim Document"));
         audit.setEvidenceTitle(title(request.evidenceTitle(), "Evidence Document"));
@@ -73,19 +69,33 @@ public class AuditService {
         audit.setEvidenceText(evidenceText);
         audit.setClaimFingerprint(fingerprintService.sha256(claimText));
         audit.setEvidenceFingerprint(fingerprintService.sha256(evidenceText));
-        audit.setEngine(analysis.engine());
+        audit.setEngine("pending");
+        audit.setStatus(AuditStatus.RUNNING);
         audit.setOwner(owner);
-        audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
-        audit.setProcessingMillis(System.currentTimeMillis() - started);
-        for (AnalyzedVerdict analyzed : normalizedVerdicts) {
-            audit.addVerdict(toEntity(analyzed));
+        audit = auditRepository.saveAndFlush(audit);
+        try {
+            AuditAnalysisResult analysis = analyze(sentences, evidenceText);
+            List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(analysis.verdicts(), evidenceText);
+            audit.setEngine(analysis.engine());
+            audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
+            audit.setProcessingMillis(System.currentTimeMillis() - started);
+            for (AnalyzedVerdict analyzed : normalizedVerdicts) {
+                audit.addVerdict(toEntity(analyzed));
+            }
+            countStatuses(audit);
+            audit.setStatus(AuditStatus.COMPLETED);
+            Audit saved = auditRepository.save(audit);
+            rabbitEventPublisher.publish("audit.completed", Map.of("auditId", saved.getId(), "score", saved.getCredibilityScore(), "engine", saved.getEngine()));
+            String actor = owner == null ? "visitor" : owner.getUsername();
+            logService.record("AUDIT_RUN", httpRequest, 200, saved.getProcessingMillis(), actor, "auditId=" + saved.getId() + "; status=" + saved.getStatus() + "; score=" + saved.getCredibilityScore() + "; engine=" + saved.getEngine());
+            return saved;
+        } catch (RuntimeException exception) {
+            audit.setStatus(AuditStatus.FAILED);
+            audit.setProcessingMillis(System.currentTimeMillis() - started);
+            auditRepository.save(audit);
+            rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
+            throw exception;
         }
-        countStatuses(audit);
-        Audit saved = auditRepository.save(audit);
-        rabbitEventPublisher.publish("audit.completed", Map.of("auditId", saved.getId(), "score", saved.getCredibilityScore(), "engine", saved.getEngine()));
-        String actor = owner == null ? "visitor" : owner.getUsername();
-        logService.record("AUDIT_RUN", httpRequest, 200, saved.getProcessingMillis(), actor, "auditId=" + saved.getId() + "; score=" + saved.getCredibilityScore() + "; engine=" + saved.getEngine());
-        return saved;
     }
 
     public Audit get(Long id) {

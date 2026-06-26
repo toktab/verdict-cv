@@ -918,6 +918,21 @@ nav button:hover,
 .statusPill.unsupported,
 .statusPill.gap { color: #ff8585; border-color: rgba(255, 105, 105, 0.44); }
 
+.auditStatusPill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.2rem 0.5rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.auditStatusPill.completed { color: var(--green); border-color: rgba(102, 217, 145, 0.35); }
+.auditStatusPill.running { color: var(--amber); border-color: rgba(240, 184, 90, 0.42); }
+.auditStatusPill.failed { color: #ff8585; border-color: rgba(255, 105, 105, 0.44); }
+
 .evidencePanel {
   position: sticky;
   top: 94px;

@@ -26,6 +26,7 @@ public class AuditMapper {
                 audit.getEvidenceFingerprint(),
                 audit.getProcessingMillis(),
                 audit.getEngine(),
+                audit.getStatus(),
                 audit.getCreatedAt(),
                 audit.getVerdicts().stream().map(this::toVerdictResponse).toList()
         );
@@ -49,6 +50,7 @@ public class AuditMapper {
                 audit.getGapCount(),
                 audit.getProcessingMillis(),
                 audit.getEngine(),
+                audit.getStatus(),
                 audit.getCreatedAt(),
                 topProblems
         );

@@ -4,6 +4,8 @@ import dev.toktab.brainhack.account.UserAccount;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -73,6 +75,10 @@ public class Audit {
 
     @Column(nullable = false, length = 40)
     private String engine;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 16)
+    private AuditStatus status = AuditStatus.RUNNING;
 
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
@@ -205,6 +211,14 @@ public class Audit {
 
     public void setEngine(String engine) {
         this.engine = engine;
+    }
+
+    public AuditStatus getStatus() {
+        return status == null ? AuditStatus.COMPLETED : status;
+    }
+
+    public void setStatus(AuditStatus status) {
+        this.status = status;
     }
 
     public Instant getCreatedAt() {

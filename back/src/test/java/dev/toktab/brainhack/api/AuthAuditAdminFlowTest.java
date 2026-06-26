@@ -58,8 +58,9 @@ class AuthAuditAdminFlowTest {
                                   "claimText":"Built Spring Boot APIs with MySQL. Led a small backend project.",
                                   "evidenceText":"Portfolio states Spring Boot APIs with MySQL and backend project ownership."
                                 }
-                                """))
+                """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.verdicts", hasSize(2)))
                 .andReturn();
 

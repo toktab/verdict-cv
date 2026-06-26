@@ -1,5 +1,6 @@
 package dev.toktab.brainhack.api.dto;
 
+import dev.toktab.brainhack.audit.AuditStatus;
 import java.time.Instant;
 import java.util.List;
 
@@ -14,6 +15,7 @@ public record AuditSummaryResponse(
         int gapCount,
         long processingMillis,
         String engine,
+        AuditStatus status,
         Instant createdAt,
         List<VerdictResponse> topProblems
 ) {

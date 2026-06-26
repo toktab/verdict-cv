@@ -50,6 +50,7 @@ class ServiceLayerBehaviorTest {
         Audit audit = auditService.run(auditRequest(), new MockHttpServletRequest(), owner);
 
         assertThat(auditService.getForUser(audit.getId(), owner).getId()).isEqualTo(audit.getId());
+        assertThat(audit.getStatus()).isEqualTo(AuditStatus.COMPLETED);
         assertThatThrownBy(() -> auditService.getForUser(audit.getId(), other))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Audit not found");
@@ -60,6 +61,7 @@ class ServiceLayerBehaviorTest {
         UserAccount owner = sessionService.register(user("evidence_user", "evidence@example.com")).account();
         Audit audit = auditService.run(auditRequest(), new MockHttpServletRequest(), owner);
 
+        assertThat(audit.getStatus()).isEqualTo(AuditStatus.COMPLETED);
         assertThat(audit.getVerdicts()).isNotEmpty();
         assertThat(audit.getVerdicts())
                 .anySatisfy(verdict -> {

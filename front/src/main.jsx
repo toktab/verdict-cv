@@ -341,6 +341,7 @@ function DashboardPage({ setRoute, user, userToken, setUser, setUserToken, histo
             {history.slice(0, 5).map((item) => (
               <button className="dashboardAuditRow" key={item.id} onClick={() => openAudit(item.id)}>
                 <span>#{item.id} {item.claimTitle}</span>
+                <span className={`auditStatusPill ${(item.status || 'COMPLETED').toLowerCase()}`}>{item.status || 'COMPLETED'}</span>
                 <strong>{item.credibilityScore}%</strong>
               </button>
             ))}
@@ -756,6 +757,7 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
             </section>
             <section className="detailMeta">
               <Metric label="Created" value={formatDateTime(audit.createdAt)} />
+              <Metric label="Status" value={audit.status || 'COMPLETED'} />
               <Metric label="Engine" value={audit.engine} />
               <Metric label="Runtime" value={`${audit.processingMillis}ms`} />
               <Metric label="Claim hash" value={shortHash(audit.claimFingerprint)} />
@@ -1043,7 +1045,7 @@ function AuditResult({ audit }) {
       <RewriteSuggestions verdicts={audit.verdicts} />
       <div className="summaryStrip">
         <ShieldCheck size={18} />
-        <span>Top risk count: {problems.length}. Engine: {audit.engine}. Completed in {audit.processingMillis}ms.</span>
+        <span>Top risk count: {problems.length}. Status: {audit.status || 'COMPLETED'}. Engine: {audit.engine}. Completed in {audit.processingMillis}ms.</span>
       </div>
     </section>
   );
@@ -1335,7 +1337,7 @@ function AdminPanel({ setRoute }) {
           {audits.length === 0 && <div className="emptyState">No audits have been created yet.</div>}
           {audits.map((audit) => (
             <div className="adminRow" key={audit.id}>
-              <span>#{audit.id} {audit.claimTitle} / {audit.credibilityScore}%</span>
+              <span>#{audit.id} {audit.claimTitle} / {audit.credibilityScore}% / {audit.status || 'COMPLETED'}</span>
               <div className="rowActions">
                 <button onClick={() => openAuditEditor(audit)}><Edit3 size={15} /> Edit</button>
                 <button onClick={() => deleteAudit(audit.id)}><Trash2 size={15} /> Delete</button>
