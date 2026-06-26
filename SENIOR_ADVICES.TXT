@@ -101,9 +101,9 @@ Advice: Track audit status such as RUNNING, COMPLETED, FAILED.
 Fix notes: Added persisted AuditStatus lifecycle with RUNNING, COMPLETED, and FAILED states, exposed status in audit API responses, displayed status in dashboard/detail/result/admin views, and refreshed the built static frontend. Commit: 9651718.
 
 19. Async audit jobs
-Status: TODO
+Status: FIXED
 Advice: Move long audits to async jobs instead of blocking the request.
-Fix notes: Pending.
+Fix notes: Added a bounded audit task executor, async /api/audit/run-async endpoint, background completion/failure handling, frontend polling for RUNNING jobs, and refreshed the built static frontend. Commit: pending.
 
 20. Prompt version stored per audit
 Status: TODO

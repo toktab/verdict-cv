@@ -52,7 +52,7 @@ export const api = {
     return request('/api/auth/logout', { method: 'POST', headers: { 'X-User-Token': token } });
   },
   runAudit(payload, token) {
-    return request('/api/audit/run', {
+    return request('/api/audit/run-async', {
       method: 'POST',
       headers: { ...jsonHeaders, 'X-User-Token': token },
       body: JSON.stringify(payload),

@@ -43,6 +43,12 @@ public class AuditController {
         return auditMapper.toResponse(auditService.run(request, httpRequest, user));
     }
 
+    @PostMapping("/run-async")
+    public AuditResponse runAsync(@Valid @RequestBody AuditRunRequest request, @RequestHeader(value = "X-User-Token", required = false) String token) {
+        UserAccount user = userTokenService.requireUser(token);
+        return auditMapper.toResponse(auditService.startAsync(request, user));
+    }
+
     @GetMapping("/{id}")
     public AuditResponse get(@PathVariable Long id, @RequestHeader(value = "X-User-Token", required = false) String token) {
         UserAccount user = userTokenService.requireUser(token);

@@ -72,13 +72,16 @@ function App() {
       index = Math.min(index + 1, stages.length - 1);
       setStage(stages[index]);
     }, 700);
-    try {
-      const result = await api.runAudit(auditPayload(form), userToken);
-      setAudit(result);
-      await loadHistory();
-    } catch (err) {
-      setError(err.message);
-    } finally {
+      try {
+        const queued = await api.runAudit(auditPayload(form), userToken);
+        setAudit(queued);
+        setStage('AUDIT JOB QUEUED');
+        const result = await waitForAuditCompletion(queued.id, userToken, setStage);
+        await loadHistory();
+        setAudit(result);
+      } catch (err) {
+        setError(err.message);
+      } finally {
       clearInterval(timer);
       setLoading(false);
       setStage('');
@@ -410,6 +413,26 @@ function auditPayload(form) {
     claimText: form.claimText,
     evidenceText: form.evidenceText,
   };
+}
+
+async function waitForAuditCompletion(id, token, setStage) {
+  const pollStages = ['RUNNING CLAIM CHECKS', 'CHECKING EVIDENCE', 'FINALIZING RESULTS'];
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    await delay(1000);
+    setStage(pollStages[attempt % pollStages.length]);
+    const audit = await api.getAudit(id, token);
+    if (audit.status === 'FAILED') {
+      throw new Error('Audit job failed. Please try again.');
+    }
+    if (audit.status !== 'RUNNING') {
+      return audit;
+    }
+  }
+  throw new Error('Audit job is still running. Open it from history in a moment.');
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function AuthPage({ mode, setRoute, setUser, setUserToken }) {

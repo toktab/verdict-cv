@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Locale;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -23,6 +25,7 @@ public class AuditService {
     private final FingerprintService fingerprintService;
     private final RabbitEventPublisher rabbitEventPublisher;
     private final AuditLogService logService;
+    private final TaskExecutor auditTaskExecutor;
     private final int maxClaimChars;
     private final int maxEvidenceChars;
 
@@ -35,6 +38,8 @@ public class AuditService {
             FingerprintService fingerprintService,
             RabbitEventPublisher rabbitEventPublisher,
             AuditLogService logService,
+            @Qualifier("auditTaskExecutor")
+            TaskExecutor auditTaskExecutor,
             @Value("${verdict.audit.max-claim-chars}") int maxClaimChars,
             @Value("${verdict.audit.max-evidence-chars}") int maxEvidenceChars) {
         this.auditRepository = auditRepository;
@@ -45,6 +50,7 @@ public class AuditService {
         this.fingerprintService = fingerprintService;
         this.rabbitEventPublisher = rabbitEventPublisher;
         this.logService = logService;
+        this.auditTaskExecutor = auditTaskExecutor;
         this.maxClaimChars = maxClaimChars;
         this.maxEvidenceChars = maxEvidenceChars;
     }
@@ -98,6 +104,12 @@ public class AuditService {
         }
     }
 
+    public Audit startAsync(AuditRunRequest request, UserAccount owner) {
+        Audit audit = createRunningAudit(request, owner);
+        auditTaskExecutor.execute(() -> completeAsync(audit.getId()));
+        return audit;
+    }
+
     public Audit get(Long id) {
         return auditRepository.findByIdAndDeletedAtIsNull(id).orElseThrow(() -> new IllegalArgumentException("Audit not found: " + id));
     }
@@ -148,6 +160,58 @@ public class AuditService {
             }
         }
         return localAuditAnalyzer.analyze(sentences, evidenceText);
+    }
+
+    private Audit createRunningAudit(AuditRunRequest request, UserAccount owner) {
+        String claimText = trim(request.claimText(), maxClaimChars);
+        String evidenceText = trim(request.evidenceText(), maxEvidenceChars);
+        if (sentenceSplitter.split(claimText).isEmpty()) {
+            throw new IllegalArgumentException("Claim document does not contain auditable text.");
+        }
+        Audit audit = new Audit();
+        audit.setClaimTitle(title(request.claimTitle(), "Claim Document"));
+        audit.setEvidenceTitle(title(request.evidenceTitle(), "Evidence Document"));
+        audit.setClaimText(claimText);
+        audit.setEvidenceText(evidenceText);
+        audit.setClaimFingerprint(fingerprintService.sha256(claimText));
+        audit.setEvidenceFingerprint(fingerprintService.sha256(evidenceText));
+        audit.setEngine("queued");
+        audit.setStatus(AuditStatus.RUNNING);
+        audit.setOwner(owner);
+        Audit saved = auditRepository.saveAndFlush(audit);
+        rabbitEventPublisher.publish("audit.requested", Map.of("auditId", saved.getId(), "claimTitle", saved.getClaimTitle()));
+        return saved;
+    }
+
+    private void completeAsync(Long auditId) {
+        long started = System.currentTimeMillis();
+        Audit audit = auditRepository.findByIdAndDeletedAtIsNull(auditId).orElse(null);
+        if (audit == null) {
+            return;
+        }
+        try {
+            List<String> sentences = sentenceSplitter.split(audit.getClaimText());
+            AuditAnalysisResult analysis = analyze(sentences, audit.getEvidenceText());
+            List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(analysis.verdicts(), audit.getEvidenceText());
+            audit.setEngine(analysis.engine());
+            audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
+            audit.setProcessingMillis(System.currentTimeMillis() - started);
+            audit.getVerdicts().clear();
+            for (AnalyzedVerdict analyzed : normalizedVerdicts) {
+                audit.addVerdict(toEntity(analyzed));
+            }
+            countStatuses(audit);
+            audit.setStatus(AuditStatus.COMPLETED);
+            Audit saved = auditRepository.save(audit);
+            rabbitEventPublisher.publish("audit.completed", Map.of("auditId", saved.getId(), "score", saved.getCredibilityScore(), "engine", saved.getEngine()));
+            logService.recordSystem("AUDIT_ASYNC_COMPLETED", "auditId=" + saved.getId() + "; score=" + saved.getCredibilityScore() + "; engine=" + saved.getEngine());
+        } catch (RuntimeException exception) {
+            audit.setStatus(AuditStatus.FAILED);
+            audit.setProcessingMillis(System.currentTimeMillis() - started);
+            auditRepository.save(audit);
+            rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
+            logService.recordSystem("AUDIT_ASYNC_FAILED", "auditId=" + audit.getId() + "; error=" + exception.getClass().getSimpleName());
+        }
     }
 
     private List<AnalyzedVerdict> normalizeEvidencePointers(List<AnalyzedVerdict> verdicts, String evidenceText) {
