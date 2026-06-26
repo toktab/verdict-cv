@@ -201,6 +201,6 @@ Advice: Later, explore an opt-in investigator mode that checks external public s
 Fix notes: Pending.
 
 39. Saved audit template filters
-Status: TODO
+Status: FIXED
 Advice: Add premade template filters to old audit/history views so users can quickly review saved audits through common template lenses.
-Fix notes: Pending.
+Fix notes: Added template-lens filters to dashboard recent audits and the audit history panel, using saved audit template metadata and refreshed the built static frontend. Commit: pending.

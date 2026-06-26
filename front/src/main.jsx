@@ -196,7 +196,7 @@ function App() {
     if (route === 'admin') {
       content = <AdminPanel setRoute={setRoute} />;
     } else if (route === 'dashboard') {
-      content = <DashboardPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} openAudit={openAudit} />;
+      content = <DashboardPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} templates={templates} openAudit={openAudit} />;
     } else if (route === 'auditDetail') {
       content = <AuditDetailPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} />;
     } else if (route === 'profile') {
@@ -270,7 +270,7 @@ function App() {
             {error && <div className="error">{error}</div>}
             {loading && <Loading stage={stage} />}
             {audit && <AuditResult audit={audit} />}
-            <HistoryPanel history={history} openAudit={openAudit} />
+            <HistoryPanel history={history} templates={templates} openAudit={openAudit} />
           </main>
           {demoConfirmOpen && (
             <DemoConfirmModal
@@ -426,8 +426,11 @@ function HomePage({ setRoute, user, userToken, setUser, setUserToken }) {
   );
 }
 
-function DashboardPage({ setRoute, user, userToken, setUser, setUserToken, history, openAudit }) {
+function DashboardPage({ setRoute, user, userToken, setUser, setUserToken, history, templates, openAudit }) {
+  const [templateFilter, setTemplateFilter] = useState('ALL');
   const stats = dashboardStats(history);
+  const filteredHistory = filterAuditsByTemplate(history, templateFilter);
+  const templateFilters = templateFilterOptions(history, templates);
   return (
     <div className="shell">
     <div className="pageGlow contentFadeIn" />
@@ -450,10 +453,12 @@ function DashboardPage({ setRoute, user, userToken, setUser, setUserToken, histo
         <section className="dashboardGrid">
           <div className="dashboardPanel">
             <h2><History size={18} /> Recent audits</h2>
-            {history.length === 0 && <div className="emptyState">No private audits yet. Start with the demo case or paste your own claim and evidence.</div>}
-            {history.slice(0, 5).map((item) => (
+            <TemplateLensBar filters={templateFilters} value={templateFilter} onChange={setTemplateFilter} />
+            {filteredHistory.length === 0 && <div className="emptyState">No private audits match this template lens.</div>}
+            {filteredHistory.slice(0, 5).map((item) => (
               <button className="dashboardAuditRow" key={item.id} onClick={() => openAudit(item.id)}>
                 <span>#{item.id} {item.claimTitle}</span>
+                <small>{item.templateName || 'No template'}</small>
                 <span className={`auditStatusPill ${(item.status || 'COMPLETED').toLowerCase()}`}>{item.status || 'COMPLETED'}</span>
                 <strong>{item.credibilityScore}%</strong>
               </button>
@@ -1316,21 +1321,64 @@ function VerdictCard({ verdict }) {
   );
 }
 
-function HistoryPanel({ history, openAudit }) {
+function HistoryPanel({ history, templates, openAudit }) {
+  const [templateFilter, setTemplateFilter] = useState('ALL');
+  const filteredHistory = filterAuditsByTemplate(history, templateFilter);
+  const templateFilters = templateFilterOptions(history, templates);
   return (
     <section className="history">
       <h2><History size={18} /> My Audit History</h2>
+      <TemplateLensBar filters={templateFilters} value={templateFilter} onChange={setTemplateFilter} />
       <div className="historyRows">
-        {history.length === 0 && <div className="emptyState">No audits yet. Run your first private claim audit.</div>}
-        {history.map((item) => (
+        {filteredHistory.length === 0 && <div className="emptyState">No audits match this template lens.</div>}
+        {filteredHistory.map((item) => (
           <button key={item.id} onClick={() => openAudit(item.id)}>
-            <span>#{item.id} {item.claimTitle}</span>
+            <span>#{item.id} {item.claimTitle} / {item.templateName || 'No template'}</span>
             <strong>{item.credibilityScore}%</strong>
           </button>
         ))}
       </div>
     </section>
   );
+}
+
+function TemplateLensBar({ filters, value, onChange }) {
+  return (
+    <div className="templateLensBar">
+      {filters.map((filter) => (
+        <button key={filter.id} className={value === filter.id ? 'active' : ''} onClick={() => onChange(filter.id)}>
+          {filter.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function templateFilterOptions(history, templates = []) {
+  const used = new Map();
+  history.forEach((audit) => {
+    const id = audit.templateId || 'NO_TEMPLATE';
+    used.set(id, audit.templateName || 'No template');
+  });
+  templates.forEach((template) => {
+    if (used.has(template.id)) {
+      used.set(template.id, template.name);
+    }
+  });
+  return [
+    { id: 'ALL', name: 'All templates' },
+    ...Array.from(used.entries()).map(([id, name]) => ({ id, name })),
+  ];
+}
+
+function filterAuditsByTemplate(history, templateFilter) {
+  if (templateFilter === 'ALL') {
+    return history;
+  }
+  if (templateFilter === 'NO_TEMPLATE') {
+    return history.filter((audit) => !audit.templateId);
+  }
+  return history.filter((audit) => audit.templateId === templateFilter);
 }
 
 function PaginationControls({ offset, count, pageSize, onPrev, onNext }) {

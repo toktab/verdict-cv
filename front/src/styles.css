@@ -933,6 +933,28 @@ nav button:hover,
 .auditStatusPill.running { color: var(--amber); border-color: rgba(240, 184, 90, 0.42); }
 .auditStatusPill.failed { color: #ff8585; border-color: rgba(255, 105, 105, 0.44); }
 
+.templateLensBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.templateLensBar button {
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.templateLensBar button.active {
+  color: var(--text);
+  border-color: rgba(255, 99, 99, 0.62);
+  background: rgba(255, 59, 59, 0.12);
+}
+
 .evidencePanel {
   position: sticky;
   top: 94px;
