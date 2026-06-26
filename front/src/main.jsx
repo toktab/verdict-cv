@@ -624,6 +624,7 @@ function auditPayload(form) {
     evidenceTitle: form.evidenceTitle,
     claimText: form.claimText,
     evidenceText: form.evidenceText,
+    auditMode: form.auditMode || 'cv',
     templateId: form.templateId || '',
     checkStateId: form.checkStateId || '',
   };

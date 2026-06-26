@@ -60,9 +60,19 @@ public class AuditTemplateService {
         return toResponse(repository.save(template));
     }
 
-    public SelectedAuditTemplate select(UserAccount owner, String id) {
+    public SelectedAuditTemplate select(UserAccount owner, String id, String mode) {
         if (id == null || id.isBlank()) {
-            return defaultTemplates.stream().findFirst().map(DefaultTemplate::toSelected).orElse(SelectedAuditTemplate.none());
+            String normalizedMode = clean(mode).toLowerCase();
+            if (normalizedMode.isBlank()) {
+                normalizedMode = "cv";
+            }
+            String selectedMode = normalizedMode;
+            return defaultTemplates.stream()
+                    .filter(template -> selectedMode.equals(template.mode()))
+                    .findFirst()
+                    .or(() -> defaultTemplates.stream().findFirst())
+                    .map(DefaultTemplate::toSelected)
+                    .orElse(SelectedAuditTemplate.none());
         }
         for (DefaultTemplate template : defaultTemplates) {
             if (template.id().equals(id)) {

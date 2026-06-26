@@ -91,7 +91,7 @@ public class AuditService {
         audit.setPromptVersion(promptVersionFor(request.checkStateId()));
         audit.setStatus(AuditStatus.RUNNING);
         audit.setOwner(owner);
-        applyTemplate(audit, owner, request.templateId());
+        applyTemplate(audit, owner, request.templateId(), request.auditMode());
         applyCheckState(audit, request.checkStateId());
         enforceWarWeeklyLimit(owner, audit.getCheckStateId());
         audit = auditRepository.saveAndFlush(audit);
@@ -287,11 +287,11 @@ public class AuditService {
         };
     }
 
-    private void applyTemplate(Audit audit, UserAccount owner, String templateId) {
+    private void applyTemplate(Audit audit, UserAccount owner, String templateId, String auditMode) {
         if (owner == null) {
             return;
         }
-        AuditTemplateService.SelectedAuditTemplate template = templateService.select(owner, templateId);
+        AuditTemplateService.SelectedAuditTemplate template = templateService.select(owner, templateId, auditMode);
         audit.setTemplateId(template.id());
         audit.setTemplateName(template.name());
         audit.setTemplateDescription(template.description());
@@ -359,7 +359,7 @@ public class AuditService {
         audit.setPromptVersion(promptVersionFor(request.checkStateId()));
         audit.setStatus(AuditStatus.RUNNING);
         audit.setOwner(owner);
-        applyTemplate(audit, owner, request.templateId());
+        applyTemplate(audit, owner, request.templateId(), request.auditMode());
         applyCheckState(audit, request.checkStateId());
         enforceWarWeeklyLimit(owner, audit.getCheckStateId());
         Audit saved = auditRepository.saveAndFlush(audit);

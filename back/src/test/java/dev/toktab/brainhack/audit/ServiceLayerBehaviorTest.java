@@ -78,12 +78,29 @@ class ServiceLayerBehaviorTest {
                 "Job Evidence",
                 "toktabbusiness@gmail.com. https://linkedin.com/in/toktab. Built REST APIs with Spring Boot and MySQL.",
                 "The candidate built REST APIs with Spring Boot and MySQL.",
+                "cv",
                 "default-cv",
                 "war"), new MockHttpServletRequest(), owner);
 
         assertThat(audit.getVerdicts())
                 .filteredOn(verdict -> verdict.getSentence().contains("@") || verdict.getSentence().contains("linkedin"))
                 .allSatisfy(verdict -> assertThat(verdict.getStatus()).isEqualTo(VerdictStatus.NOT_A_CLAIM));
+    }
+
+    @Test
+    void blankTemplateIdFallsBackToDefaultForAuditMode() {
+        UserAccount owner = sessionService.register(user("sales_template_user", "sales-template@example.com")).account();
+        Audit audit = auditService.run(new AuditRunRequest(
+                "Sales Page",
+                "Sales Evidence",
+                "The platform reduces intake time by 30 percent. Contact sales@example.com for a demo.",
+                "The product case study says intake time fell by 30 percent.",
+                "sales",
+                "",
+                "light"), new MockHttpServletRequest(), owner);
+
+        assertThat(audit.getTemplateId()).isEqualTo("default-sales");
+        assertThat(audit.getTemplateName()).isEqualTo("Sales Claim Whitezone");
     }
 
     private RegisterRequest user(String username, String email) {
@@ -96,6 +113,7 @@ class ServiceLayerBehaviorTest {
                 "Job Evidence",
                 "Built REST APIs with Spring Boot and MySQL. Optimized cloud costs by 60 percent.",
                 "The candidate built REST APIs with Spring Boot and MySQL. No evidence mentions cloud cost optimization.",
+                "cv",
                 "default-cv",
                 "war");
     }

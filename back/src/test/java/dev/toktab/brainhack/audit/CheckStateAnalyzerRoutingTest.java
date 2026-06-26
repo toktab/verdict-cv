@@ -123,6 +123,7 @@ class CheckStateAnalyzerRoutingTest {
                 "Job Evidence",
                 "Built Spring Boot APIs with MySQL.",
                 "The candidate built Spring Boot APIs with MySQL.",
+                "cv",
                 "default-cv",
                 stateId);
     }
