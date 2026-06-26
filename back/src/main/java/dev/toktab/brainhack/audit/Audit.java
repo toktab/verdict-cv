@@ -76,6 +76,12 @@ public class Audit {
     @Column(nullable = false, length = 40)
     private String engine;
 
+    @Column(length = 80)
+    private String analyzerVersion;
+
+    @Column(length = 80)
+    private String promptVersion;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 16)
     private AuditStatus status = AuditStatus.RUNNING;
@@ -235,6 +241,22 @@ public class Audit {
 
     public void setEngine(String engine) {
         this.engine = engine;
+    }
+
+    public String getAnalyzerVersion() {
+        return analyzerVersion;
+    }
+
+    public void setAnalyzerVersion(String analyzerVersion) {
+        this.analyzerVersion = analyzerVersion;
+    }
+
+    public String getPromptVersion() {
+        return promptVersion;
+    }
+
+    public void setPromptVersion(String promptVersion) {
+        this.promptVersion = promptVersion;
     }
 
     public AuditStatus getStatus() {

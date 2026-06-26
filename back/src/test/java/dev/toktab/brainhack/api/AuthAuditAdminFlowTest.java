@@ -63,6 +63,8 @@ class AuthAuditAdminFlowTest {
                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.analyzerVersion").value("local-heuristic-v2"))
+                .andExpect(jsonPath("$.promptVersion").value("none-local-deterministic"))
                 .andExpect(jsonPath("$.verdicts", hasSize(2)))
                 .andReturn();
 

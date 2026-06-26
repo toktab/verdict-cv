@@ -20,6 +20,8 @@ public record AuditResponse(
         String evidenceFingerprint,
         long processingMillis,
         String engine,
+        String analyzerVersion,
+        String promptVersion,
         AuditStatus status,
         String templateId,
         String templateName,

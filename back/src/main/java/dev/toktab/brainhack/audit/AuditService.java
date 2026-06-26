@@ -19,6 +19,9 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class AuditService {
+    private static final String LOCAL_ANALYZER_VERSION = "local-heuristic-v2";
+    private static final String LLM_PROMPT_VERSION = "verdict-claim-audit-v1";
+
     private final AuditRepository auditRepository;
     private final SentenceSplitter sentenceSplitter;
     private final LlmAuditAnalyzer llmAuditAnalyzer;
@@ -84,6 +87,8 @@ public class AuditService {
         audit.setClaimFingerprint(fingerprintService.sha256(claimText));
         audit.setEvidenceFingerprint(fingerprintService.sha256(evidenceText));
         audit.setEngine("pending");
+        audit.setAnalyzerVersion(analyzerVersionFor(request.checkStateId()));
+        audit.setPromptVersion(promptVersionFor(request.checkStateId()));
         audit.setStatus(AuditStatus.RUNNING);
         audit.setOwner(owner);
         applyTemplate(audit, owner, request.templateId());
@@ -350,6 +355,8 @@ public class AuditService {
         audit.setClaimFingerprint(fingerprintService.sha256(claimText));
         audit.setEvidenceFingerprint(fingerprintService.sha256(evidenceText));
         audit.setEngine("queued");
+        audit.setAnalyzerVersion(analyzerVersionFor(request.checkStateId()));
+        audit.setPromptVersion(promptVersionFor(request.checkStateId()));
         audit.setStatus(AuditStatus.RUNNING);
         audit.setOwner(owner);
         applyTemplate(audit, owner, request.templateId());
@@ -400,6 +407,26 @@ public class AuditService {
             rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
             logService.recordSystem("AUDIT_ASYNC_FAILED", "auditId=" + audit.getId() + "; error=" + exception.getClass().getSimpleName());
         }
+    }
+
+    private String analyzerVersionFor(String checkStateId) {
+        if ("person".equals(checkStateId)) {
+            return "llm-preferred-v1";
+        }
+        if ("strict-war-ai".equals(checkStateId)) {
+            return LOCAL_ANALYZER_VERSION + "+llm-crosscheck-v1";
+        }
+        if ("light".equals(checkStateId)) {
+            return "local-light-v1";
+        }
+        return LOCAL_ANALYZER_VERSION;
+    }
+
+    private String promptVersionFor(String checkStateId) {
+        if ("person".equals(checkStateId) || "strict-war-ai".equals(checkStateId)) {
+            return LLM_PROMPT_VERSION;
+        }
+        return "none-local-deterministic";
     }
 
     private List<AnalyzedVerdict> normalizeEvidencePointers(List<AnalyzedVerdict> verdicts, String evidenceText) {
