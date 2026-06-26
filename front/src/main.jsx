@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import IntroAnimation from "./IntroAnimation";
 import { createRoot } from 'react-dom/client';
-import { Activity, ArrowRight, CheckCircle2, Download, Edit3, FileSearch, Gauge, History, Lock, Play, Save, ShieldCheck, Sparkles, Trash2, UserPlus, X } from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, Edit3, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Play, Save, ShieldCheck, Sparkles, Trash2, User, UserPlus, X } from 'lucide-react';
 import { api } from './api';
 import { Input, Loading, Metric, Panel, Textarea } from './components/ui';
-import { auditModes, demoCase } from './content/auditContent';
+import { auditModes, demoCase, demoCases } from './content/auditContent';
 import { useRouteState } from './hooks/useRouteState';
 import { ProfilePage } from './pages/ProfilePage';
 import './styles.css';
@@ -24,10 +24,13 @@ function App() {
   const [templates, setTemplates] = useState([]);
   const [states, setStates] = useState([]);
   const [templateForm, setTemplateForm] = useState(emptyTemplateForm(demoCase.auditMode));
+  const [selectedDemoId, setSelectedDemoId] = useState(demoCases[0]?.id || '');
   const [demoConfirmOpen, setDemoConfirmOpen] = useState(false);
   const [demoCountdown, setDemoCountdown] = useState(3);
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [templateLoading, setTemplateLoading] = useState(false);
   const [stage, setStage] = useState('');
   const [error, setError] = useState('');
   const [introVisible, setIntroVisible] = useState(true);
@@ -75,10 +78,13 @@ function App() {
       setHistory([]);
       return;
     }
+    setHistoryLoading(true);
     try {
       setHistory(await api.history(userToken));
     } catch {
       setHistory([]);
+    } finally {
+      setHistoryLoading(false);
     }
   }
 
@@ -87,12 +93,15 @@ function App() {
       setTemplates([]);
       return;
     }
+    setTemplateLoading(true);
     try {
       const rows = await api.templates(userToken);
       setTemplates(rows);
       setForm((current) => current.templateId ? current : { ...current, templateId: rows.find((template) => template.mode === (current.auditMode || 'cv'))?.id || rows[0]?.id || '' });
     } catch {
       setTemplates([]);
+    } finally {
+      setTemplateLoading(false);
     }
   }
 
@@ -128,9 +137,10 @@ function App() {
   }
 
   function confirmLoadDemo() {
+    const selectedDemo = demoCases.find((item) => item.id === selectedDemoId) || demoCase;
     setForm({
-      ...demoCase,
-      templateId: templates.find((template) => template.mode === demoCase.auditMode)?.id || '',
+      ...selectedDemo,
+      templateId: templates.find((template) => template.mode === selectedDemo.auditMode)?.id || '',
       checkStateId: states[0]?.id || '',
     });
     setAudit(null);
@@ -196,7 +206,7 @@ function App() {
     if (route === 'admin') {
       content = <AdminPanel setRoute={setRoute} />;
     } else if (route === 'dashboard') {
-      content = <DashboardPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} templates={templates} openAudit={openAudit} />;
+      content = <DashboardPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} templates={templates} historyLoading={historyLoading} openAudit={openAudit} />;
     } else if (route === 'auditDetail') {
       content = <AuditDetailPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} />;
     } else if (route === 'profile') {
@@ -243,7 +253,7 @@ function App() {
             </section>
             {userToken && (
               <>
-                <AuditTemplatePanel
+                {templateLoading ? <SkeletonBlock rows={4} /> : <AuditTemplatePanel
                   mode={form.auditMode || 'cv'}
                   templates={templates}
                   selectedId={form.templateId || ''}
@@ -251,7 +261,7 @@ function App() {
                   templateForm={templateForm}
                   setTemplateForm={setTemplateForm}
                   onSave={saveTemplate}
-                />
+                />}
                 <CheckStatePanel
                   states={states}
                   selectedId={form.checkStateId || ''}
@@ -260,7 +270,12 @@ function App() {
               </>
             )}
             <section className="commandbar">
-              <button className="ghost" onClick={() => { track('load_demo_case', 'commandbar'); setDemoConfirmOpen(true); }}>Load Demo Case</button>
+              <div className="demoPicker">
+                <select value={selectedDemoId} onChange={(event) => setSelectedDemoId(event.target.value)}>
+                  {demoCases.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+                <button className="secondary" onClick={() => { track('load_demo_case', 'commandbar', selectedDemoId); setDemoConfirmOpen(true); }}>Load demo</button>
+              </div>
               <button className="primary" disabled={loading || !userToken} onClick={runAudit}>
                 <Play size={18} /> {currentAuditMode(form).actionCopy}
               </button>
@@ -268,9 +283,9 @@ function App() {
               <Metric label="Evidence chars" value={form.evidenceText.length} />
             </section>
             {error && <div className="error">{error}</div>}
-            {loading && <Loading stage={stage} />}
+            {loading && <><Loading stage={stage} /><SkeletonBlock rows={5} /></>}
             {audit && <AuditResult audit={audit} />}
-            <HistoryPanel history={history} templates={templates} openAudit={openAudit} />
+            <HistoryPanel history={history} templates={templates} loading={historyLoading} openAudit={openAudit} />
           </main>
           {demoConfirmOpen && (
             <DemoConfirmModal
@@ -305,7 +320,9 @@ function navigateTo(setRoute, next, id) {
 }
 
 function Header({ setRoute, user, userToken, setUser, setUserToken }) {
+  const [accountOpen, setAccountOpen] = useState(false);
   function navigate(next) {
+    setAccountOpen(false);
     track('navigation_clicked', next);
     navigateTo(setRoute, next);
   }
@@ -330,18 +347,28 @@ function Header({ setRoute, user, userToken, setUser, setUserToken }) {
       </div>
       <nav>
         <button onClick={() => navigate('home')}>Home</button>
-        {user && <button onClick={() => navigate('dashboard')}><Gauge size={16} /> Dashboard</button>}
-        {user && <button onClick={() => navigate('profile')}>Profile</button>}
-        <button onClick={() => navigate('app')}><FileSearch size={16} /> Audit</button>
-        <button onClick={() => navigate('admin')}><Lock size={16} /> Admin</button>
+        {user && <button className="quiet" onClick={() => navigate('dashboard')}><Gauge size={16} /> Dashboard</button>}
+        <button className="quiet" onClick={() => navigate('app')}><FileSearch size={16} /> Audit</button>
+        <button className="quiet" onClick={() => navigate('admin')}><Lock size={16} /> Admin</button>
         {user ? (
-          <button className="accountChip" onClick={logout}>
-            <span>{user.username}</span>
-            <small>Logout</small>
-          </button>
+          <div className="accountMenu">
+            <button className="accountChip" onClick={() => setAccountOpen(!accountOpen)}>
+              <span>{user.username}</span>
+              <small>{user.role || 'Account'}</small>
+              <ChevronDown size={15} />
+            </button>
+            {accountOpen && (
+              <div className="accountDropdown">
+                <button onClick={() => navigate('dashboard')}><LayoutDashboard size={16} /> Dashboard</button>
+                <button onClick={() => navigate('app')}><FileSearch size={16} /> New audit</button>
+                <button onClick={() => navigate('profile')}><User size={16} /> Profile</button>
+                <button className="destructive" onClick={logout}><LogOut size={16} /> Logout</button>
+              </div>
+            )}
+          </div>
         ) : (
           <>
-            <button onClick={() => navigate('login')}><Lock size={16} /> Login</button>
+            <button className="quiet" onClick={() => navigate('login')}><Lock size={16} /> Login</button>
             <button className="primary" onClick={() => navigate('register')}><UserPlus size={16} /> Register</button>
           </>
         )}
@@ -487,7 +514,7 @@ function HomePage({ setRoute, user, userToken, setUser, setUserToken }) {
   );
 }
 
-function DashboardPage({ setRoute, user, userToken, setUser, setUserToken, history, templates, openAudit }) {
+function DashboardPage({ setRoute, user, userToken, setUser, setUserToken, history, templates, historyLoading, openAudit }) {
   const [templateFilter, setTemplateFilter] = useState('ALL');
   const stats = dashboardStats(history);
   const filteredHistory = filterAuditsByTemplate(history, templateFilter);
@@ -515,7 +542,8 @@ function DashboardPage({ setRoute, user, userToken, setUser, setUserToken, histo
           <div className="dashboardPanel">
             <h2><History size={18} /> Recent audits</h2>
             <TemplateLensBar filters={templateFilters} value={templateFilter} onChange={setTemplateFilter} />
-            {filteredHistory.length === 0 && <div className="emptyState">No private audits match this template lens.</div>}
+            {historyLoading && <SkeletonBlock rows={5} compact />}
+            {!historyLoading && filteredHistory.length === 0 && <div className="emptyState">No private audits match this template lens.</div>}
             {filteredHistory.slice(0, 5).map((item) => (
               <button className="dashboardAuditRow" key={item.id} onClick={() => openAudit(item.id)}>
                 <span>#{item.id} {item.claimTitle}</span>
@@ -558,6 +586,14 @@ function dashboardStats(history) {
     lastActivity: latest,
     commonIssue,
   };
+}
+
+function SkeletonBlock({ rows = 3, compact = false }) {
+  return (
+    <div className={`skeletonBlock ${compact ? 'compact' : ''}`} aria-label="Loading">
+      {Array.from({ length: rows }).map((_, index) => <span key={index} />)}
+    </div>
+  );
 }
 
 function AuditModeSelector({ value, onChange }) {
@@ -1040,7 +1076,7 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
       <main className="detailPage contentFadeIn">
         <button className="ghost" onClick={() => navigateTo(setRoute, 'dashboard')}>Back to dashboard</button>
         {error && <div className="error">{error}</div>}
-        {loading && <Loading stage="LOADING AUDIT DETAIL" />}
+        {loading && <><Loading stage="LOADING AUDIT DETAIL" /><SkeletonBlock rows={8} /></>}
         {!loading && !audit && <div className="emptyState">Audit detail is not available.</div>}
         {audit && (
           <>
@@ -1057,10 +1093,13 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
               </div>
               <ExportActions auditId={audit.id} />
             </section>
+            <StickyAuditBar audit={audit} />
             <section className="detailMeta">
               <Metric label="Created" value={formatDateTime(audit.createdAt)} />
               <Metric label="Status" value={audit.status || 'COMPLETED'} />
               <Metric label="Engine" value={audit.engine} />
+              <Metric label="Analyzer" value={audit.analyzerVersion || 'Unknown'} />
+              <Metric label="Prompt" value={audit.promptVersion || 'Unknown'} />
               <Metric label="Runtime" value={`${audit.processingMillis}ms`} />
               <Metric label="Claim hash" value={shortHash(audit.claimFingerprint)} />
               <Metric label="Evidence hash" value={shortHash(audit.evidenceFingerprint)} />
@@ -1325,6 +1364,7 @@ function AuditResult({ audit }) {
   const problems = audit.verdicts.filter((v) => ['UNSUPPORTED', 'STRETCHED', 'GAP'].includes(v.status));
   return (
     <section className="results">
+      <StickyAuditBar audit={audit} />
       <div className="scoreBlock">
         <Gauge size={26} />
         <div>
@@ -1338,6 +1378,7 @@ function AuditResult({ audit }) {
         </div>
         <ExportActions auditId={audit.id} />
       </div>
+      <DenseVerdictTable verdicts={audit.verdicts} />
       <div className="verdictGrid">
         {audit.verdicts.map((verdict) => <VerdictCard key={verdict.id || verdict.sentenceIndex} verdict={verdict} />)}
       </div>
@@ -1345,8 +1386,51 @@ function AuditResult({ audit }) {
       <RewriteSuggestions verdicts={audit.verdicts} />
       <div className="summaryStrip">
         <ShieldCheck size={18} />
-        <span>Top risk count: {problems.length}. Status: {audit.status || 'COMPLETED'}. Engine: {audit.engine}. Completed in {audit.processingMillis}ms.</span>
+        <span>Top risk count: {problems.length}. Status: {audit.status || 'COMPLETED'}. Engine: {audit.engine}. Analyzer: {audit.analyzerVersion || 'Unknown'}. Prompt: {audit.promptVersion || 'Unknown'}. Completed in {audit.processingMillis}ms.</span>
       </div>
+    </section>
+  );
+}
+
+function StickyAuditBar({ audit }) {
+  if (!audit) {
+    return null;
+  }
+  return (
+    <div className="stickyAuditBar">
+      <div>
+        <span>Score</span>
+        <strong>{audit.credibilityScore}%</strong>
+      </div>
+      <div><span>Supported</span><b>{audit.supportedCount}</b></div>
+      <div><span>Stretched</span><b>{audit.stretchedCount}</b></div>
+      <div><span>Unsupported</span><b>{audit.unsupportedCount}</b></div>
+      <div><span>State</span><b>{audit.checkStateName || 'Default'}</b></div>
+      <div><span>Engine</span><b>{audit.engine}</b></div>
+      <ExportActions auditId={audit.id} />
+    </div>
+  );
+}
+
+function DenseVerdictTable({ verdicts }) {
+  return (
+    <section className="denseVerdictPanel">
+      <div className="denseVerdictHead">
+        <span>#</span>
+        <span>Status</span>
+        <span>Confidence</span>
+        <span>Claim</span>
+        <span>Evidence</span>
+      </div>
+      {verdicts.map((verdict) => (
+        <div className="denseVerdictRow" key={verdict.id || verdict.sentenceIndex}>
+          <span>{verdict.sentenceIndex + 1}</span>
+          <span className={`statusPill ${verdict.status.toLowerCase().replaceAll('_', '-')}`}>{verdict.status}</span>
+          <span>{verdict.confidence}</span>
+          <strong>{verdict.sentence}</strong>
+          <small>{verdict.evidencePointer}</small>
+        </div>
+      ))}
     </section>
   );
 }
@@ -1408,7 +1492,7 @@ function VerdictCard({ verdict }) {
   );
 }
 
-function HistoryPanel({ history, templates, openAudit }) {
+function HistoryPanel({ history, templates, loading, openAudit }) {
   const [templateFilter, setTemplateFilter] = useState('ALL');
   const filteredHistory = filterAuditsByTemplate(history, templateFilter);
   const templateFilters = templateFilterOptions(history, templates);
@@ -1417,7 +1501,8 @@ function HistoryPanel({ history, templates, openAudit }) {
       <h2><History size={18} /> My Audit History</h2>
       <TemplateLensBar filters={templateFilters} value={templateFilter} onChange={setTemplateFilter} />
       <div className="historyRows">
-        {filteredHistory.length === 0 && <div className="emptyState">No audits match this template lens.</div>}
+        {loading && <SkeletonBlock rows={5} compact />}
+        {!loading && filteredHistory.length === 0 && <div className="emptyState">No audits match this template lens.</div>}
         {filteredHistory.map((item) => (
           <button key={item.id} onClick={() => openAudit(item.id)}>
             <span>#{item.id} {item.claimTitle} / {item.templateName || 'No template'}</span>
@@ -1497,6 +1582,7 @@ function AdminPanel({ setRoute }) {
   const [editingVerdict, setEditingVerdict] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
   const [userForm, setUserForm] = useState(emptyUserForm());
+  const [adminLoading, setAdminLoading] = useState(false);
   const [error, setError] = useState('');
 
   async function signIn() {
@@ -1513,16 +1599,21 @@ function AdminPanel({ setRoute }) {
 
   async function loadAdmin() {
     track('admin_refresh', 'admin_panel');
-    const [auditRows, logRows, userRows, settingRows] = await Promise.all([
-      api.adminAudits(token, auditOffset, pageSize, auditSearch),
-      api.adminLogs(token, logOffset, pageSize, logSearch),
-      api.adminUsers(token, userOffset, pageSize, userSearch),
-      api.adminSettings(token),
-    ]);
-    setAudits(auditRows);
-    setLogs(logRows);
-    setUsers(userRows);
-    setSettings(settingRows);
+    setAdminLoading(true);
+    try {
+      const [auditRows, logRows, userRows, settingRows] = await Promise.all([
+        api.adminAudits(token, auditOffset, pageSize, auditSearch),
+        api.adminLogs(token, logOffset, pageSize, logSearch),
+        api.adminUsers(token, userOffset, pageSize, userSearch),
+        api.adminSettings(token),
+      ]);
+      setAudits(auditRows);
+      setLogs(logRows);
+      setUsers(userRows);
+      setSettings(settingRows);
+    } finally {
+      setAdminLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -1651,7 +1742,7 @@ function AdminPanel({ setRoute }) {
           <Input label="Username" value={login.username} onChange={(username) => setLogin({ ...login, username })} />
           <Input label="Password" value={login.password} onChange={(password) => setLogin({ ...login, password })} />
           <button className="primary" onClick={signIn}><Lock size={18} /> Authenticate</button>
-          <button className="ghost" onClick={() => setRoute('app')}>Back to site</button>
+          <button className="secondary" onClick={() => setRoute('app')}>Back to site</button>
           {error && <div className="error">{error}</div>}
         </div>
       </div>
@@ -1686,19 +1777,20 @@ function AdminPanel({ setRoute }) {
             </label>
             <div className="editActions">
               <button className="primary" onClick={saveUser}><Save size={16} /> {editingUser ? 'Save user' : 'Add user'}</button>
-              <button onClick={newUser}><X size={16} /> Clear</button>
+              <button className="secondary" onClick={newUser}><X size={16} /> Clear</button>
             </div>
           </div>
           <Input label="Search users" value={userSearch} onChange={(value) => { setUserSearch(value); setUserOffset(0); }} />
           <PaginationControls offset={userOffset} count={users.length} pageSize={pageSize} onPrev={() => setUserOffset(Math.max(0, userOffset - pageSize))} onNext={() => setUserOffset(userOffset + pageSize)} />
           <div className="userRows">
-            {users.length === 0 && <div className="emptyState">No users match this search.</div>}
+            {adminLoading && <SkeletonBlock rows={4} compact />}
+            {!adminLoading && users.length === 0 && <div className="emptyState">No users match this search.</div>}
             {users.map((user) => (
               <div className="adminRow" key={user.id}>
                 <span>#{user.id} {user.fullName} / {user.username} / {user.email} / {user.emailVerified ? 'verified' : 'unverified'}</span>
                 <div className="rowActions">
-                  <button onClick={() => editUser(user)}><Edit3 size={15} /> Edit</button>
-                  <button onClick={() => deleteUser(user.id)}><Trash2 size={15} /> Delete</button>
+                  <button className="secondary" onClick={() => editUser(user)}><Edit3 size={15} /> Edit</button>
+                  <button className="destructive" onClick={() => deleteUser(user.id)}><Trash2 size={15} /> Delete</button>
                 </div>
               </div>
             ))}
@@ -1708,13 +1800,14 @@ function AdminPanel({ setRoute }) {
           <h2><Activity size={18} /> Audits</h2>
           <Input label="Search audits" value={auditSearch} onChange={(value) => { setAuditSearch(value); setAuditOffset(0); }} />
           <PaginationControls offset={auditOffset} count={audits.length} pageSize={pageSize} onPrev={() => setAuditOffset(Math.max(0, auditOffset - pageSize))} onNext={() => setAuditOffset(auditOffset + pageSize)} />
-          {audits.length === 0 && <div className="emptyState">No audits have been created yet.</div>}
+          {adminLoading && <SkeletonBlock rows={4} compact />}
+          {!adminLoading && audits.length === 0 && <div className="emptyState">No audits have been created yet.</div>}
           {audits.map((audit) => (
             <div className="adminRow" key={audit.id}>
               <span>#{audit.id} {audit.claimTitle} / {audit.credibilityScore}% / {audit.status || 'COMPLETED'}</span>
               <div className="rowActions">
-                <button onClick={() => openAuditEditor(audit)}><Edit3 size={15} /> Edit</button>
-                <button onClick={() => deleteAudit(audit.id)}><Trash2 size={15} /> Delete</button>
+                <button className="secondary" onClick={() => openAuditEditor(audit)}><Edit3 size={15} /> Edit</button>
+                <button className="destructive" onClick={() => deleteAudit(audit.id)}><Trash2 size={15} /> Delete</button>
               </div>
             </div>
           ))}
@@ -1723,13 +1816,14 @@ function AdminPanel({ setRoute }) {
           <h2><Activity size={18} /> Logs</h2>
           <Input label="Search logs" value={logSearch} onChange={(value) => { setLogSearch(value); setLogOffset(0); }} />
           <PaginationControls offset={logOffset} count={logs.length} pageSize={pageSize} onPrev={() => setLogOffset(Math.max(0, logOffset - pageSize))} onNext={() => setLogOffset(logOffset + pageSize)} />
-          {logs.length === 0 && <div className="emptyState">No logs are available.</div>}
+          {adminLoading && <SkeletonBlock rows={4} compact />}
+          {!adminLoading && logs.length === 0 && <div className="emptyState">No logs are available.</div>}
           {logs.map((log) => (
             <div className="logRow" key={log.id}>
               <code>#{log.sequence} {log.eventType} {log.method} {log.path} {log.statusCode}</code>
               <span>{log.ipAddress} / {new Date(log.createdAt).toLocaleString()}</span>
               <small>{log.detail}</small>
-              <button onClick={() => deleteLog(log.id)}><Trash2 size={14} /> Delete</button>
+              <button className="destructive" onClick={() => deleteLog(log.id)}><Trash2 size={14} /> Delete</button>
             </div>
           ))}
         </section>
