@@ -106,44 +106,44 @@ Advice: Move long audits to async jobs instead of blocking the request.
 Fix notes: Added a bounded audit task executor, async /api/audit/run-async endpoint, background completion/failure handling, frontend polling for RUNNING jobs, and refreshed the built static frontend. Commit: b43552e.
 
 20. Prompt version stored per audit
-Status: TODO
+Status: DONE
 Advice: Store analyzer/prompt version with each audit for reproducibility.
-Fix notes: Pending.
+Fix notes: Added persisted analyzerVersion and promptVersion fields, exposed them in audit responses, and displayed them in detail/result metadata. Commit: 5b7940b.
 
 21. Demo mode sample records
-Status: TODO
+Status: DONE
 Advice: Add stable demo sample records or loadable demo cases for presentation reliability.
-Fix notes: Pending.
+Fix notes: Added selectable stable demo sample cases for CV, sales, pitch, and report audits with the existing confirmation flow. Commit: d4f0e16.
 
 22. Visual result table density
-Status: TODO
+Status: DONE
 Advice: Add a more compact professional results table for scanning many claims.
-Fix notes: Pending.
+Fix notes: Added a compact dense verdict table for fast scanning while keeping the detailed verdict cards available below it. Commit: d4f0e16.
 
 23. Sticky result summary bar
-Status: TODO
+Status: DONE
 Advice: Add a sticky summary bar on result/detail views with score, counts, export, and key metadata.
-Fix notes: Pending.
+Fix notes: Added a sticky audit summary bar on result and detail views with score, verdict counts, state, engine, and export controls. Commit: d4f0e16.
 
 24. Better mobile admin layout
-Status: TODO
+Status: DONE
 Advice: Make admin controls more usable on small screens.
-Fix notes: Pending.
+Fix notes: Improved the mobile admin layout with one-column rows, full-width action groups, tighter spacing, and responsive admin grids. Commit: d4f0e16.
 
 25. Skeleton loaders
-Status: TODO
+Status: DONE
 Advice: Add skeleton loaders for admin, users, history, and audit result loading states.
-Fix notes: Pending.
+Fix notes: Added skeleton loaders for templates, history, dashboard recent audits, admin lists, audit detail, and audit run loading states. Commit: d4f0e16.
 
 26. Button hierarchy polish
-Status: TODO
+Status: DONE
 Advice: Make primary, secondary, destructive, and quiet buttons visually distinct.
-Fix notes: Pending.
+Fix notes: Added distinct primary, secondary, quiet, and destructive button styles and applied them to navigation, admin, demo, and account actions. Commit: d4f0e16.
 
 27. Profile/account dropdown
-Status: TODO
+Status: DONE
 Advice: Add a polished account dropdown in the header for profile, dashboard, audit, logout.
-Fix notes: Pending.
+Fix notes: Added a header account dropdown with dashboard, new audit, profile, and logout actions. Commit: d4f0e16.
 
 28. Admin search for large lists
 Status: FIXED
