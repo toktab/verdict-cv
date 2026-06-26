@@ -8,6 +8,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
@@ -18,7 +19,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "audits")
+@Table(
+        name = "audits",
+        indexes = {
+                @Index(name = "idx_audits_created_at", columnList = "created_at"),
+                @Index(name = "idx_audits_owner_created_at", columnList = "owner_id, created_at"),
+                @Index(name = "idx_audits_owner_deleted_created", columnList = "owner_id, deleted_at, created_at")
+        }
+)
 public class Audit {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

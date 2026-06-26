@@ -91,9 +91,9 @@ Advice: Add request IDs to logs and API responses for traceability.
 Fix notes: Added X-Request-Id support, response headers, request IDs in structured error bodies, request ID storage on app event logs, and transactional current-user loading to avoid lazy proxy failures during audits. Commit: 68a1543.
 
 17. Database indexes
-Status: TODO
+Status: FIXED
 Advice: Add JPA indexes on owner_id, created_at, username, email where appropriate. This is not a migration file; it is entity metadata only.
-Fix notes: Pending.
+Fix notes: Added JPA index metadata for user username/email/created_at lookups, audit owner and created_at history queries, verdict audit joins, and app log created_at/request_id queries. Commit: pending.
 
 18. Audit status lifecycle
 Status: TODO

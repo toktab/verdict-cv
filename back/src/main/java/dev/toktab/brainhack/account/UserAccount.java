@@ -5,11 +5,19 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.Instant;
 
 @Entity
-@Table(name = "user_accounts")
+@Table(
+        name = "user_accounts",
+        indexes = {
+                @Index(name = "idx_user_accounts_username", columnList = "username"),
+                @Index(name = "idx_user_accounts_email", columnList = "email"),
+                @Index(name = "idx_user_accounts_created_at", columnList = "created_at")
+        }
+)
 public class UserAccount {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

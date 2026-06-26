@@ -5,11 +5,19 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.Instant;
 
 @Entity
-@Table(name = "app_event_logs")
+@Table(
+        name = "app_event_logs",
+        indexes = {
+                @Index(name = "idx_app_event_logs_created_at", columnList = "created_at"),
+                @Index(name = "idx_app_event_logs_request_id", columnList = "request_id"),
+                @Index(name = "idx_app_event_logs_deleted_created", columnList = "deleted_at, created_at")
+        }
+)
 public class AppEventLog {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
