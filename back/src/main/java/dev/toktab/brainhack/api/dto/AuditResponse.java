@@ -21,6 +21,9 @@ public record AuditResponse(
         long processingMillis,
         String engine,
         AuditStatus status,
+        String templateId,
+        String templateName,
+        String templateDescription,
         Instant createdAt,
         List<VerdictResponse> verdicts
 ) {

@@ -26,7 +26,6 @@ import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.List;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -79,8 +78,8 @@ public class AdminController {
     }
 
     @GetMapping("/audits")
-    public List<AuditResponse> audits(@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "20") int limit) {
-        return auditService.history().stream()
+    public List<AuditResponse> audits(@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "20") int limit, @RequestParam(defaultValue = "") String search) {
+        return auditService.history(search).stream()
                 .skip(safeOffset(offset))
                 .limit(safeLimit(limit))
                 .map(auditMapper::toResponse)
@@ -104,8 +103,8 @@ public class AdminController {
     }
 
     @GetMapping("/users")
-    public List<UserResponse> users(@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "20") int limit) {
-        return userAccountService.users().stream()
+    public List<UserResponse> users(@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "20") int limit, @RequestParam(defaultValue = "") String search) {
+        return userAccountService.users(search).stream()
                 .skip(safeOffset(offset))
                 .limit(safeLimit(limit))
                 .map(userMapper::toResponse)
@@ -180,9 +179,20 @@ public class AdminController {
     }
 
     @GetMapping("/logs")
-    public List<AppEventLog> logs(@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "20") int limit) {
-        int safeLimit = safeLimit(limit);
-        return logRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(PageRequest.of(safeOffset(offset) / safeLimit, safeLimit));
+    public List<AppEventLog> logs(@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "20") int limit, @RequestParam(defaultValue = "") String search) {
+        String needle = search == null ? "" : search.trim().toLowerCase();
+        return logRepository.findTop250ByDeletedAtIsNullOrderByCreatedAtDesc().stream()
+                .filter(log -> needle.isBlank()
+                        || contains(log.getEventType(), needle)
+                        || contains(log.getMethod(), needle)
+                        || contains(log.getPath(), needle)
+                        || contains(log.getActor(), needle)
+                        || contains(log.getIpAddress(), needle)
+                        || contains(log.getRequestId(), needle)
+                        || contains(log.getDetail(), needle))
+                .skip(safeOffset(offset))
+                .limit(safeLimit(limit))
+                .toList();
     }
 
     @DeleteMapping("/logs/{id}")
@@ -198,5 +208,9 @@ public class AdminController {
 
     private int safeLimit(int limit) {
         return Math.min(Math.max(limit, 1), 100);
+    }
+
+    private boolean contains(String value, String needle) {
+        return value != null && value.toLowerCase().contains(needle);
     }
 }

@@ -23,6 +23,18 @@ public class UserAccountService {
                 .toList();
     }
 
+    public List<UserAccount> users(String search) {
+        String needle = clean(search).toLowerCase();
+        return users().stream()
+                .filter(user -> needle.isBlank() || contains(user.getFullName(), needle)
+                        || contains(user.getUsername(), needle)
+                        || contains(user.getEmail(), needle)
+                        || contains(user.getCountry(), needle)
+                        || contains(user.getOrganization(), needle)
+                        || contains(user.getRole(), needle))
+                .toList();
+    }
+
     @Transactional
     public UserAccount create(UserAdminRequest request) {
         String username = clean(request.username()).toLowerCase();
@@ -107,6 +119,10 @@ public class UserAccountService {
 
     private String clean(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private boolean contains(String value, String needle) {
+        return value != null && value.toLowerCase().contains(needle);
     }
 
     private String defaulted(String value, String fallback) {

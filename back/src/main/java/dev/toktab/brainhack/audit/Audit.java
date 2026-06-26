@@ -80,6 +80,18 @@ public class Audit {
     @Column(length = 16)
     private AuditStatus status = AuditStatus.RUNNING;
 
+    @Column(length = 80)
+    private String templateId;
+
+    @Column(length = 120)
+    private String templateName;
+
+    @Column(length = 500)
+    private String templateDescription;
+
+    @Column(columnDefinition = "TEXT")
+    private String templateInstructions;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -219,6 +231,38 @@ public class Audit {
 
     public void setStatus(AuditStatus status) {
         this.status = status;
+    }
+
+    public String getTemplateId() {
+        return templateId;
+    }
+
+    public void setTemplateId(String templateId) {
+        this.templateId = templateId;
+    }
+
+    public String getTemplateName() {
+        return templateName;
+    }
+
+    public void setTemplateName(String templateName) {
+        this.templateName = templateName;
+    }
+
+    public String getTemplateDescription() {
+        return templateDescription;
+    }
+
+    public void setTemplateDescription(String templateDescription) {
+        this.templateDescription = templateDescription;
+    }
+
+    public String getTemplateInstructions() {
+        return templateInstructions;
+    }
+
+    public void setTemplateInstructions(String templateInstructions) {
+        this.templateInstructions = templateInstructions;
     }
 
     public Instant getCreatedAt() {

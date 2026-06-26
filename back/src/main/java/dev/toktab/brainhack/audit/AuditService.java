@@ -26,6 +26,7 @@ public class AuditService {
     private final RabbitEventPublisher rabbitEventPublisher;
     private final AuditLogService logService;
     private final TaskExecutor auditTaskExecutor;
+    private final AuditTemplateService templateService;
     private final int maxClaimChars;
     private final int maxEvidenceChars;
 
@@ -40,6 +41,7 @@ public class AuditService {
             AuditLogService logService,
             @Qualifier("auditTaskExecutor")
             TaskExecutor auditTaskExecutor,
+            AuditTemplateService templateService,
             @Value("${verdict.audit.max-claim-chars}") int maxClaimChars,
             @Value("${verdict.audit.max-evidence-chars}") int maxEvidenceChars) {
         this.auditRepository = auditRepository;
@@ -51,6 +53,7 @@ public class AuditService {
         this.rabbitEventPublisher = rabbitEventPublisher;
         this.logService = logService;
         this.auditTaskExecutor = auditTaskExecutor;
+        this.templateService = templateService;
         this.maxClaimChars = maxClaimChars;
         this.maxEvidenceChars = maxEvidenceChars;
     }
@@ -78,6 +81,7 @@ public class AuditService {
         audit.setEngine("pending");
         audit.setStatus(AuditStatus.RUNNING);
         audit.setOwner(owner);
+        applyTemplate(audit, owner, request.templateId());
         audit = auditRepository.saveAndFlush(audit);
         try {
             AuditAnalysisResult analysis = analyze(sentences, evidenceText);
@@ -122,6 +126,17 @@ public class AuditService {
         return auditRepository.findByDeletedAtIsNullOrderByCreatedAtDesc();
     }
 
+    public List<Audit> history(String search) {
+        String needle = trim(search, 500).toLowerCase(Locale.ROOT);
+        return history().stream()
+                .filter(audit -> needle.isBlank() || contains(audit.getClaimTitle(), needle)
+                        || contains(audit.getEvidenceTitle(), needle)
+                        || contains(audit.getEngine(), needle)
+                        || contains(audit.getStatus().name(), needle)
+                        || contains(audit.getTemplateName(), needle))
+                .toList();
+    }
+
     public List<Audit> historyForUser(UserAccount owner) {
         return auditRepository.findByOwnerIdAndDeletedAtIsNullOrderByCreatedAtDesc(owner.getId());
     }
@@ -162,6 +177,17 @@ public class AuditService {
         return localAuditAnalyzer.analyze(sentences, evidenceText);
     }
 
+    private void applyTemplate(Audit audit, UserAccount owner, String templateId) {
+        if (owner == null) {
+            return;
+        }
+        AuditTemplateService.SelectedAuditTemplate template = templateService.select(owner, templateId);
+        audit.setTemplateId(template.id());
+        audit.setTemplateName(template.name());
+        audit.setTemplateDescription(template.description());
+        audit.setTemplateInstructions(template.instructions());
+    }
+
     private Audit createRunningAudit(AuditRunRequest request, UserAccount owner) {
         String claimText = trim(request.claimText(), maxClaimChars);
         String evidenceText = trim(request.evidenceText(), maxEvidenceChars);
@@ -178,6 +204,7 @@ public class AuditService {
         audit.setEngine("queued");
         audit.setStatus(AuditStatus.RUNNING);
         audit.setOwner(owner);
+        applyTemplate(audit, owner, request.templateId());
         Audit saved = auditRepository.saveAndFlush(audit);
         rabbitEventPublisher.publish("audit.requested", Map.of("auditId", saved.getId(), "claimTitle", saved.getClaimTitle()));
         return saved;
@@ -291,6 +318,10 @@ public class AuditService {
     private String trim(String text, int max) {
         String value = text == null ? "" : text.trim();
         return value.length() <= max ? value : value.substring(0, max);
+    }
+
+    private boolean contains(String value, String needle) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(needle);
     }
 
     private String title(String value, String fallback) {

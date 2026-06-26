@@ -136,6 +136,41 @@ class AuthAuditAdminFlowTest {
     }
 
     @Test
+    void userCanLoadDefaultsAndCreatePrivateAuditTemplate() throws Exception {
+        String token = register("template_user");
+
+        mockMvc.perform(get("/api/audit/templates").header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].source").value("default"));
+
+        mockMvc.perform(post("/api/audit/templates")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "mode":"cv",
+                                  "name":"Private CV Template",
+                                  "description":"Treat links and email as context.",
+                                  "instructions":"Ignore plain contact fields and only score evidence-backed CV claims."
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.source").value("custom"))
+                .andExpect(jsonPath("$.name").value("Private CV Template"));
+    }
+
+    @Test
+    void adminListSearchFiltersPagedResults() throws Exception {
+        String adminToken = adminToken();
+
+        mockMvc.perform(get("/api/admin/users")
+                        .header("X-Admin-Token", adminToken)
+                        .param("search", "missing-user-name"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
     void requestIdIsReturnedOnResponsesAndErrorBodies() throws Exception {
         String requestId = "test-request-123";
 

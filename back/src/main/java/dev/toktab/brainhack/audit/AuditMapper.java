@@ -27,6 +27,9 @@ public class AuditMapper {
                 audit.getProcessingMillis(),
                 audit.getEngine(),
                 audit.getStatus(),
+                audit.getTemplateId(),
+                audit.getTemplateName(),
+                audit.getTemplateDescription(),
                 audit.getCreatedAt(),
                 audit.getVerdicts().stream().map(this::toVerdictResponse).toList()
         );
@@ -51,6 +54,8 @@ public class AuditMapper {
                 audit.getProcessingMillis(),
                 audit.getEngine(),
                 audit.getStatus(),
+                audit.getTemplateId(),
+                audit.getTemplateName(),
                 audit.getCreatedAt(),
                 topProblems
         );

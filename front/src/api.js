@@ -64,6 +64,16 @@ export const api = {
   getAudit(id, token) {
     return request(`/api/audit/${id}`, { headers: { 'X-User-Token': token } });
   },
+  templates(token) {
+    return request('/api/audit/templates', { headers: { 'X-User-Token': token } });
+  },
+  createTemplate(token, payload) {
+    return request('/api/audit/templates', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'X-User-Token': token },
+      body: JSON.stringify(payload),
+    });
+  },
   exportAudit(id, token) {
     return request(`/api/audit/${id}/export`, { headers: { 'X-User-Token': token } });
   },
@@ -74,17 +84,17 @@ export const api = {
       body: JSON.stringify(payload),
     });
   },
-  adminAudits(token, offset = 0, limit = 20) {
-    return request(`/api/admin/audits?offset=${offset}&limit=${limit}`, { headers: { 'X-Admin-Token': token } });
+  adminAudits(token, offset = 0, limit = 20, search = '') {
+    return request(`/api/admin/audits?offset=${offset}&limit=${limit}&search=${encodeURIComponent(search)}`, { headers: { 'X-Admin-Token': token } });
   },
   adminAudit(token, id) {
     return request(`/api/admin/audits/${id}`, { headers: { 'X-Admin-Token': token } });
   },
-  adminLogs(token, offset = 0, limit = 20) {
-    return request(`/api/admin/logs?offset=${offset}&limit=${limit}`, { headers: { 'X-Admin-Token': token } });
+  adminLogs(token, offset = 0, limit = 20, search = '') {
+    return request(`/api/admin/logs?offset=${offset}&limit=${limit}&search=${encodeURIComponent(search)}`, { headers: { 'X-Admin-Token': token } });
   },
-  adminUsers(token, offset = 0, limit = 20) {
-    return request(`/api/admin/users?offset=${offset}&limit=${limit}`, { headers: { 'X-Admin-Token': token } });
+  adminUsers(token, offset = 0, limit = 20, search = '') {
+    return request(`/api/admin/users?offset=${offset}&limit=${limit}&search=${encodeURIComponent(search)}`, { headers: { 'X-Admin-Token': token } });
   },
   createUser(token, payload) {
     return request('/api/admin/users', {

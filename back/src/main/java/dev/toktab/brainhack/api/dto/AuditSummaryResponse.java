@@ -16,6 +16,8 @@ public record AuditSummaryResponse(
         long processingMillis,
         String engine,
         AuditStatus status,
+        String templateId,
+        String templateName,
         Instant createdAt,
         List<VerdictResponse> topProblems
 ) {

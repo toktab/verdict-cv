@@ -1120,6 +1120,58 @@ mark {
   background: rgba(255, 59, 59, 0.12);
 }
 
+.templatePanel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.018)),
+    var(--panel);
+}
+
+.templateHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  gap: 14px;
+  align-items: start;
+}
+
+.templateHeader h2 {
+  margin: 4px 0;
+  font-size: 20px;
+}
+
+.templateHeader p,
+.templateInstructions {
+  color: var(--muted);
+  margin: 0;
+}
+
+.templateInstructions {
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.templateBuilder {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) minmax(260px, 1.5fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 14px;
+}
+
+.templateBuilder .field {
+  padding: 0;
+}
+
+.templateBuilder textarea {
+  min-height: 86px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
 .panel,
 .results,
 .history,

@@ -5,8 +5,11 @@ import dev.toktab.brainhack.account.UserTokenService;
 import dev.toktab.brainhack.api.dto.AuditResponse;
 import dev.toktab.brainhack.api.dto.AuditRunRequest;
 import dev.toktab.brainhack.api.dto.AuditSummaryResponse;
+import dev.toktab.brainhack.api.dto.AuditTemplateRequest;
+import dev.toktab.brainhack.api.dto.AuditTemplateResponse;
 import dev.toktab.brainhack.audit.AuditMapper;
 import dev.toktab.brainhack.audit.AuditService;
+import dev.toktab.brainhack.audit.AuditTemplateService;
 import dev.toktab.brainhack.audit.ExportService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -29,12 +32,14 @@ public class AuditController {
     private final AuditMapper auditMapper;
     private final ExportService exportService;
     private final UserTokenService userTokenService;
+    private final AuditTemplateService templateService;
 
-    public AuditController(AuditService auditService, AuditMapper auditMapper, ExportService exportService, UserTokenService userTokenService) {
+    public AuditController(AuditService auditService, AuditMapper auditMapper, ExportService exportService, UserTokenService userTokenService, AuditTemplateService templateService) {
         this.auditService = auditService;
         this.auditMapper = auditMapper;
         this.exportService = exportService;
         this.userTokenService = userTokenService;
+        this.templateService = templateService;
     }
 
     @PostMapping("/run")
@@ -47,6 +52,18 @@ public class AuditController {
     public AuditResponse runAsync(@Valid @RequestBody AuditRunRequest request, @RequestHeader(value = "X-User-Token", required = false) String token) {
         UserAccount user = userTokenService.requireUser(token);
         return auditMapper.toResponse(auditService.startAsync(request, user));
+    }
+
+    @GetMapping("/templates")
+    public List<AuditTemplateResponse> templates(@RequestHeader(value = "X-User-Token", required = false) String token) {
+        UserAccount user = userTokenService.requireUser(token);
+        return templateService.templatesFor(user);
+    }
+
+    @PostMapping("/templates")
+    public AuditTemplateResponse createTemplate(@Valid @RequestBody AuditTemplateRequest request, @RequestHeader(value = "X-User-Token", required = false) String token) {
+        UserAccount user = userTokenService.requireUser(token);
+        return templateService.create(user, request);
     }
 
     @GetMapping("/{id}")

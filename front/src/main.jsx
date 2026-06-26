@@ -21,6 +21,8 @@ function App() {
   const [audit, setAudit] = useState(null);
   const [detailAudit, setDetailAudit] = useState(null);
   const [history, setHistory] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [templateForm, setTemplateForm] = useState(emptyTemplateForm(demoCase.auditMode));
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [stage, setStage] = useState('');
@@ -30,6 +32,7 @@ function App() {
   useEffect(() => {
     track('page_view', route, window.location.pathname);
     loadHistory();
+    loadTemplates();
     if (userToken) {
       api.me(userToken).then(setUser).catch(() => {
         localStorage.removeItem('verdictUserToken');
@@ -45,6 +48,11 @@ function App() {
     }
   }, [route, detailAuditId, userToken]);
 
+  useEffect(() => {
+    loadHistory();
+    loadTemplates();
+  }, [userToken]);
+
   async function loadHistory() {
     if (!userToken) {
       setHistory([]);
@@ -54,6 +62,37 @@ function App() {
       setHistory(await api.history(userToken));
     } catch {
       setHistory([]);
+    }
+  }
+
+  async function loadTemplates() {
+    if (!userToken) {
+      setTemplates([]);
+      return;
+    }
+    try {
+      const rows = await api.templates(userToken);
+      setTemplates(rows);
+      setForm((current) => current.templateId ? current : { ...current, templateId: rows.find((template) => template.mode === (current.auditMode || 'cv'))?.id || rows[0]?.id || '' });
+    } catch {
+      setTemplates([]);
+    }
+  }
+
+  async function saveTemplate() {
+    setError('');
+    if (!userToken) {
+      setError('Sign in before saving templates.');
+      return;
+    }
+    try {
+      const saved = await api.createTemplate(userToken, { ...templateForm, mode: form.auditMode || 'cv' });
+      const rows = await api.templates(userToken);
+      setTemplates(rows);
+      setForm((current) => ({ ...current, templateId: saved.id }));
+      setTemplateForm(emptyTemplateForm(form.auditMode || 'cv'));
+    } catch (err) {
+      setError(err.message);
     }
   }
 
@@ -132,7 +171,11 @@ function App() {
         <div className="pageGlow contentFadeIn" />
           <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
           <main className="workspace contentFadeIn">
-            <AuditModeSelector value={form.auditMode || 'cv'} onChange={(auditMode) => setForm({ ...form, auditMode })} />
+            <AuditModeSelector value={form.auditMode || 'cv'} onChange={(auditMode) => {
+              const nextTemplate = templates.find((template) => template.mode === auditMode)?.id || '';
+              setForm({ ...form, auditMode, templateId: nextTemplate });
+              setTemplateForm(emptyTemplateForm(auditMode));
+            }} />
             {!userToken && (
               <div className="error">Sign in or create an account before running private claim audits.</div>
             )}
@@ -156,6 +199,17 @@ function App() {
                 <Textarea value={form.evidenceText} onChange={(evidenceText) => setForm({ ...form, evidenceText })} />
               </Panel>
             </section>
+            {userToken && (
+              <AuditTemplatePanel
+                mode={form.auditMode || 'cv'}
+                templates={templates}
+                selectedId={form.templateId || ''}
+                onSelect={(templateId) => setForm({ ...form, templateId })}
+                templateForm={templateForm}
+                setTemplateForm={setTemplateForm}
+                onSave={saveTemplate}
+              />
+            )}
             <section className="commandbar">
               <button className="ghost" onClick={() => { track('load_demo_case', 'commandbar'); setForm(demoCase); }}>Load Demo Case</button>
               <button className="primary" disabled={loading || !userToken} onClick={runAudit}>
@@ -412,6 +466,47 @@ function auditPayload(form) {
     evidenceTitle: form.evidenceTitle,
     claimText: form.claimText,
     evidenceText: form.evidenceText,
+    templateId: form.templateId || '',
+  };
+}
+
+function AuditTemplatePanel({ mode, templates, selectedId, onSelect, templateForm, setTemplateForm, onSave }) {
+  const modeTemplates = templates.filter((template) => template.mode === mode);
+  const selected = modeTemplates.find((template) => template.id === selectedId) || modeTemplates[0];
+  return (
+    <section className="templatePanel">
+      <div className="templateHeader">
+        <div>
+          <span className="eyebrow">Audit template</span>
+          <h2>{selected?.name || 'No template selected'}</h2>
+          <p>{selected?.description || 'Choose a default template or save your own private template.'}</p>
+        </div>
+        <select value={selectedId || selected?.id || ''} onChange={(event) => onSelect(event.target.value)}>
+          {modeTemplates.map((template) => (
+            <option key={template.id} value={template.id}>{template.source === 'default' ? 'Default' : 'Custom'} / {template.name}</option>
+          ))}
+        </select>
+      </div>
+      {selected?.instructions && <p className="templateInstructions">{selected.instructions}</p>}
+      <div className="templateBuilder">
+        <Input label="Custom template name" value={templateForm.name} onChange={(name) => setTemplateForm({ ...templateForm, name })} />
+        <Input label="Description" value={templateForm.description} onChange={(description) => setTemplateForm({ ...templateForm, description })} />
+        <label className="field">
+          <span>Instructions</span>
+          <textarea value={templateForm.instructions} onChange={(event) => setTemplateForm({ ...templateForm, instructions: event.target.value })} />
+        </label>
+        <button className="primary" onClick={onSave}><Save size={16} /> Save custom template</button>
+      </div>
+    </section>
+  );
+}
+
+function emptyTemplateForm(mode = 'cv') {
+  return {
+    mode,
+    name: '',
+    description: '',
+    instructions: '',
   };
 }
 
@@ -1140,6 +1235,8 @@ function AdminPanel({ setRoute }) {
   const [users, setUsers] = useState([]);
   const [settings, setSettings] = useState({ requireEmailVerification: false });
   const [userSearch, setUserSearch] = useState('');
+  const [auditSearch, setAuditSearch] = useState('');
+  const [logSearch, setLogSearch] = useState('');
   const [auditOffset, setAuditOffset] = useState(0);
   const [userOffset, setUserOffset] = useState(0);
   const [logOffset, setLogOffset] = useState(0);
@@ -1164,9 +1261,9 @@ function AdminPanel({ setRoute }) {
   async function loadAdmin() {
     track('admin_refresh', 'admin_panel');
     const [auditRows, logRows, userRows, settingRows] = await Promise.all([
-      api.adminAudits(token, auditOffset, pageSize),
-      api.adminLogs(token, logOffset, pageSize),
-      api.adminUsers(token, userOffset, pageSize),
+      api.adminAudits(token, auditOffset, pageSize, auditSearch),
+      api.adminLogs(token, logOffset, pageSize, logSearch),
+      api.adminUsers(token, userOffset, pageSize, userSearch),
       api.adminSettings(token),
     ]);
     setAudits(auditRows);
@@ -1179,7 +1276,7 @@ function AdminPanel({ setRoute }) {
     if (token) {
       loadAdmin().catch((err) => setError(err.message));
     }
-  }, [token, auditOffset, userOffset, logOffset]);
+  }, [token, auditOffset, userOffset, logOffset, auditSearch, userSearch, logSearch]);
 
   async function deleteAudit(id) {
     if (!window.confirm(`Delete audit #${id}?`)) {
@@ -1339,11 +1436,11 @@ function AdminPanel({ setRoute }) {
               <button onClick={newUser}><X size={16} /> Clear</button>
             </div>
           </div>
-          <Input label="Search users" value={userSearch} onChange={setUserSearch} />
+          <Input label="Search users" value={userSearch} onChange={(value) => { setUserSearch(value); setUserOffset(0); }} />
           <PaginationControls offset={userOffset} count={users.length} pageSize={pageSize} onPrev={() => setUserOffset(Math.max(0, userOffset - pageSize))} onNext={() => setUserOffset(userOffset + pageSize)} />
           <div className="userRows">
-            {filteredUsers(users, userSearch).length === 0 && <div className="emptyState">No users match this search.</div>}
-            {filteredUsers(users, userSearch).map((user) => (
+            {users.length === 0 && <div className="emptyState">No users match this search.</div>}
+            {users.map((user) => (
               <div className="adminRow" key={user.id}>
                 <span>#{user.id} {user.fullName} / {user.username} / {user.email} / {user.emailVerified ? 'verified' : 'unverified'}</span>
                 <div className="rowActions">
@@ -1356,6 +1453,7 @@ function AdminPanel({ setRoute }) {
         </section>
         <section className="adminSection">
           <h2><Activity size={18} /> Audits</h2>
+          <Input label="Search audits" value={auditSearch} onChange={(value) => { setAuditSearch(value); setAuditOffset(0); }} />
           <PaginationControls offset={auditOffset} count={audits.length} pageSize={pageSize} onPrev={() => setAuditOffset(Math.max(0, auditOffset - pageSize))} onNext={() => setAuditOffset(auditOffset + pageSize)} />
           {audits.length === 0 && <div className="emptyState">No audits have been created yet.</div>}
           {audits.map((audit) => (
@@ -1370,6 +1468,7 @@ function AdminPanel({ setRoute }) {
         </section>
         <section className="adminSection">
           <h2><Activity size={18} /> Logs</h2>
+          <Input label="Search logs" value={logSearch} onChange={(value) => { setLogSearch(value); setLogOffset(0); }} />
           <PaginationControls offset={logOffset} count={logs.length} pageSize={pageSize} onPrev={() => setLogOffset(Math.max(0, logOffset - pageSize))} onNext={() => setLogOffset(logOffset + pageSize)} />
           {logs.length === 0 && <div className="emptyState">No logs are available.</div>}
           {logs.map((log) => (

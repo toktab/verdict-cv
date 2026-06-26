@@ -79,6 +79,7 @@ class ServiceLayerBehaviorTest {
                 "Candidate CV",
                 "Job Evidence",
                 "Built REST APIs with Spring Boot and MySQL. Optimized cloud costs by 60 percent.",
-                "The candidate built REST APIs with Spring Boot and MySQL. No evidence mentions cloud cost optimization.");
+                "The candidate built REST APIs with Spring Boot and MySQL. No evidence mentions cloud cost optimization.",
+                "default-cv");
     }
 }
