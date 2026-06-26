@@ -163,22 +163,22 @@ Fix notes: Added default-audit-templates.json, account-owned custom audit templa
 31. Not-a-claim classification
 Status: FIXED
 Advice: Classify plain contact data such as email addresses, phone numbers, names, and profile URLs as NOT_A_CLAIM instead of unsupported high-risk claims.
-Fix notes: Added template-level mark-as-unimportant rules and contact/profile-link detection so matching rows are forced to NOT_A_CLAIM before scoring. Commit: pending.
+Fix notes: Added template-level mark-as-unimportant rules and contact/profile-link detection so matching rows are forced to NOT_A_CLAIM before scoring. Commit: 3ecf619.
 
 32. Demo case confirmation
 Status: FIXED
 Advice: When loading a demo case, show a polished confirmation modal explaining that current input will be replaced and require a short countdown before confirming.
-Fix notes: Added a demo-case confirmation modal with a three-second countdown before replacing the current audit form. Commit: pending.
+Fix notes: Added a demo-case confirmation modal with a three-second countdown before replacing the current audit form. Commit: 3ecf619.
 
 33. Check states
 Status: FIXED
 Advice: Add selectable check states with names, descriptions, and intended use cases, such as a raw WAR state, a lightweight obvious-issues state, a person-like AI review state, and a strict combined state.
-Fix notes: Added default-check-states.json, state API responses, selected check-state metadata on audits, and frontend state selector cards for WAR, Light, Person, and Strict WAR+AI modes. Commit: pending.
+Fix notes: Added default-check-states.json, state API responses, selected check-state metadata on audits, and frontend state selector cards for WAR, Light, Person, and Strict WAR+AI modes. Commit: 3ecf619.
 
 34. Template builder and library
 Status: FIXED
 Advice: Let users create named templates with descriptions and settings, keep private templates, and optionally browse shared templates made by other users.
-Fix notes: Expanded custom templates with mark-as-unimportant settings, private/shared visibility, and shared library listing while preserving account ownership controls. Commit: pending.
+Fix notes: Expanded custom templates with mark-as-unimportant settings, private/shared visibility, and shared library listing while preserving account ownership controls. Commit: 3ecf619.
 
 35. Profiling mode
 Status: TODO
