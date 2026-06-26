@@ -148,17 +148,17 @@ Fix notes: Pending.
 28. Admin search for large lists
 Status: FIXED
 Advice: Add search boxes for admin audits, users, and logs so large paginated lists can be filtered quickly.
-Fix notes: Added server-side search params for admin audits, users, and logs plus frontend search inputs that reset pagination and query the backend. Commit: pending.
+Fix notes: Added server-side search params for admin audits, users, and logs plus frontend search inputs that reset pagination and query the backend. Commit: 129255a.
 
 29. Lazy-safe current user loading
 Status: FIXED
 Advice: Fix the CV audit LazyInitializationException caused by reading the current user outside an active persistence context.
-Fix notes: Confirmed current-user loading runs inside a transaction so lazy user proxies can be read safely during audit ownership and CV audit flows. Commit: pending.
+Fix notes: Confirmed current-user loading runs inside a transaction so lazy user proxies can be read safely during audit ownership and CV audit flows. Commit: 129255a.
 
 30. Audit mode templates
 Status: FIXED
 Advice: Let each audit mode provide a clear default template, allow selecting prepared templates, and allow switching to a custom template for stricter or looser claim handling.
-Fix notes: Added default-audit-templates.json, account-owned custom audit template persistence, template list/create APIs, audit template metadata on saved audits, and frontend template selection/builder controls. Commit: pending.
+Fix notes: Added default-audit-templates.json, account-owned custom audit template persistence, template list/create APIs, audit template metadata on saved audits, and frontend template selection/builder controls. Commit: 129255a.
 
 31. Not-a-claim classification
 Status: TODO
