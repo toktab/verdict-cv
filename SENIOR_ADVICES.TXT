@@ -186,9 +186,9 @@ Advice: Add a Grammarly-style profiling view where hovering words or phrases exp
 Fix notes: Pending.
 
 36. Export format options
-Status: TODO
+Status: FIXED
 Advice: Support export styles for TXT, Word, Excel, and PDF, with TXT/Word kept simple, Excel detailed, and PDF presentation-ready with charts.
-Fix notes: Pending.
+Fix notes: Added TXT, Word-compatible DOC, Excel-compatible CSV, and presentation-ready PDF exports with colorful score/status charts, plus visible export format controls on result and detail views. Commit: 6687742.
 
 37. Score levels
 Status: TODO
