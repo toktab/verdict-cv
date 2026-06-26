@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -95,12 +96,12 @@ public class AuditController {
     }
 
     @GetMapping("/{id}/export")
-    public ResponseEntity<String> export(@PathVariable Long id, @RequestHeader(value = "X-User-Token", required = false) String token) {
+    public ResponseEntity<byte[]> export(@PathVariable Long id, @RequestParam(defaultValue = "txt") String format, @RequestHeader(value = "X-User-Token", required = false) String token) {
         UserAccount user = userTokenService.requireUser(token);
-        String body = exportService.export(auditService.getForUser(id, user));
+        ExportService.ExportFile file = exportService.export(auditService.getForUser(id, user), format);
         return ResponseEntity.ok()
-                .contentType(MediaType.TEXT_PLAIN)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=verdict-audit-" + id + ".txt")
-                .body(body);
+                .contentType(MediaType.parseMediaType(file.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + file.filename())
+                .body(file.body());
     }
 }

@@ -994,7 +994,7 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
                 <span>Credibility</span>
                 <strong>{audit.credibilityScore}%</strong>
               </div>
-              <button className="download" onClick={() => exportAudit(audit.id)}><Download size={16} /> Export</button>
+              <ExportActions auditId={audit.id} />
             </section>
             <section className="detailMeta">
               <Metric label="Created" value={formatDateTime(audit.createdAt)} />
@@ -1275,9 +1275,7 @@ function AuditResult({ audit }) {
           <b>{audit.stretchedCount}</b> stretched
           <b>{audit.unsupportedCount}</b> unsupported
         </div>
-        <button className="download" onClick={() => exportAudit(audit.id)}>
-          <Download size={16} /> Export
-        </button>
+        <ExportActions auditId={audit.id} />
       </div>
       <div className="verdictGrid">
         {audit.verdicts.map((verdict) => <VerdictCard key={verdict.id || verdict.sentenceIndex} verdict={verdict} />)}
@@ -1292,9 +1290,28 @@ function AuditResult({ audit }) {
   );
 }
 
-async function exportAudit(id) {
+function ExportActions({ auditId }) {
+  const formats = [
+    ['txt', 'TXT'],
+    ['word', 'Word'],
+    ['excel', 'Excel'],
+    ['pdf', 'PDF'],
+  ];
+  return (
+    <div className="exportActions" aria-label="Export audit formats">
+      <span><Download size={15} /> Export</span>
+      {formats.map(([format, label]) => (
+        <button key={format} className={format === 'pdf' ? 'primaryExport' : ''} onClick={() => exportAudit(auditId, format)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+async function exportAudit(id, format = 'txt') {
   const token = localStorage.getItem('verdictUserToken') || '';
-  const response = await fetch(`/api/audit/${id}/export`, { headers: { 'X-User-Token': token } });
+  const response = await fetch(`/api/audit/${id}/export?format=${encodeURIComponent(format)}`, { headers: { 'X-User-Token': token } });
   if (!response.ok) {
     throw new Error('Export failed');
   }
@@ -1302,9 +1319,18 @@ async function exportAudit(id) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `verdict-audit-${id}.txt`;
+  link.download = exportFilename(id, format, response.headers.get('Content-Disposition'));
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function exportFilename(id, format, disposition) {
+  const match = disposition?.match(/filename="?([^"]+)"?/i);
+  if (match?.[1]) {
+    return match[1];
+  }
+  const extensions = { txt: 'txt', word: 'doc', excel: 'csv', pdf: 'pdf' };
+  return `verdict-audit-${id}.${extensions[format] || 'txt'}`;
 }
 
 function VerdictCard({ verdict }) {

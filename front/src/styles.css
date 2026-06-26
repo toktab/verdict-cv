@@ -97,6 +97,7 @@ nav button,
 .ghost,
 .primary,
 .download,
+.exportActions button,
 .adminRow button,
 .logRow button {
   min-height: 40px;
@@ -116,6 +117,7 @@ nav button,
 nav button:hover,
 .ghost:hover,
 .download:hover,
+.exportActions button:hover,
 .adminRow button:hover,
 .logRow button:hover {
   transform: translateY(-1px);
@@ -1494,6 +1496,37 @@ select {
   color: var(--text);
 }
 
+.exportActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.exportActions span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 7px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.exportActions button {
+  min-height: 32px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.exportActions button.primaryExport {
+  border-color: rgba(99, 102, 241, 0.72);
+  color: #eef2ff;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.72), rgba(99, 102, 241, 0.76), rgba(16, 185, 129, 0.72));
+}
+
 .counts {
   display: flex;
   gap: 14px;
@@ -1869,6 +1902,19 @@ select {
   .scoreBlock {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .exportActions {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  .exportActions span {
+    width: 100%;
+  }
+
+  .exportActions button {
+    flex: 1 1 68px;
   }
 
   .intake,

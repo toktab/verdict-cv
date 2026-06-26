@@ -3,10 +3,12 @@ package dev.toktab.brainhack.api;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.blankOrNullString;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -76,6 +78,46 @@ class AuthAuditAdminFlowTest {
         mockMvc.perform(get("/api/audit/history").header("X-User-Token", secondToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void userCanExportAuditInMultipleFormats() throws Exception {
+        String token = register("export_user");
+
+        MvcResult auditResult = mockMvc.perform(post("/api/audit/run")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "claimTitle":"Export CV",
+                                  "evidenceTitle":"Export Evidence",
+                                  "claimText":"Built Spring Boot APIs with MySQL. Reduced costs by 40%.",
+                                  "evidenceText":"Portfolio confirms Spring Boot APIs with MySQL."
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        long auditId = objectMapper.readTree(auditResult.getResponse().getContentAsString()).get("id").asLong();
+
+        mockMvc.perform(get("/api/audit/" + auditId + "/export")
+                        .header("X-User-Token", token)
+                        .param("format", "pdf"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string("Content-Disposition", containsString(".pdf")));
+
+        mockMvc.perform(get("/api/audit/" + auditId + "/export")
+                        .header("X-User-Token", token)
+                        .param("format", "excel"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString(".csv")));
+
+        mockMvc.perform(get("/api/audit/" + auditId + "/export")
+                        .header("X-User-Token", token)
+                        .param("format", "word"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString(".doc")));
     }
 
     @Test
