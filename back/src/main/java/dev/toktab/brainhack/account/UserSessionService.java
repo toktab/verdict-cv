@@ -68,6 +68,7 @@ public class UserSessionService {
         return new SessionResult(token(account.getId()), userRepository.save(account));
     }
 
+    @Transactional
     public UserAccount me(String token) {
         UserSession session = sessionRepository.findById(token).orElseThrow(() -> new IllegalArgumentException("User authentication required"));
         if (session.getExpiresAt().isBefore(Instant.now())) {

@@ -19,6 +19,7 @@ public class AuditLogService {
         AppEventLog log = new AppEventLog();
         log.setSequence(LOG_MANAGER.incrementAndGet());
         log.setEventType(limit(eventType, 64));
+        log.setRequestId(limit(RequestIds.current(request), 80));
         log.setIpAddress(limit(resolveIp(request), 45));
         log.setMethod(limit(Optional.ofNullable(request.getMethod()).orElse("N/A"), 12));
         log.setPath(limit(request.getRequestURI(), 500));
@@ -33,6 +34,7 @@ public class AuditLogService {
         AppEventLog log = new AppEventLog();
         log.setSequence(LOG_MANAGER.incrementAndGet());
         log.setEventType(limit(eventType, 64));
+        log.setRequestId("system");
         log.setIpAddress("system");
         log.setMethod("SYSTEM");
         log.setPath("system");

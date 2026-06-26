@@ -21,6 +21,9 @@ public class AppEventLog {
     @Column(nullable = false, length = 64)
     private String eventType;
 
+    @Column(length = 80)
+    private String requestId;
+
     @Column(nullable = false, length = 45)
     private String ipAddress;
 
@@ -69,6 +72,14 @@ public class AppEventLog {
 
     public void setEventType(String eventType) {
         this.eventType = eventType;
+    }
+
+    public String getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(String requestId) {
+        this.requestId = requestId;
     }
 
     public String getIpAddress() {

@@ -81,14 +81,14 @@ Advice: Add pagination for audits, users, and logs.
 Fix notes: Added limit/offset parameters for admin audits, users, and logs plus admin UI Prev/Next paging controls for each list. Commit: 22684a1.
 
 15. Consistent error codes
-Status: TODO
+Status: FIXED
 Advice: Return structured error codes with messages so frontend can handle states more cleanly.
-Fix notes: Pending.
+Fix notes: Added structured API error responses with stable code and message fields for validation, bad request, and server errors. Commit: 026ff8e.
 
 16. Request IDs
-Status: TODO
+Status: FIXED
 Advice: Add request IDs to logs and API responses for traceability.
-Fix notes: Pending.
+Fix notes: Added X-Request-Id support, response headers, request IDs in structured error bodies, request ID storage on app event logs, and transactional current-user loading to avoid lazy proxy failures during audits. Commit: eb1bcf2.
 
 17. Database indexes
 Status: TODO
@@ -143,4 +143,64 @@ Fix notes: Pending.
 27. Profile/account dropdown
 Status: TODO
 Advice: Add a polished account dropdown in the header for profile, dashboard, audit, logout.
+Fix notes: Pending.
+
+28. Admin search for large lists
+Status: TODO
+Advice: Add search boxes for admin audits, users, and logs so large paginated lists can be filtered quickly.
+Fix notes: Pending.
+
+29. Lazy-safe current user loading
+Status: TODO
+Advice: Fix the CV audit LazyInitializationException caused by reading the current user outside an active persistence context.
+Fix notes: Pending.
+
+30. Audit mode templates
+Status: TODO
+Advice: Let each audit mode provide a clear default template, allow selecting prepared templates, and allow switching to a custom template for stricter or looser claim handling.
+Fix notes: Pending.
+
+31. Not-a-claim classification
+Status: TODO
+Advice: Classify plain contact data such as email addresses, phone numbers, names, and profile URLs as NOT_A_CLAIM instead of unsupported high-risk claims.
+Fix notes: Pending.
+
+32. Demo case confirmation
+Status: TODO
+Advice: When loading a demo case, show a polished confirmation modal explaining that current input will be replaced and require a short countdown before confirming.
+Fix notes: Pending.
+
+33. Check states
+Status: TODO
+Advice: Add selectable check states with names, descriptions, and intended use cases, such as a raw WAR state, a lightweight obvious-issues state, a person-like AI review state, and a strict combined state.
+Fix notes: Pending.
+
+34. Template builder and library
+Status: TODO
+Advice: Let users create named templates with descriptions and settings, keep private templates, and optionally browse shared templates made by other users.
+Fix notes: Pending.
+
+35. Profiling mode
+Status: TODO
+Advice: Add a Grammarly-style profiling view where hovering words or phrases explains what they mean, their role in the sentence, and why they matter for the selected template/state.
+Fix notes: Pending.
+
+36. Export format options
+Status: TODO
+Advice: Support export styles for TXT, Word, Excel, and PDF, with TXT/Word kept simple, Excel detailed, and PDF presentation-ready with charts.
+Fix notes: Pending.
+
+37. Score levels
+Status: TODO
+Advice: Add score levels out of 10 with a short explanation for what each level means.
+Fix notes: Pending.
+
+38. Investigator mode
+Status: TODO
+Advice: Later, explore an opt-in investigator mode that checks external public sources such as LinkedIn, GitHub, certificates, language evidence, and other OSINT signals.
+Fix notes: Pending.
+
+39. Saved audit template filters
+Status: TODO
+Advice: Add premade template filters to old audit/history views so users can quickly review saved audits through common template lenses.
 Fix notes: Pending.

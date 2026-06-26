@@ -20,13 +20,16 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         long started = System.currentTimeMillis();
+        String requestId = RequestIds.fromHeaderOrNew(request);
+        request.setAttribute(RequestIds.ATTRIBUTE, requestId);
+        response.setHeader(RequestIds.HEADER, requestId);
         try {
             filterChain.doFilter(request, response);
         } finally {
             String path = request.getRequestURI();
             if (!path.startsWith("/api/admin/logs")) {
                 long duration = System.currentTimeMillis() - started;
-                String detail = "query=" + sanitize(request.getQueryString()) + "; userAgent=" + sanitize(request.getHeader("User-Agent"));
+                String detail = "requestId=" + requestId + "; query=" + sanitize(request.getQueryString()) + "; userAgent=" + sanitize(request.getHeader("User-Agent"));
                 logService.record("HTTP_REQUEST", request, response.getStatus(), duration, "visitor", detail);
             }
         }

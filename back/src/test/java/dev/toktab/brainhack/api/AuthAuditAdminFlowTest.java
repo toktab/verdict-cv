@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -131,6 +132,17 @@ class AuthAuditAdminFlowTest {
 
         mockMvc.perform(delete("/api/admin/users/" + userId).header("X-Admin-Token", adminToken))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void requestIdIsReturnedOnResponsesAndErrorBodies() throws Exception {
+        String requestId = "test-request-123";
+
+        mockMvc.perform(get("/api/audit/history").header("X-Request-Id", requestId))
+                .andExpect(status().isBadRequest())
+                .andExpect(header().string("X-Request-Id", requestId))
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.requestId").value(requestId));
     }
 
     private String register(String username) throws Exception {
