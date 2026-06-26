@@ -89,7 +89,7 @@ public class AuditService {
         applyCheckState(audit, request.checkStateId());
         audit = auditRepository.saveAndFlush(audit);
         try {
-            AuditAnalysisResult analysis = analyze(sentences, evidenceText);
+            AuditAnalysisResult analysis = analyze(audit, sentences, evidenceText);
             List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(applyUnimportantRules(audit, analysis.verdicts()), evidenceText);
             audit.setEngine(analysis.engine());
             audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
@@ -171,15 +171,113 @@ public class AuditService {
         return auditRepository.save(audit);
     }
 
-    private AuditAnalysisResult analyze(List<String> sentences, String evidenceText) {
-        if (llmAuditAnalyzer.configured()) {
-            try {
-                return llmAuditAnalyzer.analyze(sentences, evidenceText);
-            } catch (RuntimeException exception) {
-                logService.recordSystem("LLM_FALLBACK", exception.getMessage());
-            }
+    private AuditAnalysisResult analyze(Audit audit, List<String> sentences, String evidenceText) {
+        String stateId = audit.getCheckStateId() == null ? "war" : audit.getCheckStateId();
+        return switch (stateId) {
+            case "person" -> llmOrLocal(sentences, evidenceText, "PERSON_STATE_LLM_FALLBACK");
+            case "strict-war-ai" -> strictWarAi(sentences, evidenceText);
+            case "light" -> lightLocal(sentences, evidenceText);
+            default -> localAuditAnalyzer.analyze(sentences, evidenceText);
+        };
+    }
+
+    private AuditAnalysisResult llmOrLocal(List<String> sentences, String evidenceText, String fallbackEvent) {
+        if (!llmAuditAnalyzer.configured()) {
+            return localWithEngine(sentences, evidenceText, "LOCAL_HEURISTIC_NO_LLM");
         }
-        return localAuditAnalyzer.analyze(sentences, evidenceText);
+        try {
+            return llmAuditAnalyzer.analyze(sentences, evidenceText);
+        } catch (RuntimeException exception) {
+            logService.recordSystem(fallbackEvent, exception.getMessage());
+            return localWithEngine(sentences, evidenceText, "LOCAL_HEURISTIC_LLM_FALLBACK");
+        }
+    }
+
+    private AuditAnalysisResult strictWarAi(List<String> sentences, String evidenceText) {
+        AuditAnalysisResult local = localAuditAnalyzer.analyze(sentences, evidenceText);
+        if (!llmAuditAnalyzer.configured()) {
+            return new AuditAnalysisResult("LOCAL_HEURISTIC_STRICT_NO_LLM", local.verdicts());
+        }
+        try {
+            AuditAnalysisResult llm = llmAuditAnalyzer.analyze(sentences, evidenceText);
+            return new AuditAnalysisResult(local.engine() + "+" + llm.engine(), combineStrict(local.verdicts(), llm.verdicts()));
+        } catch (RuntimeException exception) {
+            logService.recordSystem("STRICT_WAR_AI_LLM_FALLBACK", exception.getMessage());
+            return new AuditAnalysisResult("LOCAL_HEURISTIC_STRICT_LLM_FALLBACK", local.verdicts());
+        }
+    }
+
+    private AuditAnalysisResult lightLocal(List<String> sentences, String evidenceText) {
+        AuditAnalysisResult local = localAuditAnalyzer.analyze(sentences, evidenceText);
+        List<AnalyzedVerdict> lightVerdicts = local.verdicts().stream()
+                .map(verdict -> verdict.status() == VerdictStatus.UNSUPPORTED && verdict.confidence() != Confidence.HIGH
+                        ? new AnalyzedVerdict(
+                        verdict.sentenceIndex(),
+                        verdict.sentence(),
+                        VerdictStatus.STRETCHED,
+                        Confidence.LOW,
+                        "light review",
+                        "Light-State treats this as a weak or partially supported issue instead of a hard unsupported claim.",
+                        verdict.evidencePointer())
+                        : verdict)
+                .toList();
+        return new AuditAnalysisResult("LOCAL_HEURISTIC_LIGHT", lightVerdicts);
+    }
+
+    private AuditAnalysisResult localWithEngine(List<String> sentences, String evidenceText, String engine) {
+        return new AuditAnalysisResult(engine, localAuditAnalyzer.analyze(sentences, evidenceText).verdicts());
+    }
+
+    private List<AnalyzedVerdict> combineStrict(List<AnalyzedVerdict> local, List<AnalyzedVerdict> llm) {
+        return local.stream()
+                .map(localVerdict -> stricter(localVerdict, llm.stream()
+                        .filter(row -> row.sentenceIndex() == localVerdict.sentenceIndex())
+                        .findFirst()
+                        .orElse(localVerdict)))
+                .toList();
+    }
+
+    private AnalyzedVerdict stricter(AnalyzedVerdict local, AnalyzedVerdict llm) {
+        AnalyzedVerdict selected = severity(llm.status()) > severity(local.status()) ? llm : local;
+        if (selected == local && severity(local.status()) == severity(llm.status())) {
+            selected = confidenceSeverity(llm.confidence()) > confidenceSeverity(local.confidence()) ? llm : local;
+        }
+        if (selected == local) {
+            return new AnalyzedVerdict(
+                    local.sentenceIndex(),
+                    local.sentence(),
+                    local.status(),
+                    local.confidence(),
+                    "strict local + ai",
+                    local.explanation() + " AI cross-check: " + llm.explanation(),
+                    local.evidencePointer());
+        }
+        return new AnalyzedVerdict(
+                selected.sentenceIndex(),
+                selected.sentence(),
+                selected.status(),
+                selected.confidence(),
+                "strict local + ai",
+                "Local WAR: " + local.explanation() + " AI cross-check: " + llm.explanation(),
+                selected.evidencePointer());
+    }
+
+    private int severity(VerdictStatus status) {
+        return switch (status) {
+            case UNSUPPORTED -> 5;
+            case GAP -> 4;
+            case STRETCHED -> 3;
+            case SUPPORTED -> 2;
+            case NOT_A_CLAIM -> 1;
+        };
+    }
+
+    private int confidenceSeverity(Confidence confidence) {
+        return switch (confidence) {
+            case HIGH -> 3;
+            case MEDIUM -> 2;
+            case LOW -> 1;
+        };
     }
 
     private void applyTemplate(Audit audit, UserAccount owner, String templateId) {
@@ -267,7 +365,7 @@ public class AuditService {
         }
         try {
             List<String> sentences = sentenceSplitter.split(audit.getClaimText());
-            AuditAnalysisResult analysis = analyze(sentences, audit.getEvidenceText());
+            AuditAnalysisResult analysis = analyze(audit, sentences, audit.getEvidenceText());
             List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(applyUnimportantRules(audit, analysis.verdicts()), audit.getEvidenceText());
             audit.setEngine(analysis.engine());
             audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
