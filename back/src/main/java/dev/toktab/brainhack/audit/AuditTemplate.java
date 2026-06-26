@@ -42,6 +42,12 @@ public class AuditTemplate {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String instructions;
 
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String markUnimportant = "";
+
+    @Column(nullable = false)
+    private boolean shared;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -89,6 +95,22 @@ public class AuditTemplate {
 
     public void setInstructions(String instructions) {
         this.instructions = instructions;
+    }
+
+    public String getMarkUnimportant() {
+        return markUnimportant;
+    }
+
+    public void setMarkUnimportant(String markUnimportant) {
+        this.markUnimportant = markUnimportant;
+    }
+
+    public boolean isShared() {
+        return shared;
+    }
+
+    public void setShared(boolean shared) {
+        this.shared = shared;
     }
 
     public Instant getCreatedAt() {

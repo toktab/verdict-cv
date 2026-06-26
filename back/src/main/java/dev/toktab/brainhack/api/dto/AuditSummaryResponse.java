@@ -18,6 +18,8 @@ public record AuditSummaryResponse(
         AuditStatus status,
         String templateId,
         String templateName,
+        String checkStateId,
+        String checkStateName,
         Instant createdAt,
         List<VerdictResponse> topProblems
 ) {

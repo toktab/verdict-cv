@@ -92,6 +92,18 @@ public class Audit {
     @Column(columnDefinition = "TEXT")
     private String templateInstructions;
 
+    @Column(columnDefinition = "TEXT")
+    private String templateMarkUnimportant;
+
+    @Column(length = 80)
+    private String checkStateId;
+
+    @Column(length = 120)
+    private String checkStateName;
+
+    @Column(length = 500)
+    private String checkStateDescription;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -263,6 +275,38 @@ public class Audit {
 
     public void setTemplateInstructions(String templateInstructions) {
         this.templateInstructions = templateInstructions;
+    }
+
+    public String getTemplateMarkUnimportant() {
+        return templateMarkUnimportant;
+    }
+
+    public void setTemplateMarkUnimportant(String templateMarkUnimportant) {
+        this.templateMarkUnimportant = templateMarkUnimportant;
+    }
+
+    public String getCheckStateId() {
+        return checkStateId;
+    }
+
+    public void setCheckStateId(String checkStateId) {
+        this.checkStateId = checkStateId;
+    }
+
+    public String getCheckStateName() {
+        return checkStateName;
+    }
+
+    public void setCheckStateName(String checkStateName) {
+        this.checkStateName = checkStateName;
+    }
+
+    public String getCheckStateDescription() {
+        return checkStateDescription;
+    }
+
+    public void setCheckStateDescription(String checkStateDescription) {
+        this.checkStateDescription = checkStateDescription;
     }
 
     public Instant getCreatedAt() {

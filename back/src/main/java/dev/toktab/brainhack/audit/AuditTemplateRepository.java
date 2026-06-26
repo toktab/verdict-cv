@@ -5,4 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AuditTemplateRepository extends JpaRepository<AuditTemplate, Long> {
     List<AuditTemplate> findByOwnerIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long ownerId);
+
+    List<AuditTemplate> findBySharedTrueAndDeletedAtIsNullOrderByCreatedAtDesc();
 }

@@ -70,6 +70,22 @@ class ServiceLayerBehaviorTest {
                 });
     }
 
+    @Test
+    void templateUnimportantRulesMarkContactRowsAsNotClaims() {
+        UserAccount owner = sessionService.register(user("template_rules_user", "template-rules@example.com")).account();
+        Audit audit = auditService.run(new AuditRunRequest(
+                "Candidate CV",
+                "Job Evidence",
+                "toktabbusiness@gmail.com. https://linkedin.com/in/toktab. Built REST APIs with Spring Boot and MySQL.",
+                "The candidate built REST APIs with Spring Boot and MySQL.",
+                "default-cv",
+                "war"), new MockHttpServletRequest(), owner);
+
+        assertThat(audit.getVerdicts())
+                .filteredOn(verdict -> verdict.getSentence().contains("@") || verdict.getSentence().contains("linkedin"))
+                .allSatisfy(verdict -> assertThat(verdict.getStatus()).isEqualTo(VerdictStatus.NOT_A_CLAIM));
+    }
+
     private RegisterRequest user(String username, String email) {
         return new RegisterRequest("Service User", username, email, "Georgia", "12 Test Street", "VERDICT", "Analyst", "password1");
     }
@@ -80,6 +96,7 @@ class ServiceLayerBehaviorTest {
                 "Job Evidence",
                 "Built REST APIs with Spring Boot and MySQL. Optimized cloud costs by 60 percent.",
                 "The candidate built REST APIs with Spring Boot and MySQL. No evidence mentions cloud cost optimization.",
-                "default-cv");
+                "default-cv",
+                "war");
     }
 }

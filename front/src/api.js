@@ -67,6 +67,9 @@ export const api = {
   templates(token) {
     return request('/api/audit/templates', { headers: { 'X-User-Token': token } });
   },
+  states(token) {
+    return request('/api/audit/states', { headers: { 'X-User-Token': token } });
+  },
   createTemplate(token, payload) {
     return request('/api/audit/templates', {
       method: 'POST',

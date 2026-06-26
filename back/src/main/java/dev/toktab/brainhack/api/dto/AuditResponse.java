@@ -24,6 +24,9 @@ public record AuditResponse(
         String templateId,
         String templateName,
         String templateDescription,
+        String checkStateId,
+        String checkStateName,
+        String checkStateDescription,
         Instant createdAt,
         List<VerdictResponse> verdicts
 ) {

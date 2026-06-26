@@ -7,9 +7,11 @@ import dev.toktab.brainhack.api.dto.AuditRunRequest;
 import dev.toktab.brainhack.api.dto.AuditSummaryResponse;
 import dev.toktab.brainhack.api.dto.AuditTemplateRequest;
 import dev.toktab.brainhack.api.dto.AuditTemplateResponse;
+import dev.toktab.brainhack.api.dto.CheckStateResponse;
 import dev.toktab.brainhack.audit.AuditMapper;
 import dev.toktab.brainhack.audit.AuditService;
 import dev.toktab.brainhack.audit.AuditTemplateService;
+import dev.toktab.brainhack.audit.CheckStateService;
 import dev.toktab.brainhack.audit.ExportService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -33,13 +35,15 @@ public class AuditController {
     private final ExportService exportService;
     private final UserTokenService userTokenService;
     private final AuditTemplateService templateService;
+    private final CheckStateService checkStateService;
 
-    public AuditController(AuditService auditService, AuditMapper auditMapper, ExportService exportService, UserTokenService userTokenService, AuditTemplateService templateService) {
+    public AuditController(AuditService auditService, AuditMapper auditMapper, ExportService exportService, UserTokenService userTokenService, AuditTemplateService templateService, CheckStateService checkStateService) {
         this.auditService = auditService;
         this.auditMapper = auditMapper;
         this.exportService = exportService;
         this.userTokenService = userTokenService;
         this.templateService = templateService;
+        this.checkStateService = checkStateService;
     }
 
     @PostMapping("/run")
@@ -64,6 +68,12 @@ public class AuditController {
     public AuditTemplateResponse createTemplate(@Valid @RequestBody AuditTemplateRequest request, @RequestHeader(value = "X-User-Token", required = false) String token) {
         UserAccount user = userTokenService.requireUser(token);
         return templateService.create(user, request);
+    }
+
+    @GetMapping("/states")
+    public List<CheckStateResponse> states(@RequestHeader(value = "X-User-Token", required = false) String token) {
+        userTokenService.requireUser(token);
+        return checkStateService.states();
     }
 
     @GetMapping("/{id}")

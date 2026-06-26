@@ -30,6 +30,9 @@ public class AuditMapper {
                 audit.getTemplateId(),
                 audit.getTemplateName(),
                 audit.getTemplateDescription(),
+                audit.getCheckStateId(),
+                audit.getCheckStateName(),
+                audit.getCheckStateDescription(),
                 audit.getCreatedAt(),
                 audit.getVerdicts().stream().map(this::toVerdictResponse).toList()
         );
@@ -56,6 +59,8 @@ public class AuditMapper {
                 audit.getStatus(),
                 audit.getTemplateId(),
                 audit.getTemplateName(),
+                audit.getCheckStateId(),
+                audit.getCheckStateName(),
                 audit.getCreatedAt(),
                 topProblems
         );

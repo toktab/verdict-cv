@@ -1,0 +1,30 @@
+[
+  {
+    "id": "war",
+    "name": "WAR-State",
+    "description": "Raw deterministic audit pass for normal evidence matching. Use when you want fast, explainable checks without heavier judgment.",
+    "intensity": "Standard",
+    "paid": false
+  },
+  {
+    "id": "light",
+    "name": "Light-State",
+    "description": "Lenient pass that focuses on obvious unsupported claims and avoids over-penalizing weak wording.",
+    "intensity": "Light",
+    "paid": false
+  },
+  {
+    "id": "person",
+    "name": "Person-State",
+    "description": "Person-like review style for motive, context, and wording intent. Best for CVs, profiles, and pitch material.",
+    "intensity": "Contextual",
+    "paid": true
+  },
+  {
+    "id": "strict-war-ai",
+    "name": "Strict WAR+AI-State",
+    "description": "Strict combined mode for high-stakes reviews where every strong claim needs clear support.",
+    "intensity": "Strict",
+    "paid": true
+  }
+]

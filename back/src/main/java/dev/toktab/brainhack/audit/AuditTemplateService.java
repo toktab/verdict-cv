@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -39,6 +40,10 @@ public class AuditTemplateService {
         repository.findByOwnerIdAndDeletedAtIsNullOrderByCreatedAtDesc(owner.getId()).stream()
                 .map(this::toResponse)
                 .forEach(templates::add);
+        repository.findBySharedTrueAndDeletedAtIsNullOrderByCreatedAtDesc().stream()
+                .filter(template -> !template.getOwner().getId().equals(owner.getId()))
+                .map(this::toResponse)
+                .forEach(templates::add);
         return templates;
     }
 
@@ -50,6 +55,8 @@ public class AuditTemplateService {
         template.setName(clean(request.name()));
         template.setDescription(clean(request.description()));
         template.setInstructions(clean(request.instructions()));
+        template.setMarkUnimportant(clean(request.markUnimportant()));
+        template.setShared(request.shared());
         return toResponse(repository.save(template));
     }
 
@@ -66,8 +73,8 @@ public class AuditTemplateService {
             Long templateId = Long.valueOf(id.substring("custom-".length()));
             return repository.findById(templateId)
                     .filter(template -> template.getDeletedAt() == null)
-                    .filter(template -> template.getOwner().getId().equals(owner.getId()))
-                    .map(template -> new SelectedAuditTemplate("custom-" + template.getId(), template.getName(), template.getDescription(), template.getInstructions()))
+                    .filter(template -> template.isShared() || template.getOwner().getId().equals(owner.getId()))
+                    .map(template -> new SelectedAuditTemplate("custom-" + template.getId(), template.getName(), template.getDescription(), template.getInstructions(), rules(template.getMarkUnimportant())))
                     .orElseThrow(() -> new IllegalArgumentException("Audit template not found: " + id));
         }
         throw new IllegalArgumentException("Audit template not found: " + id);
@@ -81,6 +88,8 @@ public class AuditTemplateService {
                 template.getName(),
                 template.getDescription(),
                 template.getInstructions(),
+                template.getMarkUnimportant(),
+                template.isShared(),
                 template.getCreatedAt());
     }
 
@@ -88,19 +97,26 @@ public class AuditTemplateService {
         return value == null ? "" : value.trim();
     }
 
-    private record DefaultTemplate(String id, String mode, String name, String description, String instructions) {
+    private List<String> rules(String value) {
+        return List.of(clean(value).split("[,\\n]")).stream()
+                .map(String::trim)
+                .filter(rule -> !rule.isBlank())
+                .toList();
+    }
+
+    private record DefaultTemplate(String id, String mode, String name, String description, String instructions, List<String> markUnimportant) {
         AuditTemplateResponse toResponse() {
-            return new AuditTemplateResponse(id, "default", mode, name, description, instructions, Instant.EPOCH);
+            return new AuditTemplateResponse(id, "default", mode, name, description, instructions, String.join(", ", Objects.requireNonNullElse(markUnimportant, List.of())), true, Instant.EPOCH);
         }
 
         SelectedAuditTemplate toSelected() {
-            return new SelectedAuditTemplate(id, name, description, instructions);
+            return new SelectedAuditTemplate(id, name, description, instructions, Objects.requireNonNullElse(markUnimportant, List.of()));
         }
     }
 
-    public record SelectedAuditTemplate(String id, String name, String description, String instructions) {
+    public record SelectedAuditTemplate(String id, String name, String description, String instructions, List<String> markUnimportant) {
         static SelectedAuditTemplate none() {
-            return new SelectedAuditTemplate("", "", "", "");
+            return new SelectedAuditTemplate("", "", "", "", List.of());
         }
     }
 }

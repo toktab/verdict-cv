@@ -22,7 +22,10 @@ function App() {
   const [detailAudit, setDetailAudit] = useState(null);
   const [history, setHistory] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [states, setStates] = useState([]);
   const [templateForm, setTemplateForm] = useState(emptyTemplateForm(demoCase.auditMode));
+  const [demoConfirmOpen, setDemoConfirmOpen] = useState(false);
+  const [demoCountdown, setDemoCountdown] = useState(3);
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [stage, setStage] = useState('');
@@ -33,6 +36,7 @@ function App() {
     track('page_view', route, window.location.pathname);
     loadHistory();
     loadTemplates();
+    loadStates();
     if (userToken) {
       api.me(userToken).then(setUser).catch(() => {
         localStorage.removeItem('verdictUserToken');
@@ -51,7 +55,20 @@ function App() {
   useEffect(() => {
     loadHistory();
     loadTemplates();
+    loadStates();
   }, [userToken]);
+
+  useEffect(() => {
+    if (!demoConfirmOpen) {
+      return undefined;
+    }
+    setDemoCountdown(3);
+    const started = Date.now();
+    const timer = setInterval(() => {
+      setDemoCountdown(Math.max(0, 3 - Math.floor((Date.now() - started) / 1000)));
+    }, 250);
+    return () => clearInterval(timer);
+  }, [demoConfirmOpen]);
 
   async function loadHistory() {
     if (!userToken) {
@@ -79,6 +96,20 @@ function App() {
     }
   }
 
+  async function loadStates() {
+    if (!userToken) {
+      setStates([]);
+      return;
+    }
+    try {
+      const rows = await api.states(userToken);
+      setStates(rows);
+      setForm((current) => current.checkStateId ? current : { ...current, checkStateId: rows[0]?.id || '' });
+    } catch {
+      setStates([]);
+    }
+  }
+
   async function saveTemplate() {
     setError('');
     if (!userToken) {
@@ -94,6 +125,17 @@ function App() {
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  function confirmLoadDemo() {
+    setForm({
+      ...demoCase,
+      templateId: templates.find((template) => template.mode === demoCase.auditMode)?.id || '',
+      checkStateId: states[0]?.id || '',
+    });
+    setAudit(null);
+    setDemoConfirmOpen(false);
+    track('load_demo_case_confirmed', 'commandbar');
   }
 
   async function runAudit() {
@@ -200,18 +242,25 @@ function App() {
               </Panel>
             </section>
             {userToken && (
-              <AuditTemplatePanel
-                mode={form.auditMode || 'cv'}
-                templates={templates}
-                selectedId={form.templateId || ''}
-                onSelect={(templateId) => setForm({ ...form, templateId })}
-                templateForm={templateForm}
-                setTemplateForm={setTemplateForm}
-                onSave={saveTemplate}
-              />
+              <>
+                <AuditTemplatePanel
+                  mode={form.auditMode || 'cv'}
+                  templates={templates}
+                  selectedId={form.templateId || ''}
+                  onSelect={(templateId) => setForm({ ...form, templateId })}
+                  templateForm={templateForm}
+                  setTemplateForm={setTemplateForm}
+                  onSave={saveTemplate}
+                />
+                <CheckStatePanel
+                  states={states}
+                  selectedId={form.checkStateId || ''}
+                  onSelect={(checkStateId) => setForm({ ...form, checkStateId })}
+                />
+              </>
             )}
             <section className="commandbar">
-              <button className="ghost" onClick={() => { track('load_demo_case', 'commandbar'); setForm(demoCase); }}>Load Demo Case</button>
+              <button className="ghost" onClick={() => { track('load_demo_case', 'commandbar'); setDemoConfirmOpen(true); }}>Load Demo Case</button>
               <button className="primary" disabled={loading || !userToken} onClick={runAudit}>
                 <Play size={18} /> {currentAuditMode(form).actionCopy}
               </button>
@@ -223,6 +272,13 @@ function App() {
             {audit && <AuditResult audit={audit} />}
             <HistoryPanel history={history} openAudit={openAudit} />
           </main>
+          {demoConfirmOpen && (
+            <DemoConfirmModal
+              countdown={demoCountdown}
+              onCancel={() => setDemoConfirmOpen(false)}
+              onConfirm={confirmLoadDemo}
+            />
+          )}
         </div>
       );
     }
@@ -467,6 +523,7 @@ function auditPayload(form) {
     claimText: form.claimText,
     evidenceText: form.evidenceText,
     templateId: form.templateId || '',
+    checkStateId: form.checkStateId || '',
   };
 }
 
@@ -491,13 +548,72 @@ function AuditTemplatePanel({ mode, templates, selectedId, onSelect, templateFor
       <div className="templateBuilder">
         <Input label="Custom template name" value={templateForm.name} onChange={(name) => setTemplateForm({ ...templateForm, name })} />
         <Input label="Description" value={templateForm.description} onChange={(description) => setTemplateForm({ ...templateForm, description })} />
+        <Input label="Mark as unimportant" value={templateForm.markUnimportant} onChange={(markUnimportant) => setTemplateForm({ ...templateForm, markUnimportant })} />
         <label className="field">
           <span>Instructions</span>
           <textarea value={templateForm.instructions} onChange={(event) => setTemplateForm({ ...templateForm, instructions: event.target.value })} />
         </label>
+        <label className="toggleRow compact">
+          <input type="checkbox" checked={templateForm.shared} onChange={(event) => setTemplateForm({ ...templateForm, shared: event.target.checked })} />
+          <span>Share in library</span>
+        </label>
         <button className="primary" onClick={onSave}><Save size={16} /> Save custom template</button>
       </div>
     </section>
+  );
+}
+
+function CheckStatePanel({ states, selectedId, onSelect }) {
+  const selected = states.find((state) => state.id === selectedId) || states[0];
+  return (
+    <section className="statePanel">
+      <div className="templateHeader">
+        <div>
+          <span className="eyebrow">Check state</span>
+          <h2>{selected?.name || 'No state selected'}</h2>
+          <p>{selected?.description || 'Choose how strict and contextual this audit should be.'}</p>
+        </div>
+        <select value={selectedId || selected?.id || ''} onChange={(event) => onSelect(event.target.value)}>
+          {states.map((state) => (
+            <option key={state.id} value={state.id}>{state.name}{state.paid ? ' / paid' : ''}</option>
+          ))}
+        </select>
+      </div>
+      {selected && (
+        <div className="stateCards">
+          {states.map((state) => (
+            <button key={state.id} className={state.id === selected.id ? 'active' : ''} onClick={() => onSelect(state.id)}>
+              <strong>{state.name}</strong>
+              <span>{state.intensity}{state.paid ? ' / paid' : ' / included'}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function DemoConfirmModal({ countdown, onCancel, onConfirm }) {
+  return (
+    <div className="modalOverlay" role="dialog" aria-modal="true">
+      <section className="modal demoModal">
+        <div className="modalHead">
+          <div>
+            <h2>Load demo case?</h2>
+            <span>This will replace the text currently in the audit form.</span>
+          </div>
+          <button onClick={onCancel}><X size={18} /> Cancel</button>
+        </div>
+        <div className="demoCountdown">
+          <strong>{countdown}</strong>
+          <span>Confirm unlocks after the countdown.</span>
+        </div>
+        <div className="editActions">
+          <button className="primary" disabled={countdown > 0} onClick={onConfirm}><Play size={16} /> Yes, load demo</button>
+          <button onClick={onCancel}>Keep current text</button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -507,6 +623,8 @@ function emptyTemplateForm(mode = 'cv') {
     name: '',
     description: '',
     instructions: '',
+    markUnimportant: 'email, phone, linkedin, github, website, contact',
+    shared: false,
   };
 }
 

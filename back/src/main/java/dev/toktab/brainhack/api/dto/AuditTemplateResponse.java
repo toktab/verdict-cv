@@ -9,6 +9,8 @@ public record AuditTemplateResponse(
         String name,
         String description,
         String instructions,
+        String markUnimportant,
+        boolean shared,
         Instant createdAt
 ) {
 }

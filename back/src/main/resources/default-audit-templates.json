@@ -4,27 +4,31 @@
     "mode": "cv",
     "name": "CV Whitezone",
     "description": "Default CV-vs-job template. Treat contact details, names, profile links, and plain identity fields as context, not claims.",
-    "instructions": "Focus on work-experience, skill, leadership, education, and measurable achievement claims. Do not penalize email addresses, phone numbers, names, locations, or profile URLs unless they are written as evidence-backed claims."
+    "instructions": "Focus on work-experience, skill, leadership, education, and measurable achievement claims. Do not penalize email addresses, phone numbers, names, locations, or profile URLs unless they are written as evidence-backed claims.",
+    "markUnimportant": ["email", "phone", "linkedin", "github", "portfolio", "website", "address", "location", "contact"]
   },
   {
     "id": "default-sales",
     "mode": "sales",
     "name": "Sales Claim Whitezone",
     "description": "Default sales-vs-source template. Separate promotional wording from factual product, metric, and proof claims.",
-    "instructions": "Check measurable claims, superiority claims, guarantees, named integrations, certifications, and performance numbers. Treat slogans and contact details as context unless they assert a factual result."
+    "instructions": "Check measurable claims, superiority claims, guarantees, named integrations, certifications, and performance numbers. Treat slogans and contact details as context unless they assert a factual result.",
+    "markUnimportant": ["email", "phone", "contact", "website", "demo link", "sales contact"]
   },
   {
     "id": "default-pitch",
     "mode": "pitch",
     "name": "Pitch Deck Whitezone",
     "description": "Default pitch-deck template. Prioritize investor-facing traction, market, revenue, team, and technical proof claims.",
-    "instructions": "Check metrics, growth, customer, team, partnership, market-size, and product-readiness statements. Keep harmless labels, URLs, emails, and presenter details out of unsupported-claim scoring."
+    "instructions": "Check metrics, growth, customer, team, partnership, market-size, and product-readiness statements. Keep harmless labels, URLs, emails, and presenter details out of unsupported-claim scoring.",
+    "markUnimportant": ["email", "phone", "presenter", "contact", "website", "deck title"]
   },
   {
     "id": "default-report",
     "mode": "report",
     "name": "Report Reference Whitezone",
     "description": "Default report-vs-reference template. Evaluate claims against citations, appendices, datasets, and supporting documents.",
-    "instructions": "Check factual statements, figures, conclusions, trends, and cited assertions. Treat headings, author information, and reference metadata as context unless they make a substantive claim."
+    "instructions": "Check factual statements, figures, conclusions, trends, and cited assertions. Treat headings, author information, and reference metadata as context unless they make a substantive claim.",
+    "markUnimportant": ["author", "email", "phone", "reference", "appendix", "page", "table of contents"]
   }
 ]

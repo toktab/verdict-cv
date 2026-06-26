@@ -2,6 +2,7 @@ package dev.toktab.brainhack.audit;
 
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.api.dto.AuditRunRequest;
+import dev.toktab.brainhack.api.dto.CheckStateResponse;
 import dev.toktab.brainhack.events.RabbitEventPublisher;
 import dev.toktab.brainhack.log.AuditLogService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,6 +28,7 @@ public class AuditService {
     private final AuditLogService logService;
     private final TaskExecutor auditTaskExecutor;
     private final AuditTemplateService templateService;
+    private final CheckStateService checkStateService;
     private final int maxClaimChars;
     private final int maxEvidenceChars;
 
@@ -42,6 +44,7 @@ public class AuditService {
             @Qualifier("auditTaskExecutor")
             TaskExecutor auditTaskExecutor,
             AuditTemplateService templateService,
+            CheckStateService checkStateService,
             @Value("${verdict.audit.max-claim-chars}") int maxClaimChars,
             @Value("${verdict.audit.max-evidence-chars}") int maxEvidenceChars) {
         this.auditRepository = auditRepository;
@@ -54,6 +57,7 @@ public class AuditService {
         this.logService = logService;
         this.auditTaskExecutor = auditTaskExecutor;
         this.templateService = templateService;
+        this.checkStateService = checkStateService;
         this.maxClaimChars = maxClaimChars;
         this.maxEvidenceChars = maxEvidenceChars;
     }
@@ -82,10 +86,11 @@ public class AuditService {
         audit.setStatus(AuditStatus.RUNNING);
         audit.setOwner(owner);
         applyTemplate(audit, owner, request.templateId());
+        applyCheckState(audit, request.checkStateId());
         audit = auditRepository.saveAndFlush(audit);
         try {
             AuditAnalysisResult analysis = analyze(sentences, evidenceText);
-            List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(analysis.verdicts(), evidenceText);
+            List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(applyUnimportantRules(audit, analysis.verdicts()), evidenceText);
             audit.setEngine(analysis.engine());
             audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
             audit.setProcessingMillis(System.currentTimeMillis() - started);
@@ -186,6 +191,49 @@ public class AuditService {
         audit.setTemplateName(template.name());
         audit.setTemplateDescription(template.description());
         audit.setTemplateInstructions(template.instructions());
+        audit.setTemplateMarkUnimportant(String.join("\n", template.markUnimportant()));
+    }
+
+    private void applyCheckState(Audit audit, String checkStateId) {
+        CheckStateResponse state = checkStateService.select(checkStateId);
+        audit.setCheckStateId(state.id());
+        audit.setCheckStateName(state.name());
+        audit.setCheckStateDescription(state.description());
+    }
+
+    private List<AnalyzedVerdict> applyUnimportantRules(Audit audit, List<AnalyzedVerdict> verdicts) {
+        List<String> rules = splitRules(audit.getTemplateMarkUnimportant());
+        return verdicts.stream()
+                .map(verdict -> isUnimportant(verdict.sentence(), rules)
+                        ? new AnalyzedVerdict(
+                        verdict.sentenceIndex(),
+                        verdict.sentence(),
+                        VerdictStatus.NOT_A_CLAIM,
+                        Confidence.HIGH,
+                        "template unimportant",
+                        "The selected template marks this contact, identity, link, or metadata text as unimportant context rather than an auditable claim.",
+                        "No evidence required.")
+                        : verdict)
+                .toList();
+    }
+
+    private List<String> splitRules(String rules) {
+        return List.of((rules == null ? "" : rules).split("[,\\n]")).stream()
+                .map(String::trim)
+                .filter(rule -> !rule.isBlank())
+                .map(rule -> rule.toLowerCase(Locale.ROOT))
+                .toList();
+    }
+
+    private boolean isUnimportant(String sentence, List<String> rules) {
+        String normalized = sentence.toLowerCase(Locale.ROOT);
+        if (normalized.matches(".*[\\w.%+-]+@[\\w.-]+\\.[a-z]{2,}.*")
+                || normalized.matches(".*https?://\\S+.*")
+                || normalized.matches(".*\\b(linkedin|github|portfolio)\\.com\\S*.*")
+                || normalized.matches("^[+\\d ()-]{7,}$")) {
+            return true;
+        }
+        return rules.stream().anyMatch(normalized::contains);
     }
 
     private Audit createRunningAudit(AuditRunRequest request, UserAccount owner) {
@@ -205,6 +253,7 @@ public class AuditService {
         audit.setStatus(AuditStatus.RUNNING);
         audit.setOwner(owner);
         applyTemplate(audit, owner, request.templateId());
+        applyCheckState(audit, request.checkStateId());
         Audit saved = auditRepository.saveAndFlush(audit);
         rabbitEventPublisher.publish("audit.requested", Map.of("auditId", saved.getId(), "claimTitle", saved.getClaimTitle()));
         return saved;
@@ -219,7 +268,7 @@ public class AuditService {
         try {
             List<String> sentences = sentenceSplitter.split(audit.getClaimText());
             AuditAnalysisResult analysis = analyze(sentences, audit.getEvidenceText());
-            List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(analysis.verdicts(), audit.getEvidenceText());
+            List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(applyUnimportantRules(audit, analysis.verdicts()), audit.getEvidenceText());
             audit.setEngine(analysis.engine());
             audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
             audit.setProcessingMillis(System.currentTimeMillis() - started);
