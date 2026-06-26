@@ -88,7 +88,7 @@ Fix notes: Added structured API error responses with stable code and message fie
 16. Request IDs
 Status: FIXED
 Advice: Add request IDs to logs and API responses for traceability.
-Fix notes: Added X-Request-Id support, response headers, request IDs in structured error bodies, request ID storage on app event logs, and transactional current-user loading to avoid lazy proxy failures during audits. Commit: eb1bcf2.
+Fix notes: Added X-Request-Id support, response headers, request IDs in structured error bodies, request ID storage on app event logs, and transactional current-user loading to avoid lazy proxy failures during audits. Commit: 68a1543.
 
 17. Database indexes
 Status: TODO
