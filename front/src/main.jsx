@@ -367,6 +367,28 @@ function HomePage({ setRoute, user, userToken, setUser, setUserToken }) {
     'Privacy-forward fingerprints so documents feel controlled.',
     'Strict evidence language: unsupported does not mean false.',
   ];
+  const states = [
+    {
+      name: 'WAR-State',
+      tag: '5 free runs weekly',
+      description: 'WAR-State is the fast, deterministic audit mode for users who want a clear first pass without AI judgment. It compares claim sentences against the evidence, checks overlap, flags risky wording, and keeps the logic explainable enough for teams that need a repeatable review trail. It is ideal for quick CV checks, product claims, report drafts, and internal screening where speed matters. Every account can use WAR-State 5 times per week, making it the default way to build trust before moving into deeper paid review states.',
+    },
+    {
+      name: 'Light-State',
+      tag: 'Lenient obvious-issue review',
+      description: 'Light-State is built for softer review moments where the goal is not to punish every imperfect phrase. It focuses on obvious unsupported claims, big evidence gaps, and wording that could mislead a reader, while avoiding aggressive penalties for harmless weak language. This is useful when a founder, candidate, marketer, or analyst is still drafting and wants guidance without turning the document into a red wall. It keeps feedback practical, readable, and confidence-building while still showing what needs evidence before publication.',
+    },
+    {
+      name: 'Person-State',
+      tag: 'AI context review',
+      description: 'Person-State adds a more human-style review layer for motive, context, tone, and intent. It is designed for material where wording matters as much as evidence: CVs, profiles, founder bios, pitch decks, sales pages, and sensitive professional claims. When AI credentials are configured, this state uses the LLM to judge how a careful reviewer might interpret a sentence, then explains the concern in natural language. If AI is unavailable, VERDICT falls back to local review so the workflow still completes.',
+    },
+    {
+      name: 'Strict WAR+AI-State',
+      tag: 'Highest scrutiny',
+      description: 'Strict WAR+AI-State is the high-stakes mode for claims that need to survive serious inspection. It runs the local WAR review first, then adds AI review when configured, and keeps the stricter result when the two disagree. This is the mode for hiring shortlists, investor-facing decks, compliance-sensitive summaries, public claims, and reports where unsupported confidence can create real damage. It is intentionally less forgiving: strong claims need clear proof, vague language is challenged, and the final verdict favors caution over optimism.',
+    },
+  ];
   return (
     <div className="shell">
     <div className="pageGlow contentFadeIn" />
@@ -413,6 +435,45 @@ function HomePage({ setRoute, user, userToken, setUser, setUserToken }) {
             <span className="eyebrow">How we do it</span>
             <h2>Strict language, clear receipts, formula scoring.</h2>
             <p>The system splits claims, compares them to evidence, applies a deterministic credibility formula, logs activity, and exports a report that can survive a serious review conversation.</p>
+          </div>
+        </section>
+        <section className="templateShowcase">
+          <div className="templateLead">
+            <span className="eyebrow">Template intelligence</span>
+            <h2>Start with verified company templates, then let the community sharpen the edge.</h2>
+            <p>Templates decide what VERDICT treats as important, what should be ignored as harmless context, and how strict the audit language should feel. Official VERDICT templates are made by us, verified for common business use cases, and continuously updated as we improve scoring, wording rules, and document patterns. User-made templates let teams publish reusable lenses that other users can access too, so a recruiter, founder, analyst, or reviewer can start from a proven setup instead of rebuilding audit logic every time.</p>
+          </div>
+          <div className="templateTypes">
+            <article>
+              <strong>Official templates</strong>
+              <span>Built and verified by VERDICT, maintained as the product learns better audit patterns.</span>
+            </article>
+            <article>
+              <strong>Shared user templates</strong>
+              <span>Created by users and available to everyone, useful for team-specific or industry-specific review styles.</span>
+            </article>
+            <article>
+              <strong>Private custom templates</strong>
+              <span>Saved to the account that created them, tuned for stricter or looser claim handling.</span>
+            </article>
+          </div>
+        </section>
+        <section className="stateShowcase">
+          <div className="stateShowcaseHead">
+            <span className="eyebrow">Audit states</span>
+            <h2>Choose the level of scrutiny before the document goes under review.</h2>
+            <p>States work like review engines. Some are fast and deterministic, some add AI context, and the strictest mode combines both. The user chooses how serious the audit should be before running it.</p>
+          </div>
+          <div className="stateMarketingGrid">
+            {states.map((state) => (
+              <article key={state.name} className="stateMarketingCard">
+                <div>
+                  <span>{state.tag}</span>
+                  <h3>{state.name}</h3>
+                </div>
+                <p>{state.description}</p>
+              </article>
+            ))}
           </div>
         </section>
         <section className="magnet">

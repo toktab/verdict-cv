@@ -280,6 +280,8 @@ nav button:hover,
 
 .proofCard,
 .marketingGrid > div,
+.templateShowcase,
+.stateShowcase,
 .magnet,
 .authCard {
   border: 1px solid var(--line);
@@ -313,15 +315,159 @@ nav button:hover,
 }
 
 .marketingGrid > div,
+.templateShowcase,
+.stateShowcase,
 .magnet {
   padding: 28px;
 }
 
 .marketingGrid h2,
+.templateLead h2,
+.stateShowcaseHead h2,
 .magnet h2 {
   margin: 10px 0 0;
   font-size: clamp(28px, 4vw, 48px);
   line-height: 1;
+}
+
+.templateShowcase,
+.stateShowcase {
+  margin-top: 14px;
+  overflow: hidden;
+}
+
+.templateShowcase {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
+  gap: 22px;
+  background:
+    radial-gradient(circle at 0 0, rgba(99, 102, 241, 0.22), transparent 26rem),
+    radial-gradient(circle at 100% 0, rgba(16, 185, 129, 0.16), transparent 22rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.022)),
+    var(--panel);
+}
+
+.templateLead p,
+.stateShowcaseHead p,
+.stateMarketingCard p,
+.templateTypes span {
+  color: var(--soft);
+  line-height: 1.65;
+}
+
+.templateLead p,
+.stateShowcaseHead p {
+  max-width: 860px;
+  font-size: 17px;
+}
+
+.templateTypes {
+  display: grid;
+  gap: 12px;
+}
+
+.templateTypes article {
+  min-height: 124px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  padding: 16px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.028)),
+    rgba(255, 255, 255, 0.035);
+}
+
+.templateTypes article:nth-child(1) {
+  border-color: rgba(16, 185, 129, 0.42);
+}
+
+.templateTypes article:nth-child(2) {
+  border-color: rgba(99, 102, 241, 0.46);
+}
+
+.templateTypes article:nth-child(3) {
+  border-color: rgba(245, 158, 11, 0.48);
+}
+
+.templateTypes strong {
+  font-size: 18px;
+  color: var(--text);
+}
+
+.stateShowcase {
+  background:
+    radial-gradient(circle at 16% 0, rgba(255, 59, 59, 0.18), transparent 25rem),
+    radial-gradient(circle at 78% 18%, rgba(245, 158, 11, 0.14), transparent 22rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.022)),
+    var(--panel);
+}
+
+.stateShowcaseHead {
+  display: grid;
+  gap: 10px;
+}
+
+.stateMarketingGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.stateMarketingCard {
+  min-height: 420px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.026)),
+    rgba(255, 255, 255, 0.034);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.stateMarketingCard:nth-child(1) {
+  border-color: rgba(255, 99, 99, 0.52);
+}
+
+.stateMarketingCard:nth-child(2) {
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+.stateMarketingCard:nth-child(3) {
+  border-color: rgba(99, 102, 241, 0.54);
+}
+
+.stateMarketingCard:nth-child(4) {
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.stateMarketingCard span {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 28px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 850;
+  background: linear-gradient(135deg, rgba(255, 59, 59, 0.92), rgba(99, 102, 241, 0.92));
+}
+
+.stateMarketingCard h3 {
+  margin: 12px 0 0;
+  font-size: clamp(22px, 2.5vw, 32px);
+  line-height: 1;
+}
+
+.stateMarketingCard p {
+  margin: 0;
+  font-size: 14px;
 }
 
 .magnet {
@@ -1935,6 +2081,8 @@ select {
   .hero,
   .proofGrid,
   .marketingGrid,
+  .templateShowcase,
+  .stateMarketingGrid,
   .magnetList,
   .authGrid,
   .userEditor,

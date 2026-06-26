@@ -7,6 +7,7 @@ import dev.toktab.brainhack.events.RabbitEventPublisher;
 import dev.toktab.brainhack.log.AuditLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -87,6 +88,7 @@ public class AuditService {
         audit.setOwner(owner);
         applyTemplate(audit, owner, request.templateId());
         applyCheckState(audit, request.checkStateId());
+        enforceWarWeeklyLimit(owner, audit.getCheckStateId());
         audit = auditRepository.saveAndFlush(audit);
         try {
             AuditAnalysisResult analysis = analyze(audit, sentences, evidenceText);
@@ -352,9 +354,21 @@ public class AuditService {
         audit.setOwner(owner);
         applyTemplate(audit, owner, request.templateId());
         applyCheckState(audit, request.checkStateId());
+        enforceWarWeeklyLimit(owner, audit.getCheckStateId());
         Audit saved = auditRepository.saveAndFlush(audit);
         rabbitEventPublisher.publish("audit.requested", Map.of("auditId", saved.getId(), "claimTitle", saved.getClaimTitle()));
         return saved;
+    }
+
+    private void enforceWarWeeklyLimit(UserAccount owner, String checkStateId) {
+        if (owner == null || !"war".equals(checkStateId)) {
+            return;
+        }
+        Instant weekStart = Instant.now().minus(Duration.ofDays(7));
+        long used = auditRepository.countByOwnerIdAndCheckStateIdAndCreatedAtAfterAndDeletedAtIsNull(owner.getId(), "war", weekStart);
+        if (used >= 5) {
+            throw new IllegalArgumentException("WAR-State can be used 5 times per week for a single account.");
+        }
     }
 
     private void completeAsync(Long auditId) {

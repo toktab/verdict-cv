@@ -13,6 +13,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -97,6 +98,19 @@ class CheckStateAnalyzerRoutingTest {
             assertThat(verdict.getReasonCategory()).isEqualTo("strict local + ai");
         });
         verify(llmAuditAnalyzer).analyze(anyList(), anyString());
+    }
+
+    @Test
+    void warStateIsLimitedToFiveRunsPerAccountPerWeek() {
+        UserAccount owner = sessionService.register(user("war_limit_user", "war-limit@example.com")).account();
+        for (int i = 0; i < 5; i++) {
+            Audit audit = auditService.run(request("war"), new MockHttpServletRequest(), owner);
+            assertThat(audit.getStatus()).isEqualTo(AuditStatus.COMPLETED);
+        }
+
+        assertThatThrownBy(() -> auditService.run(request("war"), new MockHttpServletRequest(), owner))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("5 times per week");
     }
 
     private RegisterRequest user(String username, String email) {
