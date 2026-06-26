@@ -5,6 +5,9 @@ import dev.toktab.brainhack.api.dto.UserProfileRequest;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
@@ -24,15 +27,16 @@ public class UserAccountService {
     }
 
     public List<UserAccount> users(String search) {
-        String needle = clean(search).toLowerCase();
-        return users().stream()
-                .filter(user -> needle.isBlank() || contains(user.getFullName(), needle)
-                        || contains(user.getUsername(), needle)
-                        || contains(user.getEmail(), needle)
-                        || contains(user.getCountry(), needle)
-                        || contains(user.getOrganization(), needle)
-                        || contains(user.getRole(), needle))
-                .toList();
+        return users(search, 0, 250);
+    }
+
+    public List<UserAccount> users(String search, int offset, int limit) {
+        String needle = clean(search);
+        Pageable pageable = page(offset, limit);
+        if (needle.isBlank()) {
+            return userRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(pageable);
+        }
+        return userRepository.search(needle, pageable);
     }
 
     @Transactional
@@ -121,12 +125,14 @@ public class UserAccountService {
         return value == null ? "" : value.trim();
     }
 
-    private boolean contains(String value, String needle) {
-        return value != null && value.toLowerCase().contains(needle);
-    }
-
     private String defaulted(String value, String fallback) {
         String clean = clean(value);
         return clean.isBlank() ? fallback : clean;
+    }
+
+    private Pageable page(int offset, int limit) {
+        int size = Math.min(Math.max(limit, 1), 100);
+        int page = Math.max(offset, 0) / size;
+        return PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 }

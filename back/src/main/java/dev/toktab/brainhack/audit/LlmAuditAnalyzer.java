@@ -86,16 +86,18 @@ public class LlmAuditAnalyzer {
         try {
             JsonNode root = objectMapper.readTree(response);
             String content = root.at("/choices/0/message/content").asText();
-            JsonNode verdicts = objectMapper.readTree(content).get("verdicts");
-            List<Map<String, Object>> rows = objectMapper.convertValue(verdicts, new TypeReference<>() {});
-            List<AnalyzedVerdict> parsed = new ArrayList<>();
+            JsonNode verdicts = objectMapper.readTree(content).path("verdicts");
+            List<Map<String, Object>> rows = verdicts.isArray()
+                    ? objectMapper.convertValue(verdicts, new TypeReference<>() {})
+                    : List.of();
+            List<AnalyzedVerdict> parsed = fallbackVerdicts(originalSentences);
             for (Map<String, Object> row : rows) {
-                int index = ((Number) row.getOrDefault("sentenceIndex", parsed.size())).intValue();
-                parsed.add(new AnalyzedVerdict(
+                int index = boundedIndex(row.get("sentenceIndex"), originalSentences.size());
+                parsed.set(index, new AnalyzedVerdict(
                         index,
-                        string(row.get("sentence"), originalSentences.get(Math.min(index, originalSentences.size() - 1))),
-                        VerdictStatus.valueOf(string(row.get("status"), "UNSUPPORTED")),
-                        Confidence.valueOf(string(row.get("confidence"), "MEDIUM")),
+                        string(row.get("sentence"), originalSentences.get(index)),
+                        verdictStatus(row.get("status")),
+                        confidence(row.get("confidence")),
                         string(row.get("reasonCategory"), "model judgment"),
                         string(row.get("explanation"), "The model did not provide a detailed explanation."),
                         string(row.get("evidencePointer"), "No evidence found.")
@@ -104,6 +106,51 @@ public class LlmAuditAnalyzer {
             return parsed;
         } catch (Exception exception) {
             throw new IllegalStateException("Could not parse LLM audit response", exception);
+        }
+    }
+
+    private List<AnalyzedVerdict> fallbackVerdicts(List<String> originalSentences) {
+        List<AnalyzedVerdict> verdicts = new ArrayList<>();
+        for (int i = 0; i < originalSentences.size(); i++) {
+            verdicts.add(new AnalyzedVerdict(
+                    i,
+                    originalSentences.get(i),
+                    VerdictStatus.UNSUPPORTED,
+                    Confidence.MEDIUM,
+                    "model fallback",
+                    "The model response did not include a reliable verdict for this sentence.",
+                    "No evidence found."));
+        }
+        return verdicts;
+    }
+
+    private int boundedIndex(Object value, int size) {
+        if (size <= 0) {
+            return 0;
+        }
+        if (value instanceof Number number) {
+            return Math.min(Math.max(number.intValue(), 0), size - 1);
+        }
+        try {
+            return Math.min(Math.max(Integer.parseInt(String.valueOf(value)), 0), size - 1);
+        } catch (RuntimeException exception) {
+            return 0;
+        }
+    }
+
+    private VerdictStatus verdictStatus(Object value) {
+        try {
+            return VerdictStatus.valueOf(string(value, "UNSUPPORTED").trim().toUpperCase());
+        } catch (RuntimeException exception) {
+            return VerdictStatus.UNSUPPORTED;
+        }
+    }
+
+    private Confidence confidence(Object value) {
+        try {
+            return Confidence.valueOf(string(value, "MEDIUM").trim().toUpperCase());
+        } catch (RuntimeException exception) {
+            return Confidence.MEDIUM;
         }
     }
 

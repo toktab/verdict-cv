@@ -26,6 +26,9 @@ import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -79,9 +82,7 @@ public class AdminController {
 
     @GetMapping("/audits")
     public List<AuditResponse> audits(@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "20") int limit, @RequestParam(defaultValue = "") String search) {
-        return auditService.history(search).stream()
-                .skip(safeOffset(offset))
-                .limit(safeLimit(limit))
+        return auditService.history(search, offset, limit).stream()
                 .map(auditMapper::toResponse)
                 .toList();
     }
@@ -104,9 +105,7 @@ public class AdminController {
 
     @GetMapping("/users")
     public List<UserResponse> users(@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "20") int limit, @RequestParam(defaultValue = "") String search) {
-        return userAccountService.users(search).stream()
-                .skip(safeOffset(offset))
-                .limit(safeLimit(limit))
+        return userAccountService.users(search, offset, limit).stream()
                 .map(userMapper::toResponse)
                 .toList();
     }
@@ -181,18 +180,10 @@ public class AdminController {
     @GetMapping("/logs")
     public List<AppEventLog> logs(@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "20") int limit, @RequestParam(defaultValue = "") String search) {
         String needle = search == null ? "" : search.trim().toLowerCase();
-        return logRepository.findTop250ByDeletedAtIsNullOrderByCreatedAtDesc().stream()
-                .filter(log -> needle.isBlank()
-                        || contains(log.getEventType(), needle)
-                        || contains(log.getMethod(), needle)
-                        || contains(log.getPath(), needle)
-                        || contains(log.getActor(), needle)
-                        || contains(log.getIpAddress(), needle)
-                        || contains(log.getRequestId(), needle)
-                        || contains(log.getDetail(), needle))
-                .skip(safeOffset(offset))
-                .limit(safeLimit(limit))
-                .toList();
+        Pageable pageable = PageRequest.of(safeOffset(offset) / safeLimit(limit), safeLimit(limit), Sort.by(Sort.Direction.DESC, "createdAt"));
+        return needle.isBlank()
+                ? logRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(pageable)
+                : logRepository.search(needle, pageable);
     }
 
     @DeleteMapping("/logs/{id}")
@@ -210,7 +201,4 @@ public class AdminController {
         return Math.min(Math.max(limit, 1), 100);
     }
 
-    private boolean contains(String value, String needle) {
-        return value != null && value.toLowerCase().contains(needle);
-    }
 }

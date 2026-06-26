@@ -12,9 +12,16 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -33,6 +40,7 @@ public class AuditService {
     private final TaskExecutor auditTaskExecutor;
     private final AuditTemplateService templateService;
     private final CheckStateService checkStateService;
+    private final ConcurrentMap<Long, Object> warQuotaLocks = new ConcurrentHashMap<>();
     private final int maxClaimChars;
     private final int maxEvidenceChars;
 
@@ -93,8 +101,7 @@ public class AuditService {
         audit.setOwner(owner);
         applyTemplate(audit, owner, request.templateId(), request.auditMode());
         applyCheckState(audit, request.checkStateId());
-        enforceWarWeeklyLimit(owner, audit.getCheckStateId());
-        audit = auditRepository.saveAndFlush(audit);
+        audit = saveNewAuditWithQuota(audit, owner);
         try {
             AuditAnalysisResult analysis = analyze(audit, sentences, evidenceText);
             List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(applyUnimportantRules(audit, analysis.verdicts()), evidenceText);
@@ -126,6 +133,17 @@ public class AuditService {
         return audit;
     }
 
+    @EventListener(ApplicationReadyEvent.class)
+    public void recoverRunningAudits() {
+        List<Audit> running = auditRepository.findByStatusAndDeletedAtIsNull(AuditStatus.RUNNING);
+        for (Audit audit : running) {
+            auditTaskExecutor.execute(() -> completeAsync(audit.getId()));
+        }
+        if (!running.isEmpty()) {
+            logService.recordSystem("AUDIT_ASYNC_RECOVERY", "requeued=" + running.size());
+        }
+    }
+
     public Audit get(Long id) {
         return auditRepository.findByIdAndDeletedAtIsNull(id).orElseThrow(() -> new IllegalArgumentException("Audit not found: " + id));
     }
@@ -139,18 +157,24 @@ public class AuditService {
     }
 
     public List<Audit> history(String search) {
-        String needle = trim(search, 500).toLowerCase(Locale.ROOT);
-        return history().stream()
-                .filter(audit -> needle.isBlank() || contains(audit.getClaimTitle(), needle)
-                        || contains(audit.getEvidenceTitle(), needle)
-                        || contains(audit.getEngine(), needle)
-                        || contains(audit.getStatus().name(), needle)
-                        || contains(audit.getTemplateName(), needle))
-                .toList();
+        return history(search, 0, 250);
+    }
+
+    public List<Audit> history(String search, int offset, int limit) {
+        String needle = trim(search, 500);
+        Pageable pageable = page(offset, limit);
+        if (needle.isBlank()) {
+            return auditRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(pageable);
+        }
+        return auditRepository.search(needle, pageable);
     }
 
     public List<Audit> historyForUser(UserAccount owner) {
         return auditRepository.findByOwnerIdAndDeletedAtIsNullOrderByCreatedAtDesc(owner.getId());
+    }
+
+    public List<Audit> historyForUser(UserAccount owner, int offset, int limit) {
+        return auditRepository.findByOwnerIdAndDeletedAtIsNullOrderByCreatedAtDesc(owner.getId(), page(offset, limit));
     }
 
     @Transactional
@@ -361,10 +385,20 @@ public class AuditService {
         audit.setOwner(owner);
         applyTemplate(audit, owner, request.templateId(), request.auditMode());
         applyCheckState(audit, request.checkStateId());
-        enforceWarWeeklyLimit(owner, audit.getCheckStateId());
-        Audit saved = auditRepository.saveAndFlush(audit);
+        Audit saved = saveNewAuditWithQuota(audit, owner);
         rabbitEventPublisher.publish("audit.requested", Map.of("auditId", saved.getId(), "claimTitle", saved.getClaimTitle()));
         return saved;
+    }
+
+    private Audit saveNewAuditWithQuota(Audit audit, UserAccount owner) {
+        if (owner == null || !"war".equals(audit.getCheckStateId())) {
+            return auditRepository.saveAndFlush(audit);
+        }
+        Object lock = warQuotaLocks.computeIfAbsent(owner.getId(), ignored -> new Object());
+        synchronized (lock) {
+            enforceWarWeeklyLimit(owner, audit.getCheckStateId());
+            return auditRepository.saveAndFlush(audit);
+        }
     }
 
     private void enforceWarWeeklyLimit(UserAccount owner, String checkStateId) {
@@ -517,5 +551,11 @@ public class AuditService {
             return fallback;
         }
         return value.trim();
+    }
+
+    private Pageable page(int offset, int limit) {
+        int size = Math.min(Math.max(limit, 1), 100);
+        int page = Math.max(offset, 0) / size;
+        return PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 }

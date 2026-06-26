@@ -103,6 +103,46 @@ class ServiceLayerBehaviorTest {
         assertThat(audit.getTemplateName()).isEqualTo("Sales Claim Whitezone");
     }
 
+    @Test
+    void localAnalyzerTreatsMismatchedNumbersAsStretched() {
+        UserAccount owner = sessionService.register(user("number_match_user", "number-match@example.com")).account();
+        Audit audit = auditService.run(new AuditRunRequest(
+                "Sales Proof",
+                "Case Study",
+                "The platform reduced intake time by 40 percent.",
+                "The case study says the platform reduced intake time by 30 percent.",
+                "sales",
+                "",
+                "war"), new MockHttpServletRequest(), owner);
+
+        assertThat(audit.getVerdicts())
+                .first()
+                .satisfies(verdict -> {
+                    assertThat(verdict.getStatus()).isEqualTo(VerdictStatus.STRETCHED);
+                    assertThat(verdict.getExplanation()).contains("same number");
+                });
+    }
+
+    @Test
+    void localAnalyzerTreatsContradictoryEvidenceAsStretched() {
+        UserAccount owner = sessionService.register(user("contradiction_user", "contradiction@example.com")).account();
+        Audit audit = auditService.run(new AuditRunRequest(
+                "Delivery Proof",
+                "Reference",
+                "The team delivered the migration in March.",
+                "The reference says the team did not deliver the migration in March.",
+                "report",
+                "",
+                "war"), new MockHttpServletRequest(), owner);
+
+        assertThat(audit.getVerdicts())
+                .first()
+                .satisfies(verdict -> {
+                    assertThat(verdict.getStatus()).isEqualTo(VerdictStatus.STRETCHED);
+                    assertThat(verdict.getExplanation()).contains("contradict");
+                });
+    }
+
     private RegisterRequest user(String username, String email) {
         return new RegisterRequest("Service User", username, email, "Georgia", "12 Test Street", "VERDICT", "Analyst", "password1");
     }

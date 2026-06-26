@@ -1,36 +1,55 @@
 package dev.toktab.brainhack.audit;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 @Component
 public class LocalAuditAnalyzer {
+    private static final Set<String> STOP_WORDS = Set.of(
+            "this", "that", "with", "from", "into", "about", "have", "has", "had", "were", "will", "would",
+            "could", "should", "their", "there", "than", "then", "they", "them", "your", "ours", "also",
+            "and", "the", "for", "are", "was", "but", "not", "you", "our", "can", "all", "any");
+    private static final Pattern NUMBER = Pattern.compile("\\b\\d+(?:[.,]\\d+)?%?\\b");
+
     public AuditAnalysisResult analyze(List<String> sentences, String evidenceText) {
-        String evidence = normalize(evidenceText);
+        List<EvidenceChunk> evidenceChunks = chunks(evidenceText);
+        String evidence = evidenceChunks.stream().map(EvidenceChunk::normalized).reduce("", (left, right) -> left + " " + right);
         List<AnalyzedVerdict> verdicts = new ArrayList<>();
         for (int i = 0; i < sentences.size(); i++) {
             String sentence = sentences.get(i);
-            verdicts.add(classify(i, sentence, evidence));
+            verdicts.add(classify(i, sentence, evidence, evidenceChunks));
         }
         return new AuditAnalysisResult("LOCAL_HEURISTIC", verdicts);
     }
 
-    private AnalyzedVerdict classify(int index, String sentence, String evidence) {
+    private AnalyzedVerdict classify(int index, String sentence, String evidence, List<EvidenceChunk> evidenceChunks) {
         String normalized = normalize(sentence);
         if (isMetadata(normalized)) {
             return verdict(index, sentence, VerdictStatus.NOT_A_CLAIM, Confidence.HIGH, "metadata", "This line is document structure, not an auditable factual claim.", "No evidence required.");
         }
         boolean risky = containsAny(normalized, "expert", "advanced", "proven", "led", "optimized", "guaranteed", "best", "senior");
-        boolean numeric = normalized.matches(".*\\d+.*");
-        int overlap = overlapScore(normalized, evidence);
-        if (overlap >= 4 && !risky) {
-            return verdict(index, sentence, VerdictStatus.SUPPORTED, Confidence.MEDIUM, "matched evidence", "The evidence contains enough matching terms to support this claim.", excerpt(sentence, evidence));
+        boolean numeric = NUMBER.matcher(normalized).find();
+        EvidenceMatch match = bestMatch(normalized, evidenceChunks);
+        boolean exactNumber = !numeric || numbers(normalized).stream().allMatch(number -> evidence.contains(number));
+        boolean contradiction = contradicts(normalized, match.normalized());
+        if (match.score() >= 4 && exactNumber && !risky && !contradiction) {
+            return verdict(index, sentence, VerdictStatus.SUPPORTED, Confidence.MEDIUM, "matched evidence", "The evidence contains enough matching terms to support this claim.", match.original());
         }
-        if (overlap >= 2) {
-            String reason = risky ? "The wording creates a higher proof burden than the evidence fully satisfies." : "The evidence partially matches the claim but does not fully prove it as written.";
-            return verdict(index, sentence, VerdictStatus.STRETCHED, Confidence.MEDIUM, "overstated", reason, excerpt(sentence, evidence));
+        if (match.score() >= 2) {
+            String reason = risky
+                    ? "The wording creates a higher proof burden than the evidence fully satisfies."
+                    : contradiction
+                    ? "The evidence uses related terms but appears to qualify or contradict the claim."
+                    : !exactNumber
+                    ? "The evidence partially matches the claim but does not confirm the same number."
+                    : "The evidence partially matches the claim but does not fully prove it as written.";
+            return verdict(index, sentence, VerdictStatus.STRETCHED, Confidence.MEDIUM, "overstated", reason, match.original());
         }
         if (numeric || risky || normalized.length() > 20) {
             return verdict(index, sentence, VerdictStatus.UNSUPPORTED, Confidence.HIGH, "missing evidence", "The evidence document does not provide clear support for this claim.", "No evidence found.");
@@ -62,27 +81,57 @@ public class LocalAuditAnalyzer {
         return false;
     }
 
-    private int overlapScore(String sentence, String evidence) {
-        int score = 0;
-        for (String word : sentence.split(" ")) {
-            if (word.length() >= 4 && evidence.contains(word)) {
-                score++;
-            }
-        }
-        return score;
-    }
-
-    private String excerpt(String sentence, String evidence) {
-        for (String word : normalize(sentence).split(" ")) {
-            if (word.length() >= 5) {
-                int index = evidence.indexOf(word);
-                if (index >= 0) {
-                    int start = Math.max(0, index - 55);
-                    int end = Math.min(evidence.length(), index + 120);
-                    return evidence.substring(start, end).trim();
+    private EvidenceMatch bestMatch(String sentence, List<EvidenceChunk> chunks) {
+        Set<String> words = keywords(sentence);
+        EvidenceMatch best = new EvidenceMatch("", "", 0);
+        for (EvidenceChunk chunk : chunks) {
+            int score = 0;
+            for (String word : words) {
+                if (chunk.normalized().contains(word)) {
+                    score++;
                 }
             }
+            if (score > best.score()) {
+                best = new EvidenceMatch(chunk.original(), chunk.normalized(), score);
+            }
         }
-        return "Related terms found in evidence.";
+        return best.score() == 0 ? new EvidenceMatch("No evidence found.", "", 0) : best;
+    }
+
+    private Set<String> keywords(String text) {
+        Set<String> words = new HashSet<>();
+        for (String word : text.split(" ")) {
+            if (word.length() >= 4 && !STOP_WORDS.contains(word)) {
+                words.add(word);
+            }
+        }
+        return words;
+    }
+
+    private List<String> numbers(String text) {
+        return NUMBER.matcher(text).results().map(match -> match.group().replace(",", ".")).toList();
+    }
+
+    private boolean contradicts(String claim, String evidence) {
+        if (evidence.isBlank()) {
+            return false;
+        }
+        boolean claimPositive = !containsAny(claim, " no ", " not ", " never ", "without", "failed", "lack");
+        boolean evidenceNegative = containsAny(evidence, " no ", " not ", " never ", "without", "failed", "lack", "does not", "did not");
+        return claimPositive && evidenceNegative;
+    }
+
+    private List<EvidenceChunk> chunks(String evidenceText) {
+        return Arrays.stream((evidenceText == null ? "" : evidenceText).split("(?<=[.!?])\\s+|\\n+"))
+                .map(String::trim)
+                .filter(chunk -> !chunk.isBlank())
+                .map(chunk -> new EvidenceChunk(chunk, normalize(chunk)))
+                .toList();
+    }
+
+    private record EvidenceChunk(String original, String normalized) {
+    }
+
+    private record EvidenceMatch(String original, String normalized, int score) {
     }
 }

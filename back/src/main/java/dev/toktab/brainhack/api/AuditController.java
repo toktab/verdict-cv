@@ -90,9 +90,12 @@ public class AuditController {
     }
 
     @GetMapping("/history")
-    public List<AuditSummaryResponse> history(@RequestHeader(value = "X-User-Token", required = false) String token) {
+    public List<AuditSummaryResponse> history(
+            @RequestHeader(value = "X-User-Token", required = false) String token,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "100") int limit) {
         UserAccount user = userTokenService.requireUser(token);
-        return auditService.historyForUser(user).stream().map(auditMapper::toSummary).toList();
+        return auditService.historyForUser(user, offset, limit).stream().map(auditMapper::toSummary).toList();
     }
 
     @GetMapping("/{id}/export")
