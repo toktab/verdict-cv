@@ -1,0 +1,63 @@
+VERDICT TODO
+
+Done in this pass:
+- Read information.txt and narrowed the product direction to Job/CV verification for hiring organizers.
+- Removed the public-facing multi-document positioning from the home page.
+- Removed visible multi-mode audit selection from the audit workspace.
+- Kept only the Job / CV audit mode in app data.
+- Replaced generic demo cases with a single job candidate demo.
+- Replaced generic templates with a verified CV hiring template.
+- Replaced basic check states with Light State, WAR State, Person State, and WAR+AI State.
+- Rewrote the landing page copy around organizers, CV exaggeration, evidence-first shortlisting, candidate memory, templates, States, and OSINT readiness.
+- Removed the old "Live audit" / framework-style product shot from the main page.
+- Added a new candidate verification console design for shortlist ranking, claim pressure, State, OSINT, memory, and risk signals.
+- Updated audit/detail labels from generic claim/evidence language to Candidate CV and Job evidence language.
+- Removed unused mode selector component and stale mode selector CSS.
+- Added Projects / Jobs pages using the existing VERDICT style.
+- Added job detail pages with role requirements, score distribution, candidate database table, and add-candidate panel.
+- Added candidate detail pages with score, match, OSINT, memory, flags, claim split, and claim evidence rows.
+- Added demo job/candidate data so the new pages work without backend routes.
+- Added navigation links for Projects.
+- Unified Projects and Audits conceptually: jobs are now the audit projects.
+- Added a New Job Description page as the first step of the workflow.
+- Changed Add Candidate to open a dedicated CV/resume paste and analyze page under the selected job.
+- Added SignalTrace visual action to candidate detail for the future OSINT system.
+- Changed demo job and candidate records to use 10-character IDs in URLs.
+- Moved SignalTrace to a standalone candidate page.
+- Added SignalTrace source options for GitHub, LinkedIn, socials, and other checks.
+- Added standalone candidate Profiling Mode page beside SignalTrace.
+- Added candidate detail action for Profiling Mode.
+- Added profile route using 10-character job and candidate IDs.
+- Added search fields for projects and candidate tables.
+- Added 10-per-page pagination controls for projects and candidates.
+- Split HomePage into src/pages/HomePage.jsx.
+- Split Projects pages into src/pages/projects/.
+- Split project-specific components into src/pages/projects/components/.
+- Moved job/candidate demo data into src/data/jobProjects.js.
+- Moved project page helper functions into src/pages/projects/projectPageUtils.js.
+- Added shared JSON catchphrase rule pack for CV/job claim auditing.
+- Added JSON-driven catchphrase analyzer for keywords and regex patterns.
+- Connected Add Candidate analysis results to detected phrases, risk, reasons, and safer wording.
+- Connected Profiling Mode highlights and inspector copy to the same JSON rule pack.
+- Added EN/GE language switch beside the VERDICT logo.
+- Added shared translation dictionary for Georgian and English UI copy.
+- Translated the main public page, jobs/projects flow, candidate pages, SignalTrace, Profiling Mode, header, intro tagline, and primary auth/dashboard labels.
+
+Should do next:
+- Continue splitting the remaining large src/main.jsx file into dashboard, auth, audit detail, admin, shared UI, hooks, and API modules.
+- Replace the local demo API in main.jsx with the real backend API once backend routes are available.
+- Add actual backend persistence for job projects, candidates, CV text, consent records, and source links.
+- Add real candidate upload/paste flow for CV plus job application evidence.
+- Expand the JSON catchphrase rule pack from the current condensed set into the full admin-maintained production template.
+- Finish translating legacy audit workspace internals, admin panel internals, validation messages, and demo data records if those screens stay visible in the final build.
+- Connect SignalTrace button to the OSINT backend when that service is ready.
+- Connect candidate Profiling Mode to real audit verdicts once candidate audit persistence is available.
+- Add candidate memory UI that shows previous audits, repeated contradictions, and reputation history.
+- Build the four States as real selectable audit strictness engines, not only display copy.
+- Add verified admin template management for large JSON CV rule sets.
+- Add community/private template flows only after official templates work well.
+- Add OSINT consent gate before any public-source verification.
+- Design OSINT report UI for LinkedIn, GitHub, employer, project, and public-profile corroboration.
+- Add charts for score breakdown: supported claims, stretched claims, unsupported claims, missing evidence, OSINT penalties, and candidate history.
+- Review mobile layouts with real screenshots after the next design pass.
+- Decide whether admin and profile pages should stay in this frontend demo or be hidden for the presentation build.

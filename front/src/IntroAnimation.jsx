@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useLanguage } from "./i18n";
 
 export default function IntroAnimation({ onDone }) {
+  const { t } = useLanguage();
   const [phase, setPhase] = useState("spinner");
 
   useEffect(() => {
@@ -11,7 +13,7 @@ export default function IntroAnimation({ onDone }) {
     const t5 = setTimeout(() => setPhase("slide"),      3600);
     const t6 = setTimeout(() => { setPhase("done"); onDone?.(); }, 4250);
     return () => [t1, t2, t3, t4, t5, t6].forEach(clearTimeout);
-  }, []);
+  }, [onDone]);
 
   if (phase === "done") return null;
 
@@ -92,7 +94,7 @@ export default function IntroAnimation({ onDone }) {
               VERDICT
             </span>
             <span style={{ marginTop: 10, color: "#9a9a9f", fontSize: 13, position: "relative" }}>
-              Confidence is not evidence.
+              {t("brandTagline")}
             </span>
           </div>
         )}

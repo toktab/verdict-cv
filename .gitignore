@@ -40,3 +40,7 @@ node_modules/
 front/node_modules/
 front/dist/
 .vite/
+
+### Local OSINT prototype reports ###
+osint-report.json
+osint-report.md

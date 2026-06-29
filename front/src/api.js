@@ -1,152 +1,255 @@
-const jsonHeaders = { 'Content-Type': 'application/json' };
+const BASE = '/api';
 
-async function request(path, options = {}) {
-  const response = await fetch(path, options);
-  if (!response.ok) {
-    let message = `Request failed with ${response.status}`;
-    let code = 'REQUEST_FAILED';
-    try {
-      const body = await response.json();
-      message = body.message || message;
-      code = body.code || code;
-    } catch {
-      // Keep fallback message.
+async function request(method, path, body, token) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${BASE}${path}`, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+        let msg = `${res.status} ${res.statusText}`;
+        try {
+            const payload = await res.json();
+            msg = payload.message || payload.detail || msg;
+        } catch {
+            // Keep HTTP fallback.
+        }
+        throw new Error(msg);
     }
-    const error = new Error(message);
-    error.code = code;
-    throw error;
-  }
-  if (response.status === 204) {
-    return null;
-  }
-  const contentType = response.headers.get('content-type') || '';
-  return contentType.includes('application/json') ? response.json() : response.text();
+    if (res.status === 204) return null;
+    const contentType = res.headers.get('content-type') || '';
+    return contentType.includes('application/json') ? res.json() : res.text();
 }
 
-export const api = {
-  register(payload) {
-    return request('/api/auth/register', {
-      method: 'POST',
-      headers: jsonHeaders,
-      body: JSON.stringify(payload),
+async function multipart(path, formData, token) {
+    const headers = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${BASE}${path}`, {
+        method: 'POST',
+        headers,
+        body: formData,
     });
-  },
-  login(payload) {
-    return request('/api/auth/login', {
-      method: 'POST',
-      headers: jsonHeaders,
-      body: JSON.stringify(payload),
+    if (!res.ok) {
+        let msg = `${res.status} ${res.statusText}`;
+        try {
+            const payload = await res.json();
+            msg = payload.message || payload.detail || msg;
+        } catch {
+            // Keep HTTP fallback.
+        }
+        throw new Error(msg);
+    }
+    return res.json();
+}
+
+const get = (path, token) => request('GET', path, undefined, token);
+const post = (path, body, token) => request('POST', path, body, token);
+const patch = (path, body, token) => request('PATCH', path, body, token);
+const del = (path, token) => request('DELETE', path, undefined, token);
+
+export async function apiRegister({ username, email, password, fullName, organization }) {
+    return post('/auth/register', {
+        username,
+        email,
+        password,
+        fullName: fullName || username,
+        country: 'Unspecified',
+        address: 'Unspecified',
+        organization: organization || 'Independent',
+        role: 'Analyst',
     });
-  },
-  me(token) {
-    return request('/api/auth/me', { headers: { 'X-User-Token': token } });
-  },
-  updateMe(token, payload) {
-    return request('/api/auth/me', {
-      method: 'PATCH',
-      headers: { ...jsonHeaders, 'X-User-Token': token },
-      body: JSON.stringify(payload),
-    });
-  },
-  logout(token) {
-    return request('/api/auth/logout', { method: 'POST', headers: { 'X-User-Token': token } });
-  },
-  runAudit(payload, token) {
-    return request('/api/audit/run-async', {
-      method: 'POST',
-      headers: { ...jsonHeaders, 'X-User-Token': token },
-      body: JSON.stringify(payload),
-    });
-  },
-  history(token) {
-    return request('/api/audit/history', { headers: { 'X-User-Token': token } });
-  },
-  getAudit(id, token) {
-    return request(`/api/audit/${id}`, { headers: { 'X-User-Token': token } });
-  },
-  templates(token) {
-    return request('/api/audit/templates', { headers: { 'X-User-Token': token } });
-  },
-  states(token) {
-    return request('/api/audit/states', { headers: { 'X-User-Token': token } });
-  },
-  createTemplate(token, payload) {
-    return request('/api/audit/templates', {
-      method: 'POST',
-      headers: { ...jsonHeaders, 'X-User-Token': token },
-      body: JSON.stringify(payload),
-    });
-  },
-  exportAudit(id, token) {
-    return request(`/api/audit/${id}/export`, { headers: { 'X-User-Token': token } });
-  },
-  adminLogin(payload) {
-    return request('/api/admin/login', {
-      method: 'POST',
-      headers: jsonHeaders,
-      body: JSON.stringify(payload),
-    });
-  },
-  adminAudits(token, offset = 0, limit = 20, search = '') {
-    return request(`/api/admin/audits?offset=${offset}&limit=${limit}&search=${encodeURIComponent(search)}`, { headers: { 'X-Admin-Token': token } });
-  },
-  adminAudit(token, id) {
-    return request(`/api/admin/audits/${id}`, { headers: { 'X-Admin-Token': token } });
-  },
-  adminLogs(token, offset = 0, limit = 20, search = '') {
-    return request(`/api/admin/logs?offset=${offset}&limit=${limit}&search=${encodeURIComponent(search)}`, { headers: { 'X-Admin-Token': token } });
-  },
-  adminUsers(token, offset = 0, limit = 20, search = '') {
-    return request(`/api/admin/users?offset=${offset}&limit=${limit}&search=${encodeURIComponent(search)}`, { headers: { 'X-Admin-Token': token } });
-  },
-  createUser(token, payload) {
-    return request('/api/admin/users', {
-      method: 'POST',
-      headers: { ...jsonHeaders, 'X-Admin-Token': token },
-      body: JSON.stringify(payload),
-    });
-  },
-  updateUser(token, id, payload) {
-    return request(`/api/admin/users/${id}`, {
-      method: 'PATCH',
-      headers: { ...jsonHeaders, 'X-Admin-Token': token },
-      body: JSON.stringify(payload),
-    });
-  },
-  deleteUser(token, id) {
-    return request(`/api/admin/users/${id}`, { method: 'DELETE', headers: { 'X-Admin-Token': token } });
-  },
-  adminSettings(token) {
-    return request('/api/admin/settings', { headers: { 'X-Admin-Token': token } });
-  },
-  updateAdminSettings(token, payload) {
-    return request('/api/admin/settings', {
-      method: 'PATCH',
-      headers: { ...jsonHeaders, 'X-Admin-Token': token },
-      body: JSON.stringify(payload),
-    });
-  },
-  deleteAudit(token, id) {
-    return request(`/api/admin/audits/${id}`, { method: 'DELETE', headers: { 'X-Admin-Token': token } });
-  },
-  deleteLog(token, id) {
-    return request(`/api/admin/logs/${id}`, { method: 'DELETE', headers: { 'X-Admin-Token': token } });
-  },
-  updateVerdict(token, id, payload) {
-    return request(`/api/admin/verdicts/${id}`, {
-      method: 'PATCH',
-      headers: { ...jsonHeaders, 'X-Admin-Token': token },
-      body: JSON.stringify(payload),
-    });
-  },
-  telemetry(payload) {
-    return request('/api/telemetry', {
-      method: 'POST',
-      headers: jsonHeaders,
-      body: JSON.stringify(payload),
-    }).catch(() => null);
-  },
-  health() {
-    return request('/api/system/health');
-  },
+}
+
+export async function apiLogin({ identifier, password }) {
+    return post('/auth/login', { identifier, password });
+}
+
+export async function apiMe(token) {
+    return get('/auth/me', token);
+}
+
+export async function apiLogout(token) {
+    return post('/auth/logout', {}, token);
+}
+
+export async function apiListProjects(token) {
+    return get('/projects', token);
+}
+
+export async function apiGetProject(id, token) {
+    return get(`/projects/${id}`, token);
+}
+
+export async function apiCreateProject({ title, department, location, description, requirements, state, status }, token) {
+    return post('/projects', { title, department, location, description, requirements, state, status }, token);
+}
+
+export async function apiImportJobPostings(token) {
+    return post('/projects/import-job-postings', {}, token);
+}
+
+export async function apiDeleteProject(id, token) {
+    return del(`/projects/${id}`, token);
+}
+
+export async function apiAddCandidate(projectId, { name, role, cvText }, token) {
+    return post(`/projects/${projectId}/candidates`, { name, role, cv_text: cvText || '' }, token);
+}
+
+export async function apiUploadCandidateResume(projectId, { name, role, resume }, token) {
+    const formData = new FormData();
+    formData.append('name', name || '');
+    formData.append('role', role || '');
+    formData.append('resume', resume);
+    return multipart(`/projects/${projectId}/candidates/upload`, formData, token);
+}
+
+export async function apiGetCandidate(projectId, candidateId, token) {
+    return get(`/projects/${projectId}/candidates/${candidateId}`, token);
+}
+
+export async function apiDeleteCandidate(projectId, candidateId, token) {
+    return del(`/projects/${projectId}/candidates/${candidateId}`, token);
+}
+
+export const javaApi = {
+    history(token) {
+        return get('/audit/history', token);
+    },
+    templates(token) {
+        return get('/audit/templates', token);
+    },
+    states(token) {
+        return get('/audit/states', token);
+    },
+    createTemplate(token, template) {
+        return post('/audit/templates', template, token);
+    },
+    runAudit(payload, token) {
+        return post('/audit/run-async', payload, token);
+    },
+    getAudit(id, token) {
+        return get(`/audit/${id}`, token);
+    },
+    updateMe(token, payload) {
+        return patch('/auth/me', payload, token);
+    },
+    adminLogin(payload) {
+        return request('POST', '/admin/login', payload);
+    },
+    adminAudits(token, offset = 0, limit = 20, search = '') {
+        return adminRequest('GET', `/admin/audits?offset=${offset}&limit=${limit}&search=${encodeURIComponent(search)}`, undefined, token);
+    },
+    adminAudit(token, id) {
+        return adminRequest('GET', `/admin/audits/${id}`, undefined, token);
+    },
+    adminLogs(token, offset = 0, limit = 20, search = '') {
+        return adminRequest('GET', `/admin/logs?offset=${offset}&limit=${limit}&search=${encodeURIComponent(search)}`, undefined, token);
+    },
+    adminUsers(token, offset = 0, limit = 20, search = '') {
+        return adminRequest('GET', `/admin/users?offset=${offset}&limit=${limit}&search=${encodeURIComponent(search)}`, undefined, token);
+    },
+    adminSettings(token) {
+        return adminRequest('GET', '/admin/settings', undefined, token);
+    },
+    updateAdminSettings(token, payload) {
+        return adminRequest('PATCH', '/admin/settings', payload, token);
+    },
+    createUser(token, payload) {
+        return adminRequest('POST', '/admin/users', payload, token);
+    },
+    updateUser(token, id, payload) {
+        return adminRequest('PATCH', `/admin/users/${id}`, payload, token);
+    },
+    deleteUser(token, id) {
+        return adminRequest('DELETE', `/admin/users/${id}`, undefined, token);
+    },
+    deleteAudit(token, id) {
+        return adminRequest('DELETE', `/admin/audits/${id}`, undefined, token);
+    },
+    deleteLog(token, id) {
+        return adminRequest('DELETE', `/admin/logs/${id}`, undefined, token);
+    },
+    updateVerdict(token, id, payload) {
+        return adminRequest('PATCH', `/admin/verdicts/${id}`, payload, token);
+    },
 };
+
+async function adminRequest(method, path, body, token) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['X-Admin-Token'] = token;
+    const res = await fetch(`${BASE}${path}`, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+        let msg = `${res.status} ${res.statusText}`;
+        try {
+            const payload = await res.json();
+            msg = payload.message || payload.detail || msg;
+        } catch {
+            // Keep HTTP fallback.
+        }
+        throw new Error(msg);
+    }
+    if (res.status === 204) return null;
+    const contentType = res.headers.get('content-type') || '';
+    return contentType.includes('application/json') ? res.json() : res.text();
+}
+
+export function normaliseProject(raw) {
+    return {
+        id: raw.id,
+        title: raw.title,
+        department: raw.department || '',
+        location: raw.location || '',
+        description: raw.description || '',
+        requirements: raw.requirements || [],
+        state: raw.state || 'WAR State',
+        status: raw.status || 'Screening',
+        openedAt: raw.opened_at ? raw.opened_at.slice(0, 10) : (raw.created_at ? raw.created_at.slice(0, 10) : ''),
+        candidates: (raw.candidates || []).map(normaliseCandidate),
+    };
+}
+
+export function normaliseCandidate(raw) {
+    return {
+        id: raw.id,
+        name: raw.name,
+        role: raw.role || '',
+        score: raw.score || 0,
+        match: raw.match || 0,
+        risk: raw.risk || 'Low',
+        state: raw.state || 'Pending',
+        osint: raw.osint || 'Not started',
+        memory: raw.memory || 'No prior record',
+        cvText: raw.cv_text || raw.cvText || '',
+        resumeFilename: raw.resume_filename || '',
+        coreCandidateId: raw.core_candidate_id || '',
+        cvId: raw.cv_id || '',
+        verificationCaseId: raw.verification_case_id || '',
+        submittedAt: raw.submitted_at ? raw.submitted_at.slice(0, 10) : '',
+        flags: raw.flags || 0,
+        supported: raw.supported || 0,
+        stretched: raw.stretched || 0,
+        unsupported: raw.unsupported || 0,
+        summary: raw.summary || '',
+        claims: raw.claims || [],
+        auditPhraseMatches: raw.audit_phrase_matches || raw.auditPhraseMatches || [],
+    };
+}
+
+export function normaliseUser(raw) {
+    return {
+        id: raw.id,
+        username: raw.username,
+        email: raw.email,
+        fullName: raw.full_name || raw.fullName || '',
+        organization: raw.organization || '',
+        role: raw.role || 'user',
+        emailVerified: raw.email_verified ?? raw.emailVerified ?? true,
+    };
+}

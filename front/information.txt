@@ -1,0 +1,621 @@
+VERDICT — General Concept
+What VERDICT is
+VERDICT is a working full-stack system, built by a team of three led by Toko, that helps hiring organizations cut through hundreds of CVs and find the candidates who are actually the best — not the ones who simply write the most confident applications. Recruiters are often forced to skim, and selection ends up closer to random than it should be. Worse, some applicants exaggerate or outright lie on their CVs just to reach the interview or land an offer. VERDICT exists to take that power back and put it in the organizer's hands: every claim a candidate makes is checked against evidence before it is trusted.
+The core principle is simple — confidence is not evidence. A CV can say "expert," "led a team," "deep experience in X," but those words mean nothing until something backs them up. VERDICT treats a CV as a set of claims to be cross-examined, scores how well each one survives that examination, and turns a stack of polished documents into a ranked, inspectable, evidence-backed view of who the real candidates are.
+When applicants submit their CVs, they agree to VERDICT's terms of service and consent to their personal information being stored and processed as required by Georgian law. That consent is what authorizes the deeper verification described below.
+The four States
+VERDICT runs audits through selectable "States," each a different level of strictness and intelligence. They escalate from fast and deterministic to deep and adversarial, so an organizer can match the level of scrutiny to the stakes of the role.
+Light State uses no AI. It relies on a large, admin-maintained template of catchphrases and rules to catch only the things that are obviously false or self-contradicting from the CV alone — the low-effort lies that don't even survive a careful read. It's fast, cheap, and good for a first pass over a large pile.
+WAR State also runs on templates but is strict and uncompromising. It flags claims that the CV itself fails to justify — someone says they have deep knowledge of a technology, but there's no project, role, or experience anywhere in the document that supports it. WAR State doesn't give the benefit of the doubt; if the claim isn't backed, it's marked.
+Person State introduces AI and reads more like a sharp human reviewer would. It judges the impression a CV creates — whether a line reads as a genuine, substantiated skill or just another nice-sounding technical phrase — and uses AI to tell the difference between real signal and surface polish.
+WAR+AI State is the strictest and most powerful. It demands backing for everything and combines deterministic rules with AI judgment. This is also where OSINT can be switched on. The result is a full, detailed report: claims that are truly backed (a "deep experience in X" supported by a real GitHub project, with the link attached; a role confirmed by a LinkedIn company and title) are validated, and claims that aren't are exposed for what they are.
+OSINT and the Investigator capability
+OSINT verification is strongest inside WAR+AI, but it's best understood as a capability rather than a single setting. In WAR+AI it acts as the deepest verification layer; it can also be treated as a standalone investigator escalation that any audit can be pushed into when an organizer wants to go beyond the documents.
+With the candidate's consent, the OSINT system takes the name and the details supplied in the job application and searches for that person across LinkedIn, Instagram, Facebook, and GitHub. It gathers what it finds, and for technical candidates it can look at the actual projects — what the person used, what they built, the substance of the work — and even estimate how heavily their code relies on AI. The system compiles everything into a structured report file and feeds it back into the score, so an external project link or a confirmed employer becomes real corroboration attached to the specific claim it supports.
+Candidate memory
+A key differentiator: VERDICT remembers. The system stores candidate information over time, so if an applicant was flagged a year ago and submits a fresh CV today, VERDICT recognizes them and brings that history into the new review. An organization doesn't start from zero on every application — it builds an accumulating memory of who it has seen and how they checked out, which makes repeat exaggeration far harder to slip through.
+Templates
+The States run on templates, managed as large JSON structures full of catchphrases, patterns, and rules that decide what matters and what should be ignored (contact details, profile links, harmless metadata). The big, official templates are built and maintained by verified admins — us — and receive ongoing updates. Alongside these there's a community layer, so users can create and share their own, while the verified admin templates remain the trusted, continuously improved backbone.
+Scoring and the end report
+Everything VERDICT does accrues into a visible score. Each verified claim adds points; each unsupported, stretched, or contradicted one costs them. The OSINT layer scores continuously too — and crucially, absence counts: a private GitHub, a hidden LinkedIn, or a candidate who simply isn't showing something costs points, because hidden evidence is not the same as confirmed evidence. All of this rolls up into a final credibility score presented as a clear chart in the end-report analysis, so an organizer sees at a glance not just a number but where it came from — which claims held up, which didn't, and what the candidate chose not to reveal.
+Visual identity
+VERDICT's look is deliberately stoic and minimal. The intent is to feel strong, secure, and ten steps ahead — the same confidence a serious game anticheat projects, where the interface itself signals that the system knows exactly what it's doing and has full command of the situation. No clutter, no noise: a calm, authoritative surface that makes the user trust the verdict behind it. The minimalism is the message — the tool is sure of itself, so the user can be too.
+Technical foundation
+VERDICT is already built and functioning on a Spring Boot backend, a React frontend, and MySQL. The database persists user accounts, candidate records (including the historical reputation memory that lets it recognize returning applicants), audit results and their lifecycle, and the audit templates — stored with fields like template name, author, visibility, and the large catchphrase string that drives detection — along with the logs, scores, and report data the rest of the system depends on.
+
+
+General Information and Ideas about the Project VERDICT
+
+I’ll inspect the repository structure and recent commit history, then cross-check it against the senior advice file so the description reflects the actual implemented project rather than only that checklist.
+
+I found a Spring Boot backend plus a Vite/React frontend, with commits showing the project moved from core auditing into async jobs, templates, check states, exports, profiling, and mobile polish. I’m going to read the idea notes and the main frontend/backend entry points now to pull in the project’s purpose and current feature set accurately.
+
+The original idea file confirms the product was built for BrainHack_AI 2026 as “VERDICT,” an adversarial claim auditor: it compares a claim document with evidence, scores credibility, and avoids becoming another content generator. I’m checking the implementation names and endpoints next so the updated description mentions what actually exists in the codebase.
+
+Yes. I checked `SENIOR_ADVICES.TXT`, the full git commit history, project idea notes, frontend files, backend endpoints, templates, states, and the Maven/Spring setup. Here is the updated ~500-word description:
+
+```markdown
+# VERDICT Project Description
+
+VERDICT is a full-stack web application created for BrainHack_AI 2026 as an AI-powered claim audit system. Its main idea is simple but strong: instead of using AI to generate more polished text, VERDICT uses AI and deterministic analysis to question whether existing text is actually supported by evidence. The product works like a cross-examiner. A user provides a claim document, such as a CV, sales page, pitch deck, or report, and an evidence document, such as a job posting, source document, product specification, reference notes, or dataset. VERDICT then checks the claims line by line and returns a clear judgment.
+
+The reason for creating VERDICT is that modern documents often sound confident even when the proof behind them is weak. People write “expert,” “proven,” “optimized,” “best-in-class,” “production-ready,” or “led a team,” but those phrases are not always backed by real evidence. This project was built to expose that gap. Its core message is that confidence is not evidence. A claim should survive comparison with proof before it is trusted.
+
+The website currently supports several audit modes: CV versus job posting, sales claim versus source documents, pitch deck versus evidence, and report versus references. Each mode has its own labels, templates, sample demo cases, and review behavior. Users can choose official templates, create private templates, or use shared templates. Templates decide what should be treated as important and what should be ignored, such as contact details, profile links, headings, or harmless metadata. The system also includes different check states, including WAR-State, Light-State, Person-State, and Strict WAR+AI-State, allowing users to choose between fast deterministic review, lenient checking, human-like contextual review, or strict high-stakes auditing.
+
+VERDICT includes a private logged-in dashboard where users can see recent audits, average credibility score, risky claim counts, saved reports, and audit history. Each audit has a detailed result page with score, status lifecycle, timestamps, analyzer and prompt version, evidence panels, verdict filters, suspicious word detection, safer rewrite suggestions, dense result tables, sticky summary bars, and export controls. Reports can be exported as TXT, Word-compatible DOC, Excel-compatible CSV, or presentation-ready PDF.
+
+A newer part of the project is the profiling mode. This mode presents the original document as a reading surface and highlights important words or phrases. Hovering or clicking on a phrase explains its role, risk level, safer wording, evidence pressure, and relationship to the selected template or check state. This makes the tool feel closer to a serious document inspector than a simple result table.
+
+Technically, the project uses a Spring Boot backend with JPA, authentication, admin tools, async audit jobs, request tracing, structured errors, soft delete, indexes, service-layer tests, and export generation. The frontend is built with React and Vite, with separate components, pages, hooks, API helpers, dashboard views, profile management, admin search, mobile polish, skeleton loaders, and demo flows.
+
+In the future, VERDICT could add score levels out of 10, stronger analytics, team workspaces, better template marketplaces, and an investigator mode that checks public sources such as LinkedIn, GitHub, certificates, portfolios, publications, and other open evidence. Overall, VERDICT is valuable because it saves time, improves trust, reduces exaggeration, and turns vague professional claims into inspectable, scored, evidence-backed reports.
+
+
+This is the IDEA, This was AI generated info about already made project. So instead of all those stuff, it should be only about JOB APPLICATION and CV right, the site is mostly made for the organizators usage, because they have this job application,and they are looking at many hundreds of cvs right, this project helps them find the best candidate, when HRs randomly mostly select people, with this you have all the power to find the candidate,
+
+ some people actually sometimes even lying to the CVs right, just to get to the job interview or job offer right. To not let this to happen I was thinking also another powerful SYSTEM like using OSINTS , searching for this guys name, and based on name and some info that was sent to the job appllicaiton, that OSINT SYSTEM will search for that guy for on LINKEDIN, Instagram, Facebook, Github projects, That AI GETS all the info, Generates a txt file, which has all the info like what did this guy use in this project, also maybe even lookat code too and understand what kind of stuff he did, also maybe evne detector of how often this guy uses AI based on code. And stuff.
+
+ also the project should have like some MODES that I call “States”,
+They use templates, Those templates are made by us that will be managed by json formats, Like catchphrases, that json formats should be HUGE really big,
+ Also Templates are made by US (Verified Admins) or it will have also community.
+ The verified ones by us, will have like updates too and stuff.
+
+I already have 4 of them. States, The one is Light, Doesn’t use AI, uses really that Huge template but only detects stuff thare are like really really obviously false or a lie right, that will be visible only from cv too.
+Another one is WAR State I call, it uses template and is strict, like they say they have knowledge of this but there aint no project or job experience that validates that you know.
+
+ Also another one that will now Use AI, it is like Person style, when somebody looks at it, they think wow this is cool, or this is just another technical skill right, it should detect by that, and uses AI stuff you know.
+
+ And also most strict and most Powerful one that is like WAR+AI, Really strict, asks for every backup,
+ And probably this one should use OSINT too, like let it have option for OSINT stuff and after all that you get like this full detailed chart of information, like they said they have big experience in this, this is actually true because they backed it up with this projectin here with this project that OSINT Found and there will be a project link for the github, or they said they had experience in this , that is backed up because on linkedin they were actually working for this company as this Title. Or maybe not back It up.
+
+ that all will have effect of SCORING SYSTEM, lets say for OSINT like everything we do gets slowly scores, like they don’t have this like for example private github or private linkedni or something they aint showing something so minus some scores, and that scoring system should be visible also on CHART like the end report analysis too.
+
+
+ I have already done this website actually we are working 3 of us in here, my name is Toko, and this are all the stuff I did or had Idea of:
+
+ VERDICT Senior Full-Stack Improvement Checklist
+
+Rules for this file:
+- This is the running checklist for senior-level improvements.
+- After each completed item, mark it FIXED and include the commit hash.
+- Do not implement excluded items from project-review-fixes.txt.
+
+Excluded by user, do not implement:
+- Mailing / real email sending / verification email delivery.
+- Database migrations with Flyway or Liquibase.
+- Security hardening items such as CORS restriction, CSRF hardening, rate limiting, account lockout, and removing default admin credentials.
+
+1. Real logged-in dashboard
+Status: FIXED
+Advice: Add a dashboard after login with recent audits, average credibility score, risky claims count, saved reports, and quick action to start a new audit.
+Fix notes: Added /dashboard SPA route, dashboard header navigation, post-login redirect to dashboard, private workspace hero, recent audits, average score, risky claims, saved reports, last activity, lowest/highest score, and quick new-audit action. Commit: 15c4230.
+
+2. Stronger audit ownership UX
+Status: FIXED
+Advice: Make it visually obvious that audits are private to the logged-in user with labels like My audits, Private workspace, user profile chip, audit count, and last activity.
+Fix notes: Added private workspace strip to the audit page with signed-in identity, My audits count, last activity, and styled account chip in the header. Commit: 173d1ff.
+
+3. Dedicated audit detail page
+Status: FIXED
+Advice: Add an audit detail route/view with score, verdict table, filters, original claim/evidence side-by-side, export, timestamps, and engine metadata.
+Fix notes: Added /audit/:id detail route, authorized detail loading, score hero, export, timestamp/engine/fingerprint metadata, side-by-side original claim/evidence documents, and verdict table with status filters. Commit: 367b386.
+
+4. Verdict filters
+Status: FIXED
+Advice: Add filters for SUPPORTED, STRETCHED, UNSUPPORTED, GAP, confidence, and severity/problem status.
+Fix notes: Added detail-page filters for status, confidence, problem-only, and high/medium/low risk severity. Commit: cc6f7fa.
+
+5. Better evidence view
+Status: FIXED
+Advice: Show the evidence document beside results and highlight matching evidence snippets.
+Fix notes: Added evidence companion panel beside the verdict table, keyword matching from filtered verdicts, ranked evidence snippets, and highlighted matching terms. Commit: c580e8f.
+
+6. Suspicious words panel
+Status: FIXED
+Advice: Add a panel for risky words like expert, led, optimized, proven, advanced, explaining risk and suggesting safer wording.
+Fix notes: Added reusable suspicious-words scanner to audit results and detail pages with match counts, risk explanations, and safer wording guidance. Commit: 03d6c4f.
+
+7. Rewrite suggestions
+Status: FIXED
+Advice: For stretched/unsupported claims, suggest safer replacement wording.
+Fix notes: Added rewrite panel for stretched and unsupported verdicts with original wording, safer replacement wording, and verdict explanation context. Commit: 36ca89b.
+
+8. Audit modes
+Status: FIXED
+Advice: Add modes such as CV vs job posting, sales claim vs source docs, pitch deck vs evidence, and report vs references. The selected mode should adjust labels and copy.
+Fix notes: Added mode selector for CV, sales, pitch deck, and report audits with mode-specific panel labels, subtitles, and audit action copy while keeping the API payload compatible. Commit: f808c3b.
+
+9. User profile page
+Status: FIXED
+Advice: Let users view/edit full name, email, country, address, organization, role, and password from their own account page.
+Fix notes: Added authenticated PATCH /api/auth/me, user-safe profile request DTO, profile update service logic, /profile SPA route, editable account form, and password update support. Commit: 3baa1c1.
+
+10. Soft delete
+Status: FIXED
+Advice: Prefer deletedAt soft-delete for users/audits/logs instead of permanent delete, with admin restore/purge later.
+Fix notes: Added deletedAt to users, audits, and logs; admin delete actions now timestamp records; normal auth, history, admin lists, and detail queries ignore soft-deleted records. Commit: ec477f8.
+
+11. Split React structure
+Status: FIXED
+Advice: Split frontend into pages, components, hooks, and API modules instead of keeping everything in main.jsx.
+Fix notes: Extracted shared UI components, audit content/mode data, route state hook, and ProfilePage module while preserving existing app behavior. Commit: 56fd33b.
+
+12. DTO mapper cleanup
+Status: FIXED
+Advice: Move repeated response-building logic from controllers into mapper classes.
+Fix notes: Extracted repeated UserResponse construction into UserMapper and wired AuthController/AdminController to use it. Commit: be2aeb7.
+
+13. More service-layer tests
+Status: FIXED
+Advice: Add service tests beyond controller smoke flows, especially auth/session/audit ownership/evidence normalization.
+Fix notes: Added ServiceLayerBehaviorTest covering auth session login/me, audit ownership isolation, and evidence pointer normalization through AuditService. Commit: 343eb91.
+
+14. Pagination
+Status: FIXED
+Advice: Add pagination for audits, users, and logs.
+Fix notes: Added limit/offset parameters for admin audits, users, and logs plus admin UI Prev/Next paging controls for each list. Commit: 22684a1.
+
+15. Consistent error codes
+Status: FIXED
+Advice: Return structured error codes with messages so frontend can handle states more cleanly.
+Fix notes: Added structured API error responses with stable code and message fields for validation, bad request, and server errors. Commit: 026ff8e.
+
+16. Request IDs
+Status: FIXED
+Advice: Add request IDs to logs and API responses for traceability.
+Fix notes: Added X-Request-Id support, response headers, request IDs in structured error bodies, request ID storage on app event logs, and transactional current-user loading to avoid lazy proxy failures during audits. Commit: 68a1543.
+
+17. Database indexes
+Status: FIXED
+Advice: Add JPA indexes on owner_id, created_at, username, email where appropriate. This is not a migration file; it is entity metadata only.
+Fix notes: Added JPA index metadata for user username/email/created_at lookups, audit owner and created_at history queries, verdict audit joins, and app log created_at/request_id queries. Commit: fe6a4f2.
+
+18. Audit status lifecycle
+Status: FIXED
+Advice: Track audit status such as RUNNING, COMPLETED, FAILED.
+Fix notes: Added persisted AuditStatus lifecycle with RUNNING, COMPLETED, and FAILED states, exposed status in audit API responses, displayed status in dashboard/detail/result/admin views, and refreshed the built static frontend. Commit: 9651718.
+
+19. Async audit jobs
+Status: FIXED
+Advice: Move long audits to async jobs instead of blocking the request.
+Fix notes: Added a bounded audit task executor, async /api/audit/run-async endpoint, background completion/failure handling, frontend polling for RUNNING jobs, and refreshed the built static frontend. Commit: b43552e.
+
+20. Prompt version stored per audit
+Status: DONE
+Advice: Store analyzer/prompt version with each audit for reproducibility.
+Fix notes: Added persisted analyzerVersion and promptVersion fields, exposed them in audit responses, and displayed them in detail/result metadata. Commit: 5b7940b.
+
+21. Demo mode sample records
+Status: DONE
+Advice: Add stable demo sample records or loadable demo cases for presentation reliability.
+Fix notes: Added selectable stable demo sample cases for CV, sales, pitch, and report audits with the existing confirmation flow. Commit: d4f0e16.
+
+22. Visual result table density
+Status: DONE
+Advice: Add a more compact professional results table for scanning many claims.
+Fix notes: Added a compact dense verdict table for fast scanning while keeping the detailed verdict cards available below it. Commit: d4f0e16.
+
+23. Sticky result summary bar
+Status: DONE
+Advice: Add a sticky summary bar on result/detail views with score, counts, export, and key metadata.
+Fix notes: Added a sticky audit summary bar on result and detail views with score, verdict counts, state, engine, and export controls. Commit: d4f0e16.
+
+24. Better mobile admin layout
+Status: DONE
+Advice: Make admin controls more usable on small screens.
+Fix notes: Improved the mobile admin layout with one-column rows, full-width action groups, tighter spacing, and responsive admin grids. Commit: d4f0e16.
+
+25. Skeleton loaders
+Status: DONE
+Advice: Add skeleton loaders for admin, users, history, and audit result loading states.
+Fix notes: Added skeleton loaders for templates, history, dashboard recent audits, admin lists, audit detail, and audit run loading states. Commit: d4f0e16.
+
+26. Button hierarchy polish
+Status: DONE
+Advice: Make primary, secondary, destructive, and quiet buttons visually distinct.
+Fix notes: Added distinct primary, secondary, quiet, and destructive button styles and applied them to navigation, admin, demo, and account actions. Commit: d4f0e16.
+
+27. Profile/account dropdown
+Status: DONE
+Advice: Add a polished account dropdown in the header for profile, dashboard, audit, logout.
+Fix notes: Added a header account dropdown with dashboard, new audit, profile, and logout actions. Commit: d4f0e16.
+
+28. Admin search for large lists
+Status: DONE
+Advice: Add search boxes for admin audits, users, and logs so large paginated lists can be filtered quickly.
+Fix notes: Added server-side search params for admin audits, users, and logs plus frontend search inputs that reset pagination and query the backend. Commit: 129255a.
+
+29. Lazy-safe current user loading
+Status: DONE
+Advice: Fix the CV audit LazyInitializationException caused by reading the current user outside an active persistence context.
+Fix notes: Confirmed current-user loading runs inside a transaction so lazy user proxies can be read safely during audit ownership and CV audit flows. Commit: 129255a.
+
+30. Audit mode templates
+Status: DONE
+Advice: Let each audit mode provide a clear default template, allow selecting prepared templates, and allow switching to a custom template for stricter or looser claim handling.
+Fix notes: Added default-audit-templates.json, account-owned custom audit template persistence, template list/create APIs, audit template metadata on saved audits, and frontend template selection/builder controls. Also added auditMode to run requests so a blank template selection falls back to the correct mode-specific default template. Commits: 129255a, c35db0d.
+
+31. Not-a-claim classification
+Status: FIXED
+Advice: Classify plain contact data such as email addresses, phone numbers, names, and profile URLs as NOT_A_CLAIM instead of unsupported high-risk claims.
+Fix notes: Added template-level mark-as-unimportant rules and contact/profile-link detection so matching rows are forced to NOT_A_CLAIM before scoring. Commit: 3ecf619.
+
+32. Demo case confirmation
+Status: FIXED
+Advice: When loading a demo case, show a polished confirmation modal explaining that current input will be replaced and require a short countdown before confirming.
+Fix notes: Added a demo-case confirmation modal with a three-second countdown before replacing the current audit form. Commit: 3ecf619.
+
+33. Check states
+Status: FIXED
+Advice: Add selectable check states with names, descriptions, and intended use cases, such as a raw WAR state, a lightweight obvious-issues state, a person-like AI review state, and a strict combined state.
+Fix notes: Added default-check-states.json, state API responses, selected check-state metadata on audits, and frontend state selector cards for WAR, Light, Person, and Strict WAR+AI modes. Commit: 3ecf619.
+
+34. Template builder and library
+Status: FIXED
+Advice: Let users create named templates with descriptions and settings, keep private templates, and optionally browse shared templates made by other users.
+Fix notes: Expanded custom templates with mark-as-unimportant settings, private/shared visibility, and shared library listing while preserving account ownership controls. Commit: 3ecf619.
+
+35. Profiling mode
+Status: FIXED
+Advice: Add a Grammarly-style profiling view where hovering words or phrases explains what they mean, their role in the sentence, and why they matter for the selected template/state.
+Fix notes: Added a dedicated /audit/:id/profile profiling page opened from audit result/detail views, with the full claim/CV document rendered as one reading surface, integrated the expanded CV/job-posting keyword pattern pack for seniority, technologies, tools, databases, cloud/devops, security, skill-depth, responsibility verbs, impact claims, quantified claims, soft skills, credentials, work experience, evidence fields, contact/profile fields, job promises, and mismatch risks, plus short animated hover hints, click-to-open right inspector, closeable inspector panel, Windows-style draggable edge resizing between document and inspector, phrase role/risk/safer wording/evidence/verdict/template-state pressure, and mobile stacked behavior. Commit: pending local changes.
+
+36. Export format options
+Status: FIXED
+Advice: Support export styles for TXT, Word, Excel, and PDF, with TXT/Word kept simple, Excel detailed, and PDF presentation-ready with charts.
+Fix notes: Added TXT, Word-compatible DOC, Excel-compatible CSV, and presentation-ready PDF exports with colorful score/status charts, plus visible export format controls on result and detail views. Commit: 6687742.
+
+37. Score levels
+Status: TODO
+Advice: Add score levels out of 10 with a short explanation for what each level means.
+Fix notes: Pending.
+
+38. Investigator mode
+Status: TODO
+Advice: Later, explore an opt-in investigator mode that checks external public sources such as LinkedIn, GitHub, certificates, language evidence, and other OSINT signals.
+Fix notes: Pending.
+
+39. Saved audit template filters
+Status: FIXED
+Advice: Add premade template filters to old audit/history views so users can quickly review saved audits through common template lenses.
+Fix notes: Added template-lens filters to dashboard recent audits and the audit history panel, using saved audit template metadata and refreshed the built static frontend. Commit: 379a3ae.
+
+
+
+
+ I’ll check the scenario report and the attached screenshot, then I’ll give you a sharper set of future AI prompt ideas that build on what you already described instead of repeating it.
+
+Yes, there is more you can talk about in a future AI prompt. The test report proves the project is not only an idea, but a working system with real validation: 25 scenario tests passed, including public page loading, database health, audit creation, summaries, exports, admin login, admin editing, logging, validation errors, and telemetry.
+
+The screenshot you attached appears fully black/blank, so I could not extract extra visual details from it.
+
+You can add this to the future description/prompt:
+
+```markdown
+In the future, VERDICT can grow from a claim-checking website into a full trust infrastructure platform. The current system already proves that audits can be created, stored, summarized, exported, edited by admins, traced through logs, and tested through real scenarios. A future version could build on this foundation by making audits more intelligent, more explainable, and more connected to real-world verification sources.
+
+One important future direction is a stronger AI prompt engine. Instead of only marking claims as supported, stretched, unsupported, gap, or not-a-claim, the AI could explain the type of weakness: missing source, exaggerated language, unsupported metric, vague responsibility, false seniority signal, timeline mismatch, or evidence contradiction. This would make the system more useful because users would not only know that a claim is weak, but exactly why it is weak.
+
+Another future improvement is score levels out of 10. Instead of only showing a percentage score, VERDICT could explain what each level means. For example, 9-10 could mean highly evidence-backed, 7-8 mostly reliable with small wording risks, 5-6 partially supported but needs revision, 3-4 risky and weakly proven, and 1-2 mostly unsupported. This would make the score easier to understand for recruiters, founders, managers, investors, and reviewers.
+
+VERDICT could also add an investigator mode. This would be an optional deeper review that checks public sources such as LinkedIn, GitHub, certificates, portfolios, project links, publications, company pages, product documentation, and public datasets. This would move the project from document-to-document comparison into wider evidence discovery. It would be useful for hiring, startup due diligence, academic review, product claim checking, and fraud prevention.
+
+Another future idea is team and organization workspaces. Companies could create shared templates, review policies, audit rules, and private audit libraries. Recruiters could have hiring templates, sales teams could have marketing compliance templates, and investors could have pitch-deck verification templates. Admins could track audit activity, risky documents, repeated claim patterns, and team-level credibility trends.
+
+The AI prompt could also become adaptive. If the selected mode is CV review, it should focus on skills, seniority, experience, leadership, projects, and measurable achievements. If the mode is sales review, it should focus on performance claims, certifications, integrations, guarantees, and customer proof. If it is pitch review, it should focus on traction, revenue, market size, team strength, and product readiness. If it is report review, it should focus on citations, numbers, methodology, sample size, and source quality.
+
+Overall, the future of VERDICT is not just detecting lies. It is building a serious evidence-review system that helps people make better decisions before trusting confident documents.
+```
+
+
+ For about the Visual I actually want it to look like a really stoic and really minimalistic look, so it will look really Strong, Secure, Aware, Like 10 steps ahead, like some game Cheats or Anticheats look like, they have the vibe of giving you full confidence of what they are doing and what they will help you to do, like 100%. I want that same vibe.
+
+
+
+
+I was thinking site should be Spring boot, React, and Mysql.
+
+ Databases should probably save, User stuff, remember Candidates information lets say if this guy had bad reputation one year ago, and new cv came formt his guy, we already have that guys info before so it will search that too, also stuff like  also audit templates, like their cathcpreases info they should be saved like templatename, made by,  and one big string with cahtchprases and stuff you know.
+
+ and whatever oyuthinkshould be in database too.
+
+
+
+
+CV processing:
+It should compare a CV against job requirements, highlight strengths and weaknesses, and generate suitable interview questions for the applicant.
+It should screen applicants’ CVs and distinguish strong applicants from weak ones.
+It should be able to verify the applicant’s legitimacy using OSINT, based on publicly available general information about them.
+The applicant should be able to find job vacancies tailored to them by providing a job description and their CV.
+There must be descriptions for job applications that say hybrid, remote, or on site.
+
+Should generate a compatibility dashboard where it shows how well fit the applicant is for the job offer.
+
+
+
+
+
+I am building a full-stack hackathon project called VERDICT.
+VERDICT is an AI-powered claim audit platform. A user uploads or enters a claim document and one or more evidence documents. The system extracts important claims from the claim document, splits evidence documents into chunks, matches claims to evidence, assigns verdicts, detects risky/exaggerated wording, suggests safer rewrites, generates an audit report, and allows exports.
+The product should support use cases such as:
+CV vs job posting / portfolio evidence
+startup pitch deck vs traction evidence
+sales page vs product documentation
+vendor proposal vs technical proof
+report vs references
+The database should be designed as an “evidence audit graph” using a relational model.
+Important project context:
+Backend: Java Spring Boot
+ORM: JPA / Hibernate
+Database: PostgreSQL
+Optional semantic search: pgvector
+Frontend: React + Vite
+MVP should be hackathon-feasible but architecturally clean
+The database must support async audit jobs, templates, check modes, report exports, dashboard history, and future scalability
+Avoid overengineering, but do not make it a toy schema
+I want you to design and implement a fully functional database layer.
+Start by explaining the database architecture briefly, then produce implementation-ready files.
+Use these conceptual entities:
+Users
+Stores accounts, roles, dashboards, saved audits, private templates, and history.
+Audit Projects
+Represents one complete audit session, such as CV audit, pitch audit, sales audit, or report audit.
+Documents
+Stores uploaded or pasted documents. Documents can be claim documents or evidence documents.
+Document Chunks
+Stores smaller searchable parts of documents. These chunks are used for evidence matching and optionally vector similarity search.
+Claims
+Stores important claims extracted from the claim document.
+Evidence Matches
+Connects claims to relevant evidence chunks. Relationship types may include:
+supports
+partially supports
+contradicts
+related but not supportive
+no evidence found
+Verdicts
+Stores the final judgment for each claim. Verdict types may include:
+supported
+partially supported
+unsupported
+contradicted
+exaggerated
+needs human review
+Risk Terms
+Stores suspicious or high-risk words and phrases such as “expert,” “best-in-class,” “guaranteed,” “production-ready,” “led,” “enterprise-grade,” etc.
+Claim Risk Terms
+Join table connecting claims to risk terms found inside them.
+Safer Rewrites
+Stores safer evidence-backed rewrites of risky or unsupported claims.
+Templates
+Stores audit templates such as CV Audit, Startup Pitch Audit, Vendor Proposal Audit, Sales Claim Audit, Academic Report Audit.
+Template Rules
+Stores rules inside each template. Rules influence how claims are classified, scored, and judged.
+Check Modes
+Stores audit strictness levels such as Light Mode, Human Review Mode, Strict Mode, and High-Stakes Mode.
+Reports
+Stores generated audit summaries, score breakdowns, recommendations, and report content.
+Exports
+Stores generated export metadata for PDF, DOC, CSV, TXT, etc.
+Audit Jobs
+Stores background processing jobs for async audits.
+Audit Events
+Stores timeline/debug events such as document uploaded, chunks created, claims extracted, evidence matched, verdicts generated, report exported.
+Prompt Versions
+Stores AI prompt/model configuration versions used for audit traceability.
+Tasks:
+Propose the final relational schema.
+Include table names.
+Include what each table does.
+Include how each table connects to other tables.
+Include cardinalities such as one-to-many and many-to-many.
+Include important constraints.
+Include indexes that matter.
+Then create PostgreSQL DDL.
+Use UUID primary keys where appropriate.
+Include created_at and updated_at timestamps where useful.
+Include foreign keys.
+Include enums or check constraints where useful.
+Include indexes for dashboard queries, audit history, claim lookup, evidence matching, and reports.
+Include optional pgvector support for document chunk embeddings.
+If pgvector is used, include a fallback comment for environments where pgvector is unavailable.
+Then create Spring Boot JPA entities.
+Use clean entity relationships.
+Avoid infinite JSON recursion.
+Use enums for audit type, document type, verdict type, evidence relationship type, job status, export type, and user role.
+Use sensible cascade behavior.
+Avoid dangerous cascading deletes where it could delete audit history unintentionally.
+Include soft-delete strategy where appropriate.
+Use lazy loading where appropriate.
+Use validation annotations where useful.
+Then create Spring Data JPA repositories.
+Include common query methods needed by the app.
+Include methods for:
+finding audits by user
+finding documents by audit project
+finding claims by audit project
+finding evidence matches by claim
+finding verdicts by audit project
+finding reports by audit project
+finding active audit jobs
+finding public templates
+finding templates owned by a user
+dashboard summary queries if reasonable
+Then create service-layer skeletons.
+AuditProjectService
+DocumentService
+ClaimService
+EvidenceMatchService
+VerdictService
+ReportService
+TemplateService
+AuditJobService
+AuditEventService
+PromptVersionService
+DashboardService
+Each service should include realistic method signatures and short comments explaining what it does.
+Then create DTOs for frontend communication.
+AuditProjectDto
+CreateAuditRequest
+DocumentDto
+ClaimDto
+EvidenceMatchDto
+VerdictDto
+ReportDto
+DashboardSummaryDto
+TemplateDto
+AuditJobDto
+Then create REST controller skeletons.
+Use Spring Boot style.
+Include routes for:
+creating an audit
+uploading or saving documents
+starting an audit job
+viewing audit results
+viewing claim details
+viewing reports
+exporting reports
+managing templates
+viewing dashboard summary
+Use clean endpoint names.
+Then create seed data.
+Include default check modes.
+Include default templates.
+Include risk terms.
+Include sample audit data for a CV audit and a startup pitch audit.
+Include enough sample data that the frontend can show a complete demo.
+Then explain the main query flow.
+User creates audit project.
+User uploads claim and evidence documents.
+System chunks documents.
+System extracts claims.
+System matches claims to evidence chunks.
+System creates verdicts.
+System generates report.
+User exports report.
+Then give implementation notes.
+Explain what should be MVP-only.
+Explain what can be postponed.
+Explain how to keep the database simple for hackathon.
+Explain how to extend it later.
+Explain where pgvector fits.
+Explain how to avoid making the schema too complicated.
+Important output requirements:
+Be practical, not theoretical.
+Prefer clean, working code over perfect enterprise architecture.
+Do not ask me follow-up questions.
+Make reasonable assumptions.
+Output should be directly usable by a developer.
+Use PostgreSQL and Spring Boot conventions.
+Keep naming consistent.
+Use package names like com.verdict.backend.
+Make the result suitable for copy-pasting into a real project.
+
+
+OSINT Verification Engine — Technical Plan
+Purpose
+An open-source-intelligence (OSINT) backend that analyzes and verifies the claims made by job applicants in their CVs. Every candidate explicitly consents to the processing and storage of their personal data in accordance with Georgian privacy law before any verification runs. This consent authorizes us to search public sources and corroborate the statements in their CV — for example, when a claimed job title or tenure is in question.
+The system targets material misrepresentations — fabricated roles, employers a person never worked for, or experience that cannot be corroborated anywhere — not the minor discrepancies (rounded dates, reworded titles) that are normal and expected.
+Identity resolution: multi-signal anchoring
+Identity is established before any claim is scored, because every downstream signal depends on confirming we're looking at the right person. Rather than trusting any single identifier, the system anchors identity on a combination of signals — email, name, claimed employer, and location — and only treats a match as valid when those signals corroborate one another.
+This directly addresses the two failure modes that break naïve verification: common names (many people share "David Kvaratskhelia") and missing emails (the address never surfaces publicly). A name appearing on a company site is only accepted as the candidate when it co-occurs with at least one other anchor — a matching email domain, a corroborating role, or a consistent location. When signals conflict or are too sparse to anchor confidently, the case is flagged for human review rather than guessed.
+Data sourcing: APIs and licensed sources first
+The system prefers official APIs and licensed data over scraping, for stability and reliability:
+LinkedIn API — candidate and company data, used as an independent cross-reference against the CV.
+GitHub API — developer signals for technical roles (see below).
+Search / enrichment APIs — to locate where an email or name appears across the public web.
+Licensed people-data providers — structured corroboration where available.
+Direct scraping of public pages is treated as a last resort, used only to read a specific public page (e.g., a company team page) when no API exposes that data. This keeps the pipeline maintainable and avoids dependence on fragile scrapers as the primary engine.
+Verification logic
+We begin from the most reliable anchor: the candidate's email. We search for where that email appears and what each site represents, while in parallel checking the candidate's name against the official sites of listed employers.
+A mention on a company's own site is a strong signal — but a mention alone is not full verification. The system treats two things as separate steps, with the second weighted more heavily:
+Existence — this person is associated with this company.
+Specific claim — this person held this role during this timeframe.
+Scoring: weighted per-claim, rolled into overall confidence
+Each claim on the CV is scored independently. Evidence contributes weighted points:
+Email appears on a credible, identifiable website → base weight.
+That site is tied to a listed employer or job listing → added weight.
+The site confirms the specific role claimed → higher weight.
+The site confirms the timeframe → further weight.
+Contradicting evidence → negative weight.
+Per-claim scores roll up into an overall CV confidence score, and every score carries its reasons — the specific evidence that produced it. The output tells a reviewer not just how confident the system is, but which parts of the CV are well-supported and why, so weak or unsupported claims are visible at a glance rather than buried in a single number.
+Technical / engineering roles
+For technical positions, verification extends to developer signals via the GitHub API: the languages the candidate actually uses, the count of public repositories available for review, and the substance of that public work — converting "claims to code in X" into observable evidence that feeds the relevant claim's score.
+Direct verification: automated, with human review on uncertainty
+Where public sources are inconclusive, the system automatically generates and sends verification inquiries to listed employers via email — using templated requests sent only to verified company domains, with every request and response tracked in an audit log. Sending is fully automated by default.
+When a case carries uncertainty — ambiguous identity, conflicting evidence, or a high-stakes contradiction — it is routed to a human reviewer who can approve, edit, or hold the inquiry before it goes out. This keeps the common path fast and hands-off while keeping a person in the loop exactly where judgment matters. Company responses feed back into the relevant claim's score.
+
+OSINT Verification Engine — Implementation Plan
+Guiding principle
+Build the pipeline as a sequence of independent, idempotent stages connected by a queue, where each stage reads from and writes to a persistent VerificationCase record. Every stage emits evidence (immutable, append-only) and the score is derived from evidence, never stored as a bare number. This makes the system resumable (for human-review pauses and slow APIs), auditable (Georgian privacy compliance), and explainable (every score carries its reasons).
+
+Phase 0 — Foundations & compliance gate
+This phase is non-negotiable and comes first because consent is a legal precondition, not a feature.
+0.1 Project scaffold. FastAPI app, Poetry/uv for deps, Ruff + mypy, pytest, Docker Compose with Postgres + Redis. Settings via pydantic-settings (all secrets via env, never committed).
+0.2 Consent & data-protection layer. A Consent model recording: candidate ID, consent text version, timestamp, scope (which sources authorized), legal basis, and expiry. No stage may run without a valid, unexpired consent row — enforce this as a hard precondition checked at job enqueue time, not deep in the pipeline. Add a data-retention policy (TTL on personal data), a right-to-erasure endpoint (cascades delete across cases/evidence/audit), and field-level encryption for PII at rest.
+0.3 Audit log. Append-only AuditEvent table (who/what/when/why) written by every stage and every outbound action. This is both a compliance artifact and your debugging backbone.
+Deliverable: running skeleton, migrations, consent enforced, audit log live.
+
+Phase 1 — Data model & domain core
+Define the spine everything else hangs off:
+Candidate — name, emails, location, links (PII-encrypted).
+CV → Claim[] — each claim normalized: {type: employment|education|skill, employer, role, start, end, raw_text}. CV parsing into claims is its own module (start with structured JSON input; add a parser later).
+VerificationCase — one per CV-run, holds status (pending → resolving_identity → gathering → scoring → awaiting_human → awaiting_employer → complete), and the resolved Identity.
+Evidence — immutable: {claim_id, source, source_url, signal_type, raw_payload, weight_contribution, polarity (+/−), confidence, observed_at}.
+Score — derived view per-claim and per-CV, always recomputed from evidence.
+Key decision: evidence is append-only; scores are projections. Re-running a stage adds evidence, never mutates it. This keeps the audit trail clean and makes scoring deterministic and re-runnable.
+
+Phase 2 — Source adapter layer (the integration boundary)
+One uniform SourceAdapter interface so the pipeline never knows which vendor it's talking to: search(identity_signals) -> RawSignal[]. Each adapter handles its own auth, rate-limiting (token bucket), retries with backoff, response caching (Redis, TTL'd — also saves money), and graceful degradation when unavailable.
+Adapters to build, in order of difficulty/value:
+GitHub adapter (build first — free, well-documented, high signal). Languages used, public repo count, contribution substance. Maps to skill/technical claims.
+Search/enrichment adapter (core engine). Wrap your chosen provider (SerpAPI/Bing + a people-data provider). Locates where an email or name appears; classifies each hit (company site, job board, social, directory).
+Email-presence / domain adapter. Resolves employer → official domain (so "mention on company site" can be verified and so outreach only goes to verified domains).
+LinkedIn adapter (via a licensed third-party provider — flag the ToS/legal review now). Independent cross-reference of role/employer/tenure. Treat as one signal, not ground truth.
+Direct-page reader (last resort). Fetches one specified public page (e.g. a team page) only when no API exposes it. Sandboxed, rate-limited, robots-aware.
+Build every adapter behind a feature flag with a fake/replay implementation so the whole pipeline is testable offline and you don't burn paid API quota in CI.
+
+Phase 3 — Identity resolution (the gate before scoring)
+A dedicated stage that runs before any claim is scored, because every downstream signal depends on confirming the right person.
+Multi-signal anchoring: collect candidate signals (email, name, claimed employer, location). A name match is only accepted when it co-occurs with at least one independent anchor (matching email domain, corroborating role, or consistent location). Implement as a scoring function over signal-pairs with explicit thresholds:
+Strong anchor → proceed to scoring.
+Sparse/conflicting signals → set case status awaiting_human, do not guess.
+This directly handles the two named failure modes (common names, missing email). Output is a ResolvedIdentity with its own confidence and the evidence that produced it.
+
+Phase 4 — Verification & two-step claim logic
+For each claim, gather evidence and separate two distinct questions, weighting the second more heavily:
+Existence — person is associated with this company.
+Specific claim — held this role during this timeframe.
+Pipeline: start from the email anchor (most reliable) → find where it appears and what each site represents → in parallel, check the name against listed employers' official sites → for technical roles, pull GitHub signals → record everything as Evidence with polarity and a provisional weight.
+
+Phase 5 — Scoring engine
+Pure, deterministic function: evidence[] -> ClaimScore, then claim_scores[] -> CVConfidence. Weights as configurable, versioned policy (not hardcoded), so you can tune without redeploying logic:
+Email on a credible, identifiable site → base weight.
+Site tied to listed employer / job listing → added weight.
+Site confirms the specific role → higher weight.
+Site confirms timeframe → further weight.
+Contradicting evidence → negative weight.
+Every ClaimScore carries its reason list (the contributing evidence). The CV rollup surfaces which claims are weak — never collapses to a single opaque number. Snapshot the policy version into each score so historical results stay explainable.
+Focus on material misrepresentation, not minor discrepancies — encode tolerance bands (e.g. rounded dates, reworded titles don't count as contradictions).
+
+Phase 6 — Employer outreach (automated, human-in-the-loop on uncertainty)
+A stage triggered when public evidence is inconclusive:
+Templated inquiries, sent only to verified company domains (from Phase 2.3).
+Automated by default; cases with ambiguous identity, conflicting evidence, or high-stakes contradiction route to awaiting_human for approve/edit/hold before send.
+Outbound via SES/SMTP; inbound response parsing (unique reply-to token per case, IMAP/webhook ingestion) feeds responses back as new Evidence → triggers re-score.
+Every request and response written to the audit log.
+This is where the queue + resumable-state design pays off: a case can sit in awaiting_employer for days without holding a worker.
+
+Phase 7 — Human review interface (API only)
+Backend endpoints (no frontend, as scoped): list cases needing review, fetch a case with all evidence + provisional score + the specific reason it was flagged, and actions (approve / edit / hold / override identity / approve-or-edit outreach). Every action audited. The frontend team consumes these later.
+
+Phase 8 — Orchestration, observability, hardening
+Orchestration: Celery/RQ (or Temporal if you want first-class pause/resume + retries — worth considering given the long-lived awaiting_* states). Each stage = a task; the VerificationCase.status is the source of truth.
+Observability: structured logging, per-stage metrics, cost tracking per external call, dead-letter queue for failed jobs.
+Security: secrets manager, PII encryption, rate limits on public endpoints, RBAC for reviewers.
+Testing: unit tests for the scoring function (deterministic — easy to test exhaustively), contract tests per adapter against recorded fixtures, end-to-end test on a synthetic CV through the full state machine.
+
+Suggested build order (dependency-aware)
+Phase 0 → 1 (foundations + model) → 2.1 GitHub adapter + 5 scoring engine (prove the evidence→score loop end-to-end on the cheapest source first) → 3 identity → 2.2/2.3 search+domain adapters → 4 verification → 6 outreach → 2.4 LinkedIn → 7 review API → 8 hardening.
+The reason for that ordering: get a thin vertical slice (one source → evidence → score → explainable output) working before you add breadth. It de-risks the core abstraction (evidence-derived scoring) before you spend money on paid APIs.

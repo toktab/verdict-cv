@@ -4,6 +4,7 @@ import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.account.UserAccountService;
 import dev.toktab.brainhack.account.UserMapper;
 import dev.toktab.brainhack.account.UserSessionService;
+import dev.toktab.brainhack.account.AuthTokenResolver;
 import dev.toktab.brainhack.api.dto.AuthResponse;
 import dev.toktab.brainhack.api.dto.LoginRequest;
 import dev.toktab.brainhack.api.dto.RegisterRequest;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,12 +29,14 @@ public class AuthController {
     private final UserAccountService accountService;
     private final UserMapper userMapper;
     private final AuditLogService logService;
+    private final AuthTokenResolver tokenResolver;
 
-    public AuthController(UserSessionService sessionService, UserAccountService accountService, UserMapper userMapper, AuditLogService logService) {
+    public AuthController(UserSessionService sessionService, UserAccountService accountService, UserMapper userMapper, AuditLogService logService, AuthTokenResolver tokenResolver) {
         this.sessionService = sessionService;
         this.accountService = accountService;
         this.userMapper = userMapper;
         this.logService = logService;
+        this.tokenResolver = tokenResolver;
     }
 
     @PostMapping("/register")
@@ -50,19 +54,28 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public UserResponse me(@RequestHeader("X-User-Token") String token) {
-        return userMapper.toResponse(sessionService.me(token));
+    public UserResponse me(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+            @RequestParam(value = "token", required = false) String queryToken) {
+        return userMapper.toResponse(sessionService.me(tokenResolver.userToken(authorization, legacyToken, queryToken)));
     }
 
     @PatchMapping("/me")
-    public UserResponse updateMe(@RequestHeader("X-User-Token") String token, @Valid @RequestBody UserProfileRequest request, HttpServletRequest httpRequest) {
-        UserAccount account = accountService.updateProfile(sessionService.me(token), request);
+    public UserResponse updateMe(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+            @Valid @RequestBody UserProfileRequest request,
+            HttpServletRequest httpRequest) {
+        UserAccount account = accountService.updateProfile(sessionService.me(tokenResolver.userToken(authorization, legacyToken, null)), request);
         logService.record("USER_PROFILE_UPDATE", httpRequest, 200, 0, account.getUsername(), "userId=" + account.getId());
         return userMapper.toResponse(account);
     }
 
     @PostMapping("/logout")
-    public void logout(@RequestHeader(value = "X-User-Token", required = false) String token) {
-        sessionService.logout(token);
+    public void logout(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "X-User-Token", required = false) String legacyToken) {
+        sessionService.logout(tokenResolver.userToken(authorization, legacyToken, null));
     }
 }
