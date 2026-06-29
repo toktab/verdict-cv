@@ -284,6 +284,10 @@ function App() {
     }, [lang]);
 
     useEffect(() => {
+        scrollToPageTop();
+    }, [route, detailAuditId]);
+
+    useEffect(() => {
         track('page_view', route, window.location.pathname);
         loadHistory();
         loadTemplates();
@@ -604,6 +608,14 @@ function navigateTo(setRoute, next, id, childId) {
     setRoute(next);
     const path = next === 'admin' ? '/admin' : next === 'dashboard' ? '/dashboard' : next === 'projects' ? '/projects' : next === 'newProject' ? '/projects/new' : next === 'projectDetail' ? `/projects/${id}` : next === 'addCandidate' ? `/projects/${id}/candidates/new` : next === 'signalTrace' ? `/projects/${id}/candidates/${childId}/signaltrace` : next === 'candidateProfile' ? `/projects/${id}/candidates/${childId}/profile` : next === 'candidateDetail' ? `/projects/${id}/candidates/${childId}` : next === 'profile' ? '/profile' : next === 'auditProfile' ? `/audit/${id}/profile` : next === 'auditDetail' ? `/audit/${id}` : next === 'app' ? '/projects' : next === 'login' ? '/login' : next === 'register' ? '/register' : '/';
     window.history.replaceState(null, '', path);
+    scrollToPageTop();
+}
+
+function scrollToPageTop() {
+    window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        document.scrollingElement?.scrollTo?.({ top: 0, left: 0, behavior: 'auto' });
+    });
 }
 
 function Header({ setRoute, user, userToken, setUser, setUserToken }) {
