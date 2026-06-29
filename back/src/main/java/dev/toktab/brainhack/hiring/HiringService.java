@@ -34,7 +34,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class HiringService {
-    private static final Set<String> STOP_WORDS = Set.of("with", "from", "into", "that", "this", "they", "them", "have", "will", "your", "and", "the", "for", "are");
+    private static final Set<String> STOP_WORDS = Set.of(
+            "with", "from", "into", "that", "this", "they", "them", "have", "will", "your", "and", "the", "for", "are",
+            "using", "use", "basic", "basics", "knowledge", "understanding", "experience", "familiarity", "ability",
+            "develop", "maintain", "build", "improve", "work", "works", "working", "help", "assist", "follow",
+            "principles", "tools", "similar", "good", "code", "clear", "role", "candidate"
+    );
     private static final Set<String> REQUIREMENT_SECTIONS = Set.of("RESPONSIBILITIES", "REQUIRED QUALIFICATIONS", "NICE TO HAVE", "TECH STACK", "IDEAL CANDIDATE PROFILE");
     private static final Set<String> STOP_REQUIREMENT_SECTIONS = Set.of("WHAT WE OFFER", "ABOUT THE ROLE", "LOCATION", "EMPLOYMENT TYPE", "LEVEL");
     private static final Set<String> TECH_TERMS = Set.of(
@@ -134,6 +139,25 @@ public class HiringService {
     public CandidateResponse candidate(UserAccount owner, Long projectId, Long candidateId) {
         return mapper.candidate(candidateRepository.findByIdAndProjectIdAndProjectOwnerIdAndDeletedAtIsNull(candidateId, projectId, owner.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Candidate not found")));
+    }
+
+    @Transactional
+    public CandidateResponse reanalyzeCandidate(UserAccount owner, Long projectId, Long candidateId) {
+        HiringCandidate candidate = candidateRepository.findByIdAndProjectIdAndProjectOwnerIdAndDeletedAtIsNull(candidateId, projectId, owner.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Candidate not found"));
+        HiringCandidate refreshed = buildCandidate(candidate.getProject(), candidate.getName(), candidate.getRole(), candidate.getCvText(), candidate.getResumeFilename());
+        candidate.setScore(refreshed.getScore());
+        candidate.setMatchScore(refreshed.getMatchScore());
+        candidate.setRisk(refreshed.getRisk());
+        candidate.setState(refreshed.getState());
+        candidate.setFlags(refreshed.getFlags());
+        candidate.setSupported(refreshed.getSupported());
+        candidate.setStretched(refreshed.getStretched());
+        candidate.setUnsupported(refreshed.getUnsupported());
+        candidate.setSummary(refreshed.getSummary());
+        candidate.setClaimsJson(refreshed.getClaimsJson());
+        candidate.setAuditPhraseMatchesJson(refreshed.getAuditPhraseMatchesJson());
+        return mapper.candidate(candidateRepository.save(candidate));
     }
 
     @Transactional
@@ -246,11 +270,10 @@ public class HiringService {
         String normalizedCv = normalize(cvText);
         String normalizedRequirements = normalize(String.join(" ", requirements));
         for (String requirement : requirements) {
-            int hits = keywordHits(requirement, normalizedCv);
-            String status = hits >= 2 ? "Supported" : hits == 1 ? "Stretched" : "Unsupported";
-            String reason = hits >= 2
+            String status = requirementStatus(requirement, normalizedCv);
+            String reason = "Supported".equals(status)
                     ? "The CV contains multiple terms aligned with this job requirement."
-                    : hits == 1
+                    : "Stretched".equals(status)
                     ? "The CV partially overlaps this requirement but does not prove depth."
                     : "The CV does not provide clear evidence for this requirement.";
             addClaim(rows, seen, requirement, status, reason);
@@ -271,8 +294,10 @@ public class HiringService {
                 addClaim(rows, seen, clean, "Supported", "This CV sentence contains concrete technical or measurable evidence.");
             } else if (requirementHits == 1) {
                 addClaim(rows, seen, clean, "Stretched", "This CV sentence has partial job overlap but needs stronger proof.");
+            } else if (isNeutralCvLine(clean)) {
+                addClaim(rows, seen, clean, "Gap", "This CV line is neutral context and is not counted as negative evidence for the job match.");
             } else {
-                addClaim(rows, seen, clean, "Unsupported", "This CV sentence is preserved for review but does not contain enough job-specific evidence by itself.");
+                addClaim(rows, seen, clean, "Gap", "This CV sentence is shown for review but does not contain enough concrete job-specific evidence by itself.");
             }
         }
         if (rows.isEmpty()) {
@@ -394,10 +419,43 @@ public class HiringService {
     }
 
     private boolean hasConcreteTechnicalSignal(String normalizedText) {
+        if (isContactOrLinkLine(normalizedText)) {
+            return false;
+        }
         if (normalizedText.matches(".*\\b\\d+\\b.*")) {
             return true;
         }
         return TECH_TERMS.stream().anyMatch(term -> normalizedText.matches(".*\\b" + Pattern.quote(term) + "\\b.*"));
+    }
+
+    private boolean isNeutralCvLine(String text) {
+        String clean = defaulted(text, "").trim();
+        String normalized = normalize(clean);
+        if (normalized.isBlank()) {
+            return true;
+        }
+        if (isContactOrLinkLine(normalized)) {
+            return true;
+        }
+        if (Set.of(
+                "contact", "profile", "technical skills", "soft skills", "education", "projects",
+                "certifications and awards", "languages"
+        ).contains(normalized)) {
+            return true;
+        }
+        if (normalized.matches(".*\\b(native|fluent|intermediate|conversational)\\b.*")) {
+            return true;
+        }
+        if (normalized.matches("^[a-z ]+(university|academy|center|school|institute)[a-z ]*$")) {
+            return true;
+        }
+        return normalized.matches(".*\\b(email|phone|linkedin|github|mailto|http|https)\\b.*");
+    }
+
+    private boolean isContactOrLinkLine(String normalizedText) {
+        return normalizedText.matches(".*\\b(phone|email|linkedin|github|mailto|contact)\\b.*")
+                || normalizedText.contains("http")
+                || normalizedText.contains("@");
     }
 
     private List<Map<String, Object>> riskyMatches(String text) {
@@ -441,14 +499,92 @@ public class HiringService {
         int covered = 0;
         int partial = 0;
         for (String requirement : requirements) {
-            int hits = keywordHits(requirement, normalizedCv);
-            if (hits >= 2 || shortTechRequirementCovered(requirement, normalizedCv)) {
+            String status = requirementStatus(requirement, normalizedCv);
+            if ("Supported".equals(status)) {
                 covered++;
-            } else if (hits == 1) {
+            } else if ("Stretched".equals(status)) {
                 partial++;
             }
         }
         return Math.round(((covered * 100f) + (partial * 45f)) / requirements.size());
+    }
+
+    private String requirementStatus(String requirement, String normalizedCv) {
+        String normalizedRequirement = normalize(requirement);
+        if (containsAll(normalizedRequirement, "java", "spring") || containsAll(normalizedRequirement, "java", "boot")) {
+            return contains(normalizedCv, "java") && (contains(normalizedCv, "spring") || contains(normalizedCv, "boot"))
+                    ? "Supported"
+                    : contains(normalizedCv, "java") || contains(normalizedCv, "spring") || contains(normalizedCv, "boot") ? "Stretched" : "Unsupported";
+        }
+        if (contains(normalizedRequirement, "spring") || contains(normalizedRequirement, "boot")) {
+            return contains(normalizedCv, "spring") || contains(normalizedCv, "boot") ? "Supported" : "Unsupported";
+        }
+        if (contains(normalizedRequirement, "controller") || contains(normalizedRequirement, "repository")) {
+            return contains(normalizedCv, "controller") && contains(normalizedCv, "service") && contains(normalizedCv, "repository")
+                    ? "Supported"
+                    : contains(normalizedCv, "service") || contains(normalizedCv, "repository") ? "Stretched" : "Unsupported";
+        }
+        if (contains(normalizedRequirement, "mysql") || contains(normalizedRequirement, "postgresql") || contains(normalizedRequirement, "postgres")) {
+            return contains(normalizedCv, "mysql") || contains(normalizedCv, "postgresql") || contains(normalizedCv, "postgres")
+                    ? "Supported"
+                    : contains(normalizedCv, "sql") || contains(normalizedCv, "database") ? "Stretched" : "Unsupported";
+        }
+        if (contains(normalizedRequirement, "jpa") || contains(normalizedRequirement, "hibernate")) {
+            return contains(normalizedCv, "jpa") || contains(normalizedCv, "hibernate") ? "Supported" : "Unsupported";
+        }
+        if (contains(normalizedRequirement, "docker")) {
+            return contains(normalizedCv, "docker") || contains(normalizedCv, "compose") ? "Supported" : "Unsupported";
+        }
+        if (contains(normalizedRequirement, "ci/cd") || contains(normalizedRequirement, "pipeline")) {
+            return contains(normalizedCv, "ci/cd") || contains(normalizedCv, "pipeline") || contains(normalizedCv, "actions") || contains(normalizedCv, "jenkins")
+                    ? "Supported" : "Unsupported";
+        }
+        if (contains(normalizedRequirement, "kafka") || contains(normalizedRequirement, "websocket") || contains(normalizedRequirement, "messaging") || contains(normalizedRequirement, "distributed")) {
+            return contains(normalizedCv, "kafka") || contains(normalizedCv, "websocket") || contains(normalizedCv, "websockets") || contains(normalizedCv, "distributed")
+                    ? "Supported" : "Stretched";
+        }
+        if (contains(normalizedRequirement, "linux")) {
+            return contains(normalizedCv, "linux") ? "Supported" : "Unsupported";
+        }
+        if (contains(normalizedRequirement, "object-oriented") || contains(normalizedRequirement, "object oriented")) {
+            return contains(normalizedCv, "object-oriented") || contains(normalizedCv, "object oriented") || contains(normalizedCv, "oop")
+                    ? "Supported"
+                    : contains(normalizedCv, "page object") || contains(normalizedCv, "java") ? "Stretched" : "Unsupported";
+        }
+        if (contains(normalizedRequirement, "collaborate") || contains(normalizedRequirement, "frontend") || contains(normalizedRequirement, "qa engineers")) {
+            return contains(normalizedCv, "collaboration") || contains(normalizedCv, "team") || contains(normalizedCv, "frontend") || contains(normalizedCv, "qa")
+                    ? "Stretched" : "Unsupported";
+        }
+        if (contains(normalizedRequirement, "feedback") || contains(normalizedRequirement, "learn")) {
+            return contains(normalizedCv, "feedback") || contains(normalizedCv, "learner") || contains(normalizedCv, "learn")
+                    ? "Supported" : "Stretched";
+        }
+        if (contains(normalizedRequirement, "cloud") || contains(normalizedRequirement, "deploy")) {
+            return contains(normalizedCv, "cloud") || contains(normalizedCv, "deploy") || contains(normalizedCv, "deployed")
+                    ? "Supported" : "Unsupported";
+        }
+
+        int hits = keywordHits(requirement, normalizedCv);
+        long requiredTechTerms = TECH_TERMS.stream().filter(normalizedRequirement::contains).count();
+        long matchedTechTerms = TECH_TERMS.stream()
+                .filter(normalizedRequirement::contains)
+                .filter(term -> normalizedCv.matches(".*\\b" + Pattern.quote(term) + "\\b.*"))
+                .count();
+        if (requiredTechTerms > 0) {
+            if (matchedTechTerms >= Math.min(2, requiredTechTerms) || shortTechRequirementCovered(requirement, normalizedCv)) {
+                return "Supported";
+            }
+            return matchedTechTerms == 1 || hits >= 1 ? "Stretched" : "Unsupported";
+        }
+        return hits >= 2 ? "Supported" : hits == 1 ? "Stretched" : "Unsupported";
+    }
+
+    private boolean containsAll(String text, String left, String right) {
+        return contains(text, left) && contains(text, right);
+    }
+
+    private boolean contains(String text, String term) {
+        return text.matches(".*\\b" + Pattern.quote(term) + "\\b.*");
     }
 
     private boolean shortTechRequirementCovered(String requirement, String normalizedCv) {
@@ -584,7 +720,7 @@ public class HiringService {
     }
 
     private String normalize(String value) {
-        return defaulted(value, "").toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9+#. ]", " ").replaceAll("\\s+", " ").trim();
+        return defaulted(value, "").toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9+#/\\- ]", " ").replaceAll("\\s+", " ").trim();
     }
 
     private String defaulted(String value, String fallback) {

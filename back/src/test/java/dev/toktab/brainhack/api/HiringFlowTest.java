@@ -5,7 +5,9 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -143,8 +145,86 @@ class HiringFlowTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.score", greaterThan(75)))
                 .andExpect(jsonPath("$.match", greaterThan(85)))
-                .andExpect(jsonPath("$.supported", greaterThan(8)));
+                .andExpect(jsonPath("$.supported", greaterThan(8)))
+                .andExpect(jsonPath("$.unsupported").value(0));
     }
+
+    @Test
+    void qaAutomationCvDoesNotReceiveStrongBackendProofForMissingJavaBackendStack() throws Exception {
+        String token = register("hiring_qa_vs_backend");
+        String description = """
+                REQUIRED QUALIFICATIONS
+                - Develop and maintain backend services using Java and Spring Boot.
+                - Practical experience with Spring Boot.
+                - Familiarity with JPA / Hibernate.
+                - Collaborate with frontend developers, QA engineers, and senior backend developers.
+                - Ability to test APIs using Postman, Swagger, JUnit, or similar tools.
+                - Basic understanding of CI/CD pipelines.
+                """;
+
+        long projectId = createProject(token, "Junior Java Backend Developer", description, "[\"\"]");
+
+        String cvText = """
+                Test Automation Engineer with Java basics, Selenium, Playwright, RestAssured, Postman, Jira,
+                GitHub Actions, SQL basics, bug reporting, test case design, and API testing experience.
+                Built automated UI tests and API test scenarios for web and banking applications.
+                """;
+
+        MvcResult result = mockMvc.perform(post("/api/projects/" + projectId + "/candidates")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name":"QA Candidate",
+                                  "role":"Test Automation Engineer",
+                                  "cv_text":%s
+                                }
+                                """.formatted(objectMapper.writeValueAsString(cvText))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.match", lessThan(80)))
+                .andReturn();
+
+        JsonNode candidate = objectMapper.readTree(result.getResponse().getContentAsString());
+        assertEquals("Stretched", claimStatus(candidate, "Develop and maintain backend services using Java and Spring Boot."));
+        assertEquals("Unsupported", claimStatus(candidate, "Practical experience with Spring Boot."));
+        assertEquals("Unsupported", claimStatus(candidate, "Familiarity with JPA / Hibernate."));
+        assertEquals("Supported", claimStatus(candidate, "Ability to test APIs using Postman, Swagger, JUnit, or similar tools."));
+    }
+
+    @Test
+    void candidateCanBeReanalyzedInPlaceWithCurrentScoringRules() throws Exception {
+        String token = register("hiring_reanalyze");
+        long projectId = createProject(token, "Backend Refresh Role", "Requirements:\n- Practical experience with Spring Boot.\n- Familiarity with JPA / Hibernate.", "[\"\"]");
+
+        MvcResult created = mockMvc.perform(post("/api/projects/" + projectId + "/candidates")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name":"Refresh Candidate",
+                                  "role":"QA Engineer",
+                                  "cv_text":"QA automation with Java basics, Postman, RestAssured, and GitHub Actions."
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode before = objectMapper.readTree(created.getResponse().getContentAsString());
+        long candidateId = before.get("id").asLong();
+
+        MvcResult refreshed = mockMvc.perform(post("/api/projects/" + projectId + "/candidates/" + candidateId + "/reanalyze")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value((int) candidateId))
+                .andReturn();
+
+        JsonNode after = objectMapper.readTree(refreshed.getResponse().getContentAsString());
+        assertEquals("Unsupported", claimStatus(after, "Practical experience with Spring Boot."));
+        assertEquals("Unsupported", claimStatus(after, "Familiarity with JPA / Hibernate."));
+    }
+
 
     @Test
     void candidateUploadAcceptsTextFilesAndRejectsUnsupportedResumeTypes() throws Exception {
@@ -298,5 +378,14 @@ class HiringFlowTest {
     private String token(MvcResult result) throws Exception {
         JsonNode node = objectMapper.readTree(result.getResponse().getContentAsString());
         return node.get("token").asText();
+    }
+
+    private String claimStatus(JsonNode candidate, String claim) {
+        for (JsonNode row : candidate.get("claims")) {
+            if (claim.equals(row.get(0).asText())) {
+                return row.get(1).asText();
+            }
+        }
+        throw new AssertionError("Claim not found: " + claim);
     }
 }

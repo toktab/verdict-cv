@@ -2586,6 +2586,15 @@ mark {
     min-height: 44px;
 }
 
+.inlineNotice {
+    border: 1px solid rgba(66, 153, 225, 0.24);
+    border-radius: 8px;
+    background: rgba(66, 153, 225, 0.1);
+    color: var(--text);
+    padding: 10px 14px;
+    font-size: 13px;
+}
+
 .candidateDecisionLine {
     margin-top: 18px;
     display: grid;

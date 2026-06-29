@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, History, Radar, ScanText } from 'lucide-react';
+import { Activity, ArrowRight, History, Radar, RefreshCcw, ScanText } from 'lucide-react';
 import { useLanguage } from '../../i18n';
+import { apiReanalyzeCandidate } from '../../api';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
 import { findCandidateFromPath, scorePercent, scoreTone } from './projectPageUtils';
 
@@ -11,11 +12,13 @@ const analysisStates = [
     { id: 'strict-war-ai', name: 'WAR_AI State', shortName: 'WAR_AI', description: 'Deep AI-assisted verification with OSINT-ready evidence.' },
 ];
 
-export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [] }) {
+export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], onProjectsChange }) {
     const { t } = useLanguage();
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [confidenceFilter, setConfidenceFilter] = useState('ALL');
     const [severityFilter, setSeverityFilter] = useState('ALL');
+    const [reanalyzing, setReanalyzing] = useState(false);
+    const [reanalyzeMessage, setReanalyzeMessage] = useState('');
     const { project, candidate } = findCandidateFromPath(projects);
     const activeProject = project || projects[0];
     const activeCandidate = candidate || activeProject?.candidates?.[0];
@@ -63,8 +66,8 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const decision = candidateDecision(activeCandidate);
     const coverage = proofCoverage(activeProject, activeCandidate);
     const verdictCounts = countVerdicts(verdictRows);
-    const strongestClaim = activeCandidate.claims.find(([, status]) => status === 'Supported')?.[0] || activeCandidate.role;
-    const weakestClaim = activeCandidate.claims.find(([, status]) => status === 'Unsupported')?.[0] || activeCandidate.claims.find(([, status]) => status === 'Stretched')?.[0] || activeCandidate.risk;
+    const strongestClaim = strongestRequirementClaim(activeProject, activeCandidate) || activeCandidate.claims.find(([, status]) => status === 'Supported')?.[0] || activeCandidate.role;
+    const weakestClaim = weakestRequirementClaim(activeProject, activeCandidate) || activeCandidate.claims.find(([claim, status]) => status === 'Unsupported' && isActionableQuestionClaim(claim))?.[0] || activeCandidate.claims.find(([claim, status]) => status === 'Stretched' && isActionableQuestionClaim(claim))?.[0] || activeCandidate.risk;
     const recruiterSummary = buildRecruiterSummary(activeProject, activeCandidate, decision, coverage, strongestClaim, weakestClaim);
 
     function selectAnalysisState(stateId) {
@@ -79,6 +82,20 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
             writeInitializedStates(stateStorageKey, next);
             return next;
         });
+    }
+
+    async function reanalyzeCandidate() {
+        setReanalyzing(true);
+        setReanalyzeMessage('');
+        try {
+            await apiReanalyzeCandidate(activeProject.id, activeCandidate.id, userToken);
+            await onProjectsChange?.();
+            setReanalyzeMessage('Analysis refreshed with the latest scoring rules.');
+        } catch (error) {
+            setReanalyzeMessage(error.message || 'Could not refresh analysis.');
+        } finally {
+            setReanalyzing(false);
+        }
     }
 
     return (
@@ -101,10 +118,12 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         </div>
                     </div>
                     <div className="candidateHeroActions">
+                        <button className="secondary" disabled={reanalyzing} onClick={reanalyzeCandidate} type="button"><RefreshCcw size={18} /> {reanalyzing ? 'Re-running...' : 'Re-run analysis'}</button>
                         <button className="primary" onClick={() => navigateTo(setRoute, 'candidateProfile', activeProject.id, activeCandidate.id)}><ScanText size={18} /> {t('profilingMode')}</button>
                         <button className="primary" onClick={() => navigateTo(setRoute, 'signalTrace', activeProject.id, activeCandidate.id)}><Radar size={18} /> {t('signalTrace')}</button>
                     </div>
                 </section>
+                {reanalyzeMessage && <div className="inlineNotice">{reanalyzeMessage}</div>}
                 <section className="detailMeta">
                     <Metric label={t('role')} value={activeCandidate.role} />
                     <Metric label={t('jobMatch')} value={`${activeCandidate.match}%`} />
@@ -538,7 +557,7 @@ function candidateDecision(candidate) {
 function proofCoverage(project, candidate) {
     const requirements = project.requirements || [];
     const total = Math.max(1, requirements.length);
-    const covered = Math.min(total, candidate.supported + Math.floor(candidate.stretched / 2));
+    const covered = requirements.filter((requirement) => requirementClaim(candidate, requirement)?.[1] === 'Supported').length;
     return {
         covered,
         total,
@@ -680,7 +699,7 @@ function buildMemoryProfile(candidate, t) {
 }
 
 function buildInterviewQuestions(candidate, t) {
-    const weakClaims = candidate.claims.filter(([, status]) => status !== 'Supported');
+    const weakClaims = candidate.claims.filter(([claim, status]) => ['Unsupported', 'Stretched'].includes(status) && isActionableQuestionClaim(claim));
     const rows = weakClaims.map(([claim, status, reason]) => ({
         focus: claim,
         question: `${t('explainClaim')} ${claim}`,
@@ -699,17 +718,47 @@ function buildInterviewQuestions(candidate, t) {
 }
 
 function buildFitRows(project, candidate, t) {
-    return project.requirements.map((requirement, index) => {
-        const supportedBoost = candidate.supported * 2;
-        const penalty = candidate.unsupported * 5 + candidate.stretched * 2 + index * 4;
-        const score = Math.max(18, Math.min(98, Math.round(candidate.match + supportedBoost - penalty + index * 3)));
+    return project.requirements.map((requirement) => {
+        const claimRow = requirementClaim(candidate, requirement);
+        const status = claimRow?.[1] || 'Gap';
+        const score = status === 'Supported' ? 98 : status === 'Stretched' ? 55 : status === 'Unsupported' ? 18 : 35;
         return {
             requirement,
             score,
-            proof: score >= 78 ? t('strongProof') : score >= 55 ? t('partialProof') : t('weakProof'),
-            tone: score >= 78 ? 'good' : score >= 55 ? 'warn' : 'bad',
+            proof: status === 'Supported' ? t('strongProof') : status === 'Stretched' ? t('partialProof') : t('weakProof'),
+            tone: status === 'Supported' ? 'good' : status === 'Stretched' ? 'warn' : 'bad',
         };
     });
+}
+
+function strongestRequirementClaim(project, candidate) {
+    return (project.requirements || [])
+        .map((requirement) => requirementClaim(candidate, requirement))
+        .find((row) => row?.[1] === 'Supported')?.[0];
+}
+
+function weakestRequirementClaim(project, candidate) {
+    return (project.requirements || [])
+        .map((requirement) => requirementClaim(candidate, requirement))
+        .find((row) => row?.[1] === 'Unsupported')?.[0]
+        || (project.requirements || [])
+            .map((requirement) => requirementClaim(candidate, requirement))
+            .find((row) => row?.[1] === 'Stretched')?.[0];
+}
+
+function requirementClaim(candidate, requirement) {
+    const wanted = normalizeLocal(requirement);
+    return (candidate.claims || []).find(([claim]) => normalizeLocal(claim) === wanted);
+}
+
+function isActionableQuestionClaim(claim = '') {
+    const normalized = normalizeLocal(claim);
+    if (!normalized || normalized.length < 4) return false;
+    if (/\b(phone|email|linkedin|mailto|contact)\b/.test(normalized)) return false;
+    if (normalized.includes('http') || /^github\b/.test(normalized)) return false;
+    if (/\b(native|fluent|intermediate|conversational)\b/.test(normalized)) return false;
+    if (normalized.includes('@')) return false;
+    return !['profile', 'technical skills', 'soft skills', 'education', 'projects', 'certifications and awards', 'languages'].includes(normalized);
 }
 
 function buildCandidateVerdicts(candidate) {

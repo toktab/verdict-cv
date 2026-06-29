@@ -22,14 +22,18 @@ export function bestCandidate(candidates) {
 
 export function findProjectFromPath(projects) {
     const match = window.location.pathname.match(/^\/projects\/([^/]+)/);
-    return (projects || []).find((project) => project.id === match?.[1]);
+    return (projects || []).find((project) => sameId(project.id, match?.[1]));
 }
 
 export function findCandidateFromPath(projects) {
     const match = window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)(?:\/(?:signaltrace|profile))?$/);
-    const project = (projects || []).find((item) => item.id === match?.[1]);
-    const candidate = project?.candidates.find((item) => item.id === match?.[2]);
+    const project = (projects || []).find((item) => sameId(item.id, match?.[1]));
+    const candidate = project?.candidates.find((item) => sameId(item.id, match?.[2]));
     return { project, candidate };
+}
+
+function sameId(left, right) {
+    return String(left ?? '') === String(right ?? '');
 }
 
 export function formatShortDate(value) {

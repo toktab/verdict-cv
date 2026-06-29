@@ -210,10 +210,21 @@ function projectRiskClusters(candidates) {
 function projectCoverage(project) {
     const requirements = project.requirements || [];
     const total = Math.max(1, requirements.length);
-    const covered = Math.min(total, project.candidates.filter((candidate) => candidate.supported > 0 && candidate.score >= 65).length);
+    const covered = requirements.filter((requirement) => (
+        project.candidates || []
+    ).some((candidate) => requirementClaim(candidate, requirement)?.[1] === 'Supported')).length;
     return {
         covered,
         total,
         percent: Math.round((covered / total) * 100),
     };
+}
+
+function requirementClaim(candidate, requirement) {
+    const wanted = normalizeClaim(requirement);
+    return (candidate.claims || []).find(([claim]) => normalizeClaim(claim) === wanted);
+}
+
+function normalizeClaim(value = '') {
+    return String(value).toLowerCase().replace(/[^a-z0-9+#. ]/g, ' ').replace(/\s+/g, ' ').trim();
 }

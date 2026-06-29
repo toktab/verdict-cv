@@ -97,6 +97,14 @@ public class HiringController {
         return hiringService.candidate(owner(authorization, legacyToken), projectId, candidateId);
     }
 
+    @PostMapping("/{projectId}/candidates/{candidateId}/reanalyze")
+    public CandidateResponse reanalyzeCandidate(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                                @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                                @PathVariable Long projectId,
+                                                @PathVariable Long candidateId) {
+        return hiringService.reanalyzeCandidate(owner(authorization, legacyToken), projectId, candidateId);
+    }
+
     @PostMapping("/{projectId}/candidates/{candidateId}/osint/run")
     public OsintRunResponse runOsint(@RequestHeader(value = "Authorization", required = false) String authorization,
                                      @RequestHeader(value = "X-User-Token", required = false) String legacyToken,

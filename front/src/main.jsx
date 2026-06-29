@@ -479,7 +479,7 @@ function App() {
     } else if (route === 'addCandidate') {
         content = <AddCandidatePage Header={Header} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} onProjectsChange={loadProjects} />;
     } else if (route === 'candidateDetail') {
-        content = <CandidateDetailPage Header={Header} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
+        content = <CandidateDetailPage Header={Header} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} onProjectsChange={loadProjects} />;
     } else if (route === 'candidateProfile') {
         content = <CandidateProfilePage Header={Header} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
     } else if (route === 'signalTrace') {

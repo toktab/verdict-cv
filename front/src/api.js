@@ -110,6 +110,10 @@ export async function apiGetCandidate(projectId, candidateId, token) {
     return get(`/projects/${projectId}/candidates/${candidateId}`, token);
 }
 
+export async function apiReanalyzeCandidate(projectId, candidateId, token) {
+    return post(`/projects/${projectId}/candidates/${candidateId}/reanalyze`, {}, token);
+}
+
 export async function apiDeleteCandidate(projectId, candidateId, token) {
     return del(`/projects/${projectId}/candidates/${candidateId}`, token);
 }
