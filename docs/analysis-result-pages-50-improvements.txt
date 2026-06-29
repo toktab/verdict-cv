@@ -1,0 +1,243 @@
+Analysis Result Pages - 50 Point Visual/Product Improvement Plan
+===============================================================
+
+Scope
+-----
+This file focuses on the candidate and project result pages:
+- ProjectsPage
+- ProjectDetailPage
+- CandidateDetailPage
+- CandidateProfilePage
+- SignalTracePage
+
+Goal:
+Make the result experience feel much more premium, visual, convincing, and useful for hiring reviewers.
+
+
+Current Visual Read
+-------------------
+The current UI already has a strong dark theme, cards, status pills, score bars, and several useful panels.
+The main weakness is that the pages still feel like a technical dashboard rather than a polished analysis product.
+
+Most sections show data, but they do not yet tell a strong visual story:
+- What is the final decision?
+- Why did the score happen?
+- Which evidence matters most?
+- What should the recruiter do next?
+- What changed between States?
+- What is verified, uncertain, or missing?
+
+
+50 Improvements
+---------------
+
+1. Add a top "Decision Summary" band on CandidateDetailPage.
+   Show: Recommended action, confidence, biggest reason, biggest risk.
+
+2. Replace the plain candidate hero with a stronger "candidate verdict hero".
+   Include score ring, state badge, risk badge, and one-sentence hiring recommendation.
+
+3. Add a large radial score visualization.
+   Use different colors for strong, warning, and risky candidates.
+
+4. Add a "Hire / Interview / Review / Reject" decision chip.
+   This should be more visible than the numeric score.
+
+5. Add a "Why this decision" 3-card summary.
+   Cards: strongest proof, weakest proof, missing evidence.
+
+6. Add a "Reviewer next action" panel.
+   Examples: "Ask for GitHub repo", "Verify employment dates", "Proceed to interview".
+
+7. Add a "State comparison" mini chart inside candidate detail.
+   Show Light, WAR, Person_AI, WAR_AI as columns with Done/Not initialized/status.
+
+8. Add visual difference when switching States.
+   Initialized states should feel active; uninitialized states should fade the analysis and show the initialize CTA.
+
+9. Add a "State impact" section.
+   Show how score/flags/verdicts change between States once multiple States are initialized.
+
+10. Add a "Proof coverage meter".
+    Show percent of job requirements backed by candidate evidence.
+
+11. Add a "Claim strength distribution" chart.
+    Keep supported/stretched/unsupported, but use a more polished stacked bar with labels and hover details.
+
+12. Add per-requirement evidence cards.
+    Each job requirement should show matching CV lines, missing evidence, and confidence.
+
+13. Add "Evidence source tags" to verdict rows.
+    Tags: CV, GitHub, LinkedIn, Portfolio, Manual, OSINT.
+
+14. Add "Evidence quality" next to each verdict.
+    Values: Direct, Partial, Weak, Missing, Contradictory.
+
+15. Make verdict filters more visual.
+    Use segmented tabs with counts: All 42, Supported 18, Stretched 12, Gap 8.
+
+16. Add severity heatmap beside verdict table.
+    Small vertical distribution showing high/medium/low/problem density.
+
+17. Add "Top 10 important words" as a more useful keyword cloud.
+    Use size and color by frequency/risk, not only chips.
+
+18. Add "Claim timeline" if CV has dates.
+    Extract years/date ranges and show chronological experience consistency.
+
+19. Add "Experience continuity" panel.
+    Flag gaps, overlaps, impossible durations, or unclear timelines.
+
+20. Add "Technology matrix".
+    Rows: Java, React, SQL, Docker, GitHub, etc.
+    Columns: Claimed, CV evidence, GitHub evidence, confidence.
+
+21. Add "Language evidence" panel from GitHub.
+    Show detected repo languages against claimed languages.
+
+22. Add "Repository depth score" for GitHub.
+    Show repos found, recent activity, README quality, language spread, forks/tutorial risk.
+
+23. Add "Identity confidence" as a visual gauge in SignalTrace.
+    Show matched sources and why confidence changed.
+
+24. Add "OSINT run status timeline".
+    Stages: queued, extracting CV signals, checking GitHub, checking usernames, compiling result.
+
+25. Add "Source cards" in SignalTrace.
+    Each source should have logo/icon, status, confidence, evidence link, and review note.
+
+26. Add locked-state tooltips with better microcopy.
+    Example: "SignalTrace is only available in WAR_AI because it performs external public-source checks."
+
+27. Add "Consent and scope" collapsed details.
+    Keep the consent gate, but make it more polished and legal-product-like.
+
+28. Add a "Public data only" badge.
+    This reinforces safety and professionalism.
+
+29. Add "Export report" buttons on candidate result page.
+    Options: PDF, JSON, CSV, recruiter summary.
+
+30. Add "Copy interview pack" action.
+    Generate concise interview questions plus evidence references.
+
+31. Add "Compare candidates" option on ProjectDetailPage.
+    Select 2-4 candidates and compare scores, proof coverage, OSINT, risk.
+
+32. Upgrade ProjectDetailPage candidate table into ranked shortlist.
+    Show rank, decision, score, risk, strongest proof, missing proof.
+
+33. Add "Project funnel" visualization.
+    Applied -> Parsed -> Reviewed -> Interview Ready -> High Risk -> Rejected.
+
+34. Add "Role requirement coverage" at project level.
+    Show which requirements most candidates satisfy or fail.
+
+35. Add "Best candidate spotlight" in ProjectDetailPage.
+    Larger visual panel with why this candidate is currently leading.
+
+36. Add "Risk cluster" cards at project level.
+    Examples: unsupported seniority, missing GitHub, weak SQL proof, no timeline.
+
+37. Add project-level score distribution histogram.
+    Not only a strip; show how many candidates are in each score range.
+
+38. Add "Review workload" metric.
+    Estimate how many candidates need manual review and why.
+
+39. Add "State readiness" for each project.
+    Show which States have been initialized for candidates.
+
+40. Add "OSINT coverage" for the project.
+    Show how many candidates have GitHub/LinkedIn/portfolio evidence.
+
+41. Add "Empty state" improvements.
+    For no candidates, show a polished action panel with "Add CV", "Paste resume", "Import sample".
+
+42. Add skeleton/loading states for analysis panels.
+    Especially SignalTrace automatic OSINT run.
+
+43. Add row expansion in verdict table.
+    Clicking a claim opens original CV text, matched requirement, source, and suggested interview question.
+
+44. Add "Reviewer notes" per candidate.
+    Local or backend-saved notes for human review.
+
+45. Add "Manual override" controls.
+    Recruiter can mark claim as verified, rejected, or needs evidence.
+
+46. Add "Evidence attachment" support.
+    Attach GitHub URL, LinkedIn URL, portfolio link, or note to a claim.
+
+47. Add "Confidence explanation" tooltip.
+    Explain why confidence is high/medium/low.
+
+48. Improve mobile layout.
+    Prioritize decision summary, action buttons, score, and top risks before dense tables.
+
+49. Improve visual hierarchy.
+    Less equal-weight cards; make the final decision and key evidence dominant.
+
+50. Add a final "Recruiter-ready summary" section.
+    One polished paragraph summarizing candidate fit, risks, missing proof, and recommended next step.
+
+
+Suggested Build Order
+---------------------
+Phase 1 - Immediate visual lift:
+1. Decision Summary band
+2. Candidate verdict hero
+3. Proof coverage meter
+4. Better verdict filters with counts
+5. Recruiter-ready summary
+
+Phase 2 - Better analysis:
+1. Technology matrix
+2. Per-requirement evidence cards
+3. State impact panel
+4. Verdict row expansion
+5. Interview pack
+
+Phase 3 - OSINT product polish:
+1. SignalTrace source cards
+2. OSINT run timeline
+3. GitHub language evidence
+4. Identity confidence gauge
+5. Persisted OSINT run history
+
+Phase 4 - Project-level product:
+1. Candidate comparison
+2. Funnel visualization
+3. Best candidate spotlight
+4. Risk clusters
+5. Project OSINT coverage
+
+
+Design Direction
+----------------
+Keep the current dark, red-accented product identity, but make result pages feel more like an executive verification report.
+
+The page should answer in the first viewport:
+- Who is this candidate?
+- What is the decision?
+- Why?
+- What proof exists?
+- What is missing?
+- What should I do next?
+
+Use visual hierarchy:
+- Big decision first
+- Key metrics second
+- Evidence third
+- Raw CV and detailed tables lower down
+
+
+Implementation Notes
+--------------------
+Do not turn everything into more cards.
+Use full-width bands for major report sections.
+Use cards only for repeated evidence items, candidates, verdicts, source rows, and actions.
+
+Avoid adding decorative gradients without meaning.
+Every visual element should explain risk, proof, state, evidence, or next action.

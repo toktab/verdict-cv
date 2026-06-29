@@ -114,6 +114,10 @@ export async function apiDeleteCandidate(projectId, candidateId, token) {
     return del(`/projects/${projectId}/candidates/${candidateId}`, token);
 }
 
+export async function apiRunCandidateOsint(projectId, candidateId, { state, checks } = {}, token) {
+    return post(`/projects/${projectId}/candidates/${candidateId}/osint/run`, { state, checks: checks || [] }, token);
+}
+
 export const javaApi = {
     history(token) {
         return get('/audit/history', token);

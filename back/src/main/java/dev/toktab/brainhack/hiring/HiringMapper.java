@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 public class HiringMapper {
     private static final TypeReference<List<List<String>>> CLAIMS = new TypeReference<>() {};
     private static final TypeReference<List<Map<String, Object>>> MATCHES = new TypeReference<>() {};
+    private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
     private final ObjectMapper objectMapper;
 
     public HiringMapper(ObjectMapper objectMapper) {
@@ -72,6 +73,10 @@ public class HiringMapper {
         } catch (JsonProcessingException exception) {
             throw new IllegalArgumentException("Could not serialize hiring data");
         }
+    }
+
+    public Map<String, Object> map(String json) {
+        return read(json, MAP, Map.of());
     }
 
     private <T> T read(String json, TypeReference<T> type, T fallback) {

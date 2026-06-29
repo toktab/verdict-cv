@@ -44,3 +44,8 @@ front/dist/
 ### Local OSINT prototype reports ###
 osint-report.json
 osint-report.md
+__pycache__/
+**/__pycache__/
+
+### Local environment ###
+.env

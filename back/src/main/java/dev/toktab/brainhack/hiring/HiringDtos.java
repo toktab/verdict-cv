@@ -29,6 +29,34 @@ public class HiringDtos {
     public record ImportResponse(int imported, int skipped) {
     }
 
+    public record OsintRunRequest(
+            String state,
+            List<String> checks
+    ) {
+    }
+
+    public record OsintSourceResponse(
+            String source,
+            String finding,
+            int confidence,
+            String impact,
+            String tone,
+            String url
+    ) {
+    }
+
+    public record OsintRunResponse(
+            String state,
+            String status,
+            int identityConfidence,
+            int corroboratedSources,
+            int contradictions,
+            List<String> discoveredLinks,
+            List<String> discoveredUsernames,
+            List<OsintSourceResponse> sources
+    ) {
+    }
+
     public record ProjectResponse(
             Long id,
             String title,

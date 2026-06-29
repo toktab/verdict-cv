@@ -1,0 +1,14 @@
+.git
+.idea
+.vscode
+target
+**/target
+front/node_modules
+front/dist
+node_modules
+**/.vite
+**/__pycache__
+*.log
+.env
+osint-report.json
+osint-report.md

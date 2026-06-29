@@ -1,0 +1,152 @@
+═══════════════════════════════════════════════════════════════
+OSINT TOOLS REFERENCE — SignalTrace Stack (FREE ONLY)
+═══════════════════════════════════════════════════════════════
+
+── CORE AUTOMATION ─────────────────────────────────────────────
+
+OSINT Platform  : SpiderFoot
+Rating          : ⭐⭐⭐⭐⭐ (5/5) | Free / Open Source
+Link            : https://github.com/smicallef/spiderfoot
+
+OSINT Platform  : Recon-ng
+Rating          : ⭐⭐⭐⭐ (4/5) | Free / Open Source
+Link            : https://github.com/lanmaster53/recon-ng
+
+── USERNAME / SOCIAL SEARCH ────────────────────────────────────
+
+OSINT Platform  : Sherlock
+Rating          : ⭐⭐⭐⭐⭐ (5/5) | Free / Open Source
+Link            : https://github.com/sherlock-project/sherlock
+
+OSINT Platform  : Maigret
+Rating          : ⭐⭐⭐⭐⭐ (5/5) | Free / Open Source
+Link            : https://github.com/soxoj/maigret
+
+OSINT Platform  : Blackbird
+Rating          : ⭐⭐⭐⭐ (4/5) | Free / Open Source
+Link            : https://github.com/p1ngul1n0/blackbird
+
+OSINT Platform  : WhatsMyName
+Rating          : ⭐⭐⭐⭐⭐ (5/5) | Free / Open Source (700+ sites)
+Link            : https://github.com/WebBreacher/WhatsMyName
+
+OSINT Platform  : Social Analyzer
+Rating          : ⭐⭐⭐⭐ (4/5) | Free / Open Source
+Link            : https://github.com/qeeqbox/social-analyzer
+
+OSINT Platform  : Tookie OSINT
+Rating          : ⭐⭐⭐ (3/5) | Free / Open Source (less maintained)
+Link            : https://github.com/soxoj/tookie-osint
+
+── EMAIL / IDENTITY OSINT ──────────────────────────────────────
+
+OSINT Platform  : Holehe
+Rating          : ⭐⭐⭐⭐⭐ (5/5) | Free / Open Source
+Link            : https://github.com/megadose/holehe
+
+OSINT Platform  : GHunt
+Rating          : ⭐⭐⭐⭐ (4/5) | Free / Open Source (Google-focused)
+Link            : https://github.com/mxrch/GHunt
+
+OSINT Platform  : theHarvester
+Rating          : ⭐⭐⭐⭐ (4/5) | Free / Open Source
+Link            : https://github.com/laramies/theHarvester
+
+── GITHUB / CODE OSINT ─────────────────────────────────────────
+
+OSINT Platform  : TruffleHog
+Rating          : ⭐⭐⭐⭐⭐ (5/5) | Free / Open Source (industry standard)
+Link            : https://github.com/trufflesecurity/trufflehog
+
+OSINT Platform  : GitFive
+Rating          : ⭐⭐⭐⭐ (4/5) | Free / Open Source
+Link            : https://github.com/mxrch/GitFive
+
+OSINT Platform  : GitHub CLI
+Rating          : ⭐⭐⭐⭐ (4/5) | Free / Official GitHub Tool
+Link            : https://github.com/cli/cli
+
+OSINT Platform  : github-linguist
+Rating          : ⭐⭐⭐⭐ (4/5) | Free / Official GitHub Language Detector
+Link            : https://github.com/github-linguist/linguist
+
+OSINT Platform  : GitDorker
+Rating          : ⭐⭐⭐ (3/5) | Free / Less Maintained
+Link            : https://github.com/obheda12/GitDorker
+
+OSINT Platform  : OSGINT
+Rating          : ⭐⭐⭐ (3/5) | Free / Niche / Limited reviews
+Link            : https://github.com/MikeHorn-git/OSGINT
+
+── INVESTIGATION / CAPTURE ─────────────────────────────────────
+
+OSINT Platform  : LinkScope
+Rating          : ⭐⭐⭐⭐ (4/5) | Free / Open Source
+Note            : Free alternative to Hunchly — graphical link analysis +
+                  investigation capture, active maintenance, Kali-packaged
+Link            : https://github.com/AccentuSoft/LinkScope_Client
+
+── RESOURCE INDEXES (Not Tools — Essential References) ─────────
+
+OSINT Platform  : OSINT Framework
+Rating          : ⭐⭐⭐⭐⭐ (5/5) | Free
+Link            : https://osintframework.com
+
+OSINT Platform  : Awesome OSINT
+Rating          : ⭐⭐⭐⭐⭐ (5/5) | Free
+Link            : https://github.com/jivoi/awesome-osint
+
+OSINT Platform  : Cyber Detective Tools Collection
+Rating          : ⭐⭐⭐⭐⭐ (5/5) | Free
+Link            : https://github.com/cipher387/osint_stuff_tool_collection
+
+OSINT Platform  : Social Media OSINT Tools Collection
+Rating          : ⭐⭐⭐⭐ (4/5) | Free
+Link            : https://github.com/osintambition/Social-Media-OSINT-Tools-Collection
+
+═══════════════════════════════════════════════════════════════
+⚠ FLAGS / UNVERIFIED
+═══════════════════════════════════════════════════════════════
+
+OSINT Platform  : Gitvio
+Rating          : ❓ Unverified — could not confirm active repo or maintenance
+Link            : Search GitHub for current status
+
+OSINT Platform  : Repos Timeline
+Rating          : ❓ Unverified — no well-known standalone tool found by this name
+Link            : May refer to GitHub's built-in activity timeline feature
+
+OSINT Platform  : OSINT Combine Free Tools
+Rating          : ⭐⭐⭐⭐ (4/5) | Free web-based tools
+Link            : https://www.osintcombine.com/tools
+
+═══════════════════════════════════════════════════════════════
+
+1.
+Keep OSINT/osints.txt as a registry/list, not tool source code.
+2.
+Install tools outside the app, for example:
+◦
+C:\OSINT\tools
+◦
+or Python venvs under C:\OSINT\venvs
+3.
+Your Java/React app should call one controlled wrapper script/API, not directly run 20 tools.
+4.
+Start with 3 tools only:
+◦
+Maigret or Sherlock for usernames
+◦
+Holehe for email footprint
+◦
+GitHub API/CLI for repos/languages
+5.
+Save results as JSON, then your backend reads that JSON and shows it in SignalTrace.
+Recommended OSINT/osints.txt format:
+# tool | purpose | install | output | enabled
+maigret | username search | pipx install maigret | json | yes
+holehe | email footprint | pipx install holehe | text/json-wrapper | yes
+github-api | repo/language evidence | no install, use API | json | yes
+sherlock | username search backup | pipx install sherlock-project | text/json-wrapper | later
+spiderfoot | broad OSINT automation | docker or pip | json/csv | later
+For now, put the tools you are considering into that file. Then I can turn it into a clean install plan and generate a wrapper like tools/osint_runner.py that runs only enabled tools and outputs one normalized JSON report for the Java backend.

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, BriefcaseBusiness, CodeXml, Radar, Search, Users } from 'lucide-react';
 import { useLanguage } from '../../i18n';
+import { apiRunCandidateOsint } from '../../api';
 import { findCandidateFromPath } from './projectPageUtils';
 
 const signalStates = [
@@ -149,16 +150,22 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
     const [consentAccepted, setConsentAccepted] = useState(false);
     const [selected, setSelected] = useState(() => new Set(['profile-search', 'project-scan', 'profile-match', 'title-check']));
     const [initializedStateIds, setInitializedStateIds] = useState(() => readInitializedStates(stateStorageKey, projectStateId));
+    const [osintResult, setOsintResult] = useState(null);
+    const [osintLoading, setOsintLoading] = useState(false);
+    const [osintError, setOsintError] = useState('');
+    const autoRunKey = useRef('');
     const signalGroups = lang === 'ge' ? signalGroupsGe : signalGroupsEn;
     const activeState = signalStates.find((state) => state.id === activeStateId) || signalStates[0];
     const selectedStateInitialized = initializedStateIds.has(activeStateId);
     const signalTraceUnlocked = activeStateId === 'strict-war-ai';
     const lockedTraceMessage = 'Switch to WAR_AI State to unlock SignalTrace OSINT.';
-    const resultRows = activeCandidate && selectedStateInitialized ? buildSignalResults(activeCandidate, activeStateId, t) : [];
+    const resultRows = activeCandidate && selectedStateInitialized ? buildSignalResults(activeCandidate, activeStateId, t, osintResult) : [];
 
     useEffect(() => {
         const nextStateId = readCandidateState(stateStorageKey, projectStateId);
         setActiveStateId(nextStateId);
+        setOsintResult(null);
+        setOsintError('');
         setInitializedStateIds((current) => {
             const stored = readInitializedStates(stateStorageKey, projectStateId);
             const next = new Set([...current, ...stored]);
@@ -166,6 +173,15 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
             return next;
         });
     }, [activeProject?.id, activeCandidate?.id, projectStateId, stateStorageKey]);
+
+    useEffect(() => {
+        const runKey = `${activeProject?.id || ''}:${activeCandidate?.id || ''}:${activeStateId}`;
+        if (!activeProject || !activeCandidate || !signalTraceUnlocked || !selectedStateInitialized || autoRunKey.current === runKey) {
+            return;
+        }
+        autoRunKey.current = runKey;
+        runOsintCheck();
+    }, [activeProject, activeCandidate, activeStateId, selectedStateInitialized, signalTraceUnlocked]);
 
     if (!activeProject || !activeCandidate) {
         return (
@@ -188,14 +204,29 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
         });
     }
 
-    function initializeSelectedState() {
-        if (!consentAccepted || !signalTraceUnlocked) return;
+    async function initializeSelectedState() {
+        if (!signalTraceUnlocked) return;
         setInitializedStateIds((current) => {
             const next = new Set(current);
             next.add(activeStateId);
             writeInitializedStates(stateStorageKey, next);
             return next;
         });
+        await runOsintCheck();
+    }
+
+    async function runOsintCheck() {
+        if (!activeProject || !activeCandidate || !signalTraceUnlocked) return;
+        setOsintLoading(true);
+        setOsintError('');
+        try {
+            const payload = await apiRunCandidateOsint(activeProject.id, activeCandidate.id, { state: activeStateId, checks: [...selected] }, userToken);
+            setOsintResult(payload);
+        } catch (error) {
+            setOsintError(error.message || 'OSINT check failed');
+        } finally {
+            setOsintLoading(false);
+        }
     }
 
     return (
@@ -212,11 +243,11 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
                     <button className="secondary" onClick={() => navigateTo(setRoute, 'candidateDetail', activeProject.id, activeCandidate.id)}><ArrowRight size={16} /> {t('backToCandidate')}</button>
                     <button
                         className="primary"
-                        disabled={!consentAccepted || !signalTraceUnlocked}
+                        disabled={osintLoading || !signalTraceUnlocked}
                         onClick={initializeSelectedState}
                         title={signalTraceUnlocked ? '' : lockedTraceMessage}
                     >
-                        <Radar size={18} /> {t('startTrace')}
+                        <Radar size={18} /> {osintLoading ? 'Running OSINT...' : t('startTrace')}
                     </button>
                 </section>
                 <section className="detailMeta">
@@ -225,7 +256,7 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
                     <Metric label={t('selectedChecks')} value={selected.size} />
                     <Metric label={t('consentGate')} value={t('required')} />
                     <Metric label={t('mode')} value={signalTraceUnlocked ? activeState.shortName : `${activeState.shortName} locked`} />
-                    <Metric label={t('risk')} value={activeCandidate.risk} />
+                    <Metric label={t('risk')} value={osintResult?.status || activeCandidate.risk} />
                 </section>
 
                 <section className={`consentGatePanel ${consentAccepted ? 'accepted' : ''}`}>
@@ -293,9 +324,9 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
                         </div>
                         {signalTraceUnlocked && selectedStateInitialized ? (
                             <div className="signalResultMetrics">
-                                <div><span>{t('identityConfidence')}</span><strong>{identityConfidence(activeCandidate, activeStateId)}%</strong></div>
-                                <div><span>{t('corroboratedSources')}</span><strong>{sourceCount(activeCandidate, activeStateId)}</strong></div>
-                                <div><span>{t('contradictions')}</span><strong>{activeCandidate.unsupported}</strong></div>
+                                <div><span>{t('identityConfidence')}</span><strong>{osintResult?.identityConfidence ?? identityConfidence(activeCandidate, activeStateId)}%</strong></div>
+                                <div><span>{t('corroboratedSources')}</span><strong>{osintResult?.corroboratedSources ?? sourceCount(activeCandidate, activeStateId)}</strong></div>
+                                <div><span>{t('contradictions')}</span><strong>{osintResult?.contradictions ?? activeCandidate.unsupported}</strong></div>
                             </div>
                         ) : (
                             <div className={`stateNotInitialized ${signalTraceUnlocked ? '' : 'locked'}`} title={signalTraceUnlocked ? '' : lockedTraceMessage}>
@@ -304,6 +335,8 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
                             </div>
                         )}
                     </div>
+                    {osintError && <div className="emptyState">{osintError}</div>}
+                    {osintLoading && <div className="emptyState">Running automatic OSINT check for {activeCandidate.name}...</div>}
                     {signalTraceUnlocked && selectedStateInitialized ? (
                         <div className="signalResultRows">
                             {resultRows.map((row) => (
@@ -412,7 +445,17 @@ function sourceCount(candidate, stateId) {
     return 0;
 }
 
-function buildSignalResults(candidate, stateId, t) {
+function buildSignalResults(candidate, stateId, t, osintResult) {
+    if (osintResult?.sources?.length) {
+        return osintResult.sources.map((source) => ({
+            source: source.source,
+            finding: source.finding,
+            confidence: source.confidence,
+            impact: source.impact,
+            tone: source.tone || 'neutral',
+            url: source.url || '',
+        }));
+    }
     const baseRows = [
         { source: 'Contradiction scan', finding: t('contradictionFinding'), confidence: candidate.unsupported ? 76 : 22, impact: candidate.unsupported ? `-${candidate.unsupported * 8}` : '0', tone: candidate.unsupported ? 'bad' : 'good' },
         { source: 'CV claim map', finding: `${candidate.supported} supported, ${candidate.stretched} stretched, and ${candidate.unsupported} unsupported claims were extracted from the uploaded CV.`, confidence: Math.max(35, Math.min(92, candidate.score)), impact: candidate.score >= 70 ? '+8' : '-4', tone: candidate.score >= 70 ? 'good' : 'warn' },

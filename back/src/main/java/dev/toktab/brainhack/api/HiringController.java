@@ -6,6 +6,8 @@ import dev.toktab.brainhack.account.UserSessionService;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ImportResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.OsintRunRequest;
+import dev.toktab.brainhack.hiring.HiringDtos.OsintRunResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectResponse;
 import dev.toktab.brainhack.hiring.HiringService;
@@ -93,6 +95,15 @@ public class HiringController {
                                        @PathVariable Long projectId,
                                        @PathVariable Long candidateId) {
         return hiringService.candidate(owner(authorization, legacyToken), projectId, candidateId);
+    }
+
+    @PostMapping("/{projectId}/candidates/{candidateId}/osint/run")
+    public OsintRunResponse runOsint(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                     @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                     @PathVariable Long projectId,
+                                     @PathVariable Long candidateId,
+                                     @RequestBody(required = false) OsintRunRequest request) {
+        return hiringService.runOsint(owner(authorization, legacyToken), projectId, candidateId, request);
     }
 
     @DeleteMapping("/{projectId}/candidates/{candidateId}")

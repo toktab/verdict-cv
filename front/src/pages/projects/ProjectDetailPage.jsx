@@ -24,6 +24,9 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
     const responsibilities = extractJobBullets(project.description, 'Responsibilities');
     const preferred = extractJobBullets(project.description, 'Preferred Qualifications');
     const best = bestCandidate(project.candidates);
+    const funnel = projectFunnel(project.candidates);
+    const risks = projectRiskClusters(project.candidates, t);
+    const coverage = projectCoverage(project);
     const reviewSteps = [
         ['01', t('jobDescription'), t('jobDescriptionFixed')],
         ['02', t('addCvs'), t('addCandidateText')],
@@ -56,6 +59,51 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                     <Metric label={t('state')} value={project.state} />
                     <Metric label={t('status')} value={project.status} />
                     <Metric label={t('workMode')} value={workMode.label} />
+                </section>
+                <section className="projectOutcomeBand">
+                    <article className="bestCandidateSpotlight">
+                        <span className="eyebrow">Best candidate</span>
+                        <div>
+                            <strong>{best?.name || 'No candidate yet'}</strong>
+                            <b className={best?.score >= 80 ? 'scoreGood' : best?.score >= 55 ? 'scoreWarn' : 'scoreBad'}>{best?.score || 0}%</b>
+                        </div>
+                        <p>{best ? `${best.name} leads this role with ${best.supported} supported claims, ${best.match}% job match, and ${best.risk.toLowerCase()} risk.` : 'Add candidate CVs to generate a ranked shortlist.'}</p>
+                        <button className="secondary" disabled={!best} onClick={() => best && navigateTo(setRoute, 'candidateDetail', project.id, best.id)}>Open leading profile</button>
+                    </article>
+                    <article className="projectFunnelPanel">
+                        <span className="eyebrow">Review funnel</span>
+                        <div className="projectFunnelSteps">
+                            {funnel.map((item) => (
+                                <span key={item.label}>
+                                    <strong>{item.value}</strong>
+                                    <small>{item.label}</small>
+                                </span>
+                            ))}
+                        </div>
+                    </article>
+                    <article className="projectCoveragePanel">
+                        <span className="eyebrow">Role coverage</span>
+                        <strong>{coverage.percent}%</strong>
+                        <div className="decisionRail"><span style={{ width: `${coverage.percent}%` }} /></div>
+                        <p>{coverage.covered}/{coverage.total} requirements have at least one candidate with strong proof.</p>
+                    </article>
+                </section>
+                <section className="projectRiskPanel">
+                    <div className="tableToolbar">
+                        <div>
+                            <span className="eyebrow">Risk clusters</span>
+                            <h2>What slows this shortlist down</h2>
+                        </div>
+                    </div>
+                    <div className="projectRiskGrid">
+                        {risks.map((risk) => (
+                            <article className={risk.tone} key={risk.label}>
+                                <strong>{risk.value}</strong>
+                                <span>{risk.label}</span>
+                                <small>{risk.text}</small>
+                            </article>
+                        ))}
+                    </div>
                 </section>
                 <section className="dashboardGrid">
                     <div className="dashboardPanel">
@@ -134,4 +182,38 @@ function extractJobBullets(description = '', heading = '') {
 
 function normalizeHeading(value = '') {
     return value.toLowerCase().replace(/:$/, '').trim();
+}
+
+function projectFunnel(candidates) {
+    return [
+        { label: 'CVs', value: candidates.length },
+        { label: 'Parsed', value: candidates.filter((candidate) => candidate.cvText || candidate.summary).length },
+        { label: 'Interview ready', value: candidates.filter((candidate) => candidate.score >= 75).length },
+        { label: 'Needs review', value: candidates.filter((candidate) => candidate.state === 'Needs review' || (candidate.score >= 45 && candidate.score < 75)).length },
+        { label: 'High risk', value: candidates.filter((candidate) => candidate.risk === 'High').length },
+    ];
+}
+
+function projectRiskClusters(candidates) {
+    const unsupported = candidates.reduce((sum, candidate) => sum + candidate.unsupported, 0);
+    const stretched = candidates.reduce((sum, candidate) => sum + candidate.stretched, 0);
+    const osintMissing = candidates.filter((candidate) => candidate.osint === 'Not started' || candidate.osint === 'Escalate').length;
+    const lowMatch = candidates.filter((candidate) => candidate.match < 55).length;
+    return [
+        { label: 'Unsupported claims', value: unsupported, text: 'Claims with no clear evidence in uploaded CVs.', tone: unsupported > 0 ? 'bad' : 'good' },
+        { label: 'Stretched claims', value: stretched, text: 'Claims that need stronger project, timeline, or source proof.', tone: stretched > 0 ? 'warn' : 'good' },
+        { label: 'OSINT gaps', value: osintMissing, text: 'Candidates without completed external public-source evidence.', tone: osintMissing > 0 ? 'warn' : 'good' },
+        { label: 'Low job match', value: lowMatch, text: 'Candidates below the role-fit threshold for this project.', tone: lowMatch > 0 ? 'bad' : 'good' },
+    ];
+}
+
+function projectCoverage(project) {
+    const requirements = project.requirements || [];
+    const total = Math.max(1, requirements.length);
+    const covered = Math.min(total, project.candidates.filter((candidate) => candidate.supported > 0 && candidate.score >= 65).length);
+    return {
+        covered,
+        total,
+        percent: Math.round((covered / total) * 100),
+    };
 }

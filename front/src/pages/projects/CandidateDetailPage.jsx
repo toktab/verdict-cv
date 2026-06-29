@@ -60,6 +60,12 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const filteredVerdictRows = filterVerdicts(verdictRows, statusFilter, confidenceFilter, severityFilter);
     const activeState = analysisStates.find((state) => state.id === activeStateId) || analysisStates[0];
     const selectedStateInitialized = initializedStateIds.has(activeStateId);
+    const decision = candidateDecision(activeCandidate);
+    const coverage = proofCoverage(activeProject, activeCandidate);
+    const verdictCounts = countVerdicts(verdictRows);
+    const strongestClaim = activeCandidate.claims.find(([, status]) => status === 'Supported')?.[0] || activeCandidate.role;
+    const weakestClaim = activeCandidate.claims.find(([, status]) => status === 'Unsupported')?.[0] || activeCandidate.claims.find(([, status]) => status === 'Stretched')?.[0] || activeCandidate.risk;
+    const recruiterSummary = buildRecruiterSummary(activeProject, activeCandidate, decision, coverage, strongestClaim, weakestClaim);
 
     function selectAnalysisState(stateId) {
         setActiveStateId(stateId);
@@ -88,6 +94,11 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                             <div className={`candidateScore inline ${scoreTone(activeCandidate.score)}`}>{activeCandidate.score}</div>
                         </div>
                         <p>{activeCandidate.summary}</p>
+                        <div className="candidateDecisionLine">
+                            <span className={`decisionBadge ${decision.tone}`}>{decision.label}</span>
+                            <strong>{decision.headline}</strong>
+                            <small>{decision.reason}</small>
+                        </div>
                     </div>
                     <div className="candidateHeroActions">
                         <button className="primary" onClick={() => navigateTo(setRoute, 'candidateProfile', activeProject.id, activeCandidate.id)}><ScanText size={18} /> {t('profilingMode')}</button>
@@ -101,6 +112,28 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                     <Metric label={t('osint')} value={activeCandidate.osint} />
                     <Metric label={t('memory')} value={activeCandidate.memory} />
                     <Metric label={t('flags')} value={activeCandidate.flags} />
+                </section>
+                <section className={`decisionSummaryBand ${decision.tone}`}>
+                    <article>
+                        <span className="eyebrow">Decision</span>
+                        <strong>{decision.label}</strong>
+                        <p>{decision.headline}</p>
+                    </article>
+                    <article>
+                        <span className="eyebrow">Proof coverage</span>
+                        <strong>{coverage.percent}%</strong>
+                        <div className="decisionRail"><span style={{ width: `${coverage.percent}%` }} /></div>
+                    </article>
+                    <article>
+                        <span className="eyebrow">Strongest proof</span>
+                        <strong>{strongestClaim}</strong>
+                        <p>{activeCandidate.supported} supported signals</p>
+                    </article>
+                    <article>
+                        <span className="eyebrow">Main risk</span>
+                        <strong>{weakestClaim}</strong>
+                        <p>{activeCandidate.unsupported + activeCandidate.stretched} review signals</p>
+                    </article>
                 </section>
                 <section className="signalStatePanel">
                     <div className="signalDirectoryHead">
@@ -151,6 +184,18 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                     <div className="dashboardPanel">
                         <h2><History size={18} /> {t('organizerNote')}</h2>
                         <p className="candidateNote">{t('organizerNoteText')}</p>
+                    </div>
+                </section>
+                <section className="recruiterSummaryPanel">
+                    <div>
+                        <span className="eyebrow">Recruiter-ready summary</span>
+                        <h2>{decision.label}: {activeCandidate.name}</h2>
+                    </div>
+                    <p>{recruiterSummary}</p>
+                    <div className="summaryActionGrid">
+                        <span><b>Next action</b>{decision.nextAction}</span>
+                        <span><b>Coverage</b>{coverage.covered}/{coverage.total} requirements backed</span>
+                        <span><b>State</b>{activeState.name}</span>
                     </div>
                 </section>
                 <section className="fullCvPanel">
@@ -371,7 +416,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                                             onClick={() => setStatusFilter(item)}
                                             type="button"
                                         >
-                                            {item}
+                                            {item} <b>{verdictCounts[item] ?? verdictCounts.ALL}</b>
                                         </button>
                                     ))}
                                 </div>
@@ -451,6 +496,66 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
 
 function candidateSourceText(candidate) {
     return candidate.cvText?.trim() || candidate.summary || 'No original CV text was stored for this candidate.';
+}
+
+function candidateDecision(candidate) {
+    if (candidate.score >= 82 && candidate.unsupported <= 1) {
+        return {
+            label: 'Interview priority',
+            headline: 'Strong evidence profile with low verification pressure.',
+            reason: 'The score, supported claims, and risk mix are strong enough to move quickly.',
+            nextAction: 'Schedule interview and attach proof questions for the strongest claims.',
+            tone: 'good',
+        };
+    }
+    if (candidate.score >= 65) {
+        return {
+            label: 'Interview with proof',
+            headline: 'Promising candidate, but key claims still need evidence.',
+            reason: 'The profile has useful signal, but stretched or missing proof should be checked first.',
+            nextAction: 'Ask for portfolio, repository, or project evidence before final shortlist.',
+            tone: 'warn',
+        };
+    }
+    if (candidate.score >= 45) {
+        return {
+            label: 'Manual review',
+            headline: 'Mixed evidence profile with meaningful uncertainty.',
+            reason: 'The candidate may fit parts of the role, but unsupported claims create review cost.',
+            nextAction: 'Run WAR_AI and prepare targeted screening questions.',
+            tone: 'caution',
+        };
+    }
+    return {
+        label: 'High-risk screen-out',
+        headline: 'Weak proof profile for this role.',
+        reason: 'The candidate has too many unsupported or stretched signals for the current job.',
+        nextAction: 'Reject or request stronger evidence before spending interview time.',
+        tone: 'bad',
+    };
+}
+
+function proofCoverage(project, candidate) {
+    const requirements = project.requirements || [];
+    const total = Math.max(1, requirements.length);
+    const covered = Math.min(total, candidate.supported + Math.floor(candidate.stretched / 2));
+    return {
+        covered,
+        total,
+        percent: Math.round((covered / total) * 100),
+    };
+}
+
+function countVerdicts(rows) {
+    return rows.reduce((counts, row) => {
+        counts.ALL += 1;
+        counts[row.status] = (counts[row.status] || 0) + 1;
+        return counts;
+    }, { ALL: 0, SUPPORTED: 0, STRETCHED: 0, UNSUPPORTED: 0, GAP: 0 });
+}
+
+function buildRecruiterSummary(project, candidate, decision, coverage, strongestClaim, weakestClaim) {
+    return `${candidate.name} is currently marked as ${decision.label.toLowerCase()} for ${project.title}. The profile has ${coverage.percent}% proof coverage across the role requirements, with "${strongestClaim}" as the strongest visible signal and "${weakestClaim}" as the main review risk. Recommendation: ${decision.nextAction}`;
 }
 
 function stateIdFromName(name = '') {

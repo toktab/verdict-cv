@@ -1,0 +1,224 @@
+BrainHack SignalTrace OSINT - Next Steps
+========================================
+
+Current state
+-------------
+SignalTrace already runs an automatic backend OSINT check when WAR_AI State is selected.
+
+Current built-in checks:
+- Extract public URLs from the uploaded CV.
+- Extract likely usernames and handles from the uploaded CV.
+- If a GitHub URL exists, call GitHub public API for basic profile evidence.
+- Return structured rows to the SignalTrace UI.
+
+You do not need to run this manually. The app calls:
+POST /api/projects/{projectId}/candidates/{candidateId}/osint/run
+
+
+Do not install everything
+-------------------------
+Do not install every OSINT tool into this project folder.
+Do not drag downloaded tools into the Java/React project.
+Do not let the app execute random commands from a text file.
+
+Install external OSINT tools in a separate folder, for example:
+C:\OSINT\tools
+
+Use this repo only for:
+- tool registry files
+- wrapper scripts
+- normalized JSON outputs
+- backend integration code
+
+
+Recommended first install set
+-----------------------------
+Start with only these, in this order:
+
+1. Python + pipx
+   Purpose: install Python CLI tools cleanly.
+
+2. Maigret
+   Purpose: username/profile search across many platforms.
+   Use for: SignalTrace username search.
+
+3. Holehe
+   Purpose: email footprint checks.
+   Use for: checking whether an email appears registered on public services.
+
+4. GitHub public API
+   Purpose: repository/profile/language evidence.
+   Use for: GitHub profile and project evidence.
+   Install: no install needed.
+
+5. Sherlock
+   Purpose: backup username search.
+   Use for: fallback if Maigret misses something.
+
+
+Suggested Windows install commands
+----------------------------------
+Run these outside the project folder:
+
+python -m pip install --user pipx
+python -m pipx ensurepath
+
+Restart terminal, then:
+
+pipx install maigret
+pipx install holehe
+pipx install sherlock-project
+
+Check tools:
+
+maigret --version
+holehe --help
+sherlock --help
+
+
+Tool registry format
+--------------------
+Use OSINT/osints.txt as the allowlist registry.
+
+Recommended format:
+
+tool=maigret
+enabled=true
+type=username
+command=maigret
+args={username} --json simple
+
+tool=holehe
+enabled=true
+type=email
+command=holehe
+args={email}
+
+tool=sherlock
+enabled=false
+type=username
+command=sherlock
+args={username} --print-found
+
+Rules:
+- Only tools with enabled=true should run.
+- Only known tool names should be allowed by backend code.
+- Never allow arbitrary command strings from the UI.
+- Never pass raw user text directly to shell commands.
+- Always validate usernames/emails before execution.
+
+
+Integration pipeline
+--------------------
+Target architecture:
+
+1. Candidate uploads CV.
+2. Backend extracts:
+   - emails
+   - usernames
+   - GitHub URLs
+   - LinkedIn URLs
+   - portfolio URLs
+   - claimed languages/frameworks
+
+3. SignalTrace button calls Java backend.
+4. Java backend calls a controlled wrapper:
+   tools/osint_runner.py
+
+5. osint_runner.py runs only allowlisted tools from OSINT/osints.txt.
+6. osint_runner.py writes normalized JSON:
+   OSINT/output/{candidateId}-{state}.json
+
+7. Java backend reads JSON and returns rows to frontend.
+8. SignalTrace displays evidence by source.
+
+
+Normalized JSON output shape
+----------------------------
+Every tool should be converted into this format:
+
+{
+  "candidate_id": "123",
+  "state": "strict-war-ai",
+  "status": "Partial",
+  "identity_confidence": 67,
+  "corroborated_sources": 2,
+  "discovered_links": [],
+  "discovered_usernames": [],
+  "sources": [
+    {
+      "source": "GitHub",
+      "finding": "GitHub profile is public with 12 repositories.",
+      "confidence": 78,
+      "impact": "+12",
+      "tone": "good",
+      "url": "https://github.com/example"
+    }
+  ]
+}
+
+
+What to build next
+------------------
+Step 1:
+Fill OSINT/osints.txt with the allowlist format above.
+
+Step 2:
+Create tools/osint_runner.py.
+It should:
+- read OSINT/osints.txt
+- accept candidate name/email/usernames/links as JSON input
+- run only enabled allowlisted tools
+- parse output
+- return normalized JSON
+
+Step 3:
+Update Java HiringService.runOsint to call osint_runner.py.
+Keep the current built-in GitHub check as fallback.
+
+Step 4:
+Store OSINT results in database.
+Right now the result is returned to UI but not fully persisted.
+Add a table later:
+candidate_osint_runs
+
+Recommended columns:
+- id
+- candidate_id
+- state
+- status
+- identity_confidence
+- result_json LONGTEXT
+- created_at
+
+Step 5:
+Frontend should show previous completed OSINT result immediately.
+If no result exists:
+"WAR_AI State search has not been initialized."
+
+
+Legal and safety rules
+----------------------
+For hiring/candidate workflows:
+- Require candidate consent before external public search.
+- Only collect job-relevant public evidence.
+- Do not scrape private content.
+- Do not bypass logins, CAPTCHAs, paywalls, or platform access controls.
+- Prefer official APIs and public pages.
+- Keep evidence links and timestamps.
+- Let humans review final decisions.
+
+
+Best first milestone
+--------------------
+Do not try to integrate 20 tools.
+
+First working milestone:
+- GitHub URL check
+- GitHub repo language summary
+- Maigret username check
+- Holehe email footprint check
+- normalized SignalTrace JSON
+- persisted OSINT run
+
+After that, add more tools one by one.
