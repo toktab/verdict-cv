@@ -312,6 +312,13 @@ class HiringFlowTest {
                 .andReturn();
         String inviteToken = objectMapper.readTree(invite.getResponse().getContentAsString()).get("token").asText();
 
+        mockMvc.perform(get("/api/messages").header("X-User-Token", reviewerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].type").value("PROJECT_INVITE"))
+                .andExpect(jsonPath("$[0].to").value(reviewerEmail))
+                .andExpect(jsonPath("$[0].invite_status").value("PENDING"))
+                .andExpect(jsonPath("$[0].invite_token").value(inviteToken));
+
         mockMvc.perform(post("/api/projects/invites/accept")
                         .header("X-User-Token", reviewerToken)
                         .param("token", inviteToken))
@@ -349,6 +356,24 @@ class HiringFlowTest {
                         .header("X-User-Token", ownerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].body").value(containsString("Move forward")));
+
+        mockMvc.perform(post("/api/messages")
+                        .header("X-User-Token", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "to":%s,
+                                  "subject":"Manual message",
+                                  "body":"Hi from owner"
+                                }
+                                """.formatted(objectMapper.writeValueAsString(reviewerEmail))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.to").value(reviewerEmail));
+
+        mockMvc.perform(get("/api/messages").header("X-User-Token", reviewerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].subject").value("Manual message"))
+                .andExpect(jsonPath("$[0].body").value("Hi from owner"));
     }
 
     @Test
