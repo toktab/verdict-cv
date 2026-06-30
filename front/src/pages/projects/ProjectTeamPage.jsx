@@ -47,8 +47,26 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         event.preventDefault();
         const row = await apiCreateProjectInvite(project.id, { email, role: 'REVIEWER' }, userToken);
         setInvites((current) => [row, ...current]);
+        sendInviteMessage(row);
         setEmail('');
         setMessage(`Invite token created for ${row.email}: ${row.token}`);
+    }
+
+    function sendInviteMessage(inviteRow) {
+        appendMessage(createMessage({
+            from: user?.email || 'system@verdict.local',
+            fromName: user?.fullName || user?.username || 'Team admin',
+            to: inviteRow.email,
+            subject: `Invitation to ${project.title}`,
+            body: `${user?.fullName || user?.username || 'A team admin'} invited you to join ${project.title}. Open this message and choose Accept or Decline.`,
+            type: 'projectInvite',
+            meta: {
+                inviteToken: inviteRow.token,
+                inviteStatus: 'PENDING',
+                projectId: project.id,
+                projectTitle: project.title,
+            },
+        }), user);
     }
 
     function setRole(emailAddress, role) {

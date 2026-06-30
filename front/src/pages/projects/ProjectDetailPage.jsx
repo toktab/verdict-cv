@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Activity, ArrowRight, CheckCircle2, ClipboardCheck, FileSearch, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import { apiAcceptProjectInvite, apiCreateProjectInvite, apiListProjectInvites } from '../../api';
 import { useLanguage } from '../../i18n';
+import { appendMessage, createMessage } from '../../messageStore';
 import { CandidateTable } from './components/CandidateTable';
 import { ProjectScoreStrip } from './components/ProjectScoreStrip';
 import { bestCandidate, candidateTotals, findProjectFromPath, workModeInfo } from './projectPageUtils';
@@ -37,6 +38,20 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
         try {
             const invite = await apiCreateProjectInvite(project.id, { email: inviteEmail.trim(), role: 'REVIEWER' }, userToken);
             setInvites((current) => [invite, ...current.filter((row) => row.id !== invite.id)]);
+            appendMessage(createMessage({
+                from: user?.email || 'system@verdict.local',
+                fromName: user?.fullName || user?.username || 'Team admin',
+                to: invite.email,
+                subject: `Invitation to ${project.title}`,
+                body: `${user?.fullName || user?.username || 'A team admin'} invited you to join ${project.title}. Open this message and choose Accept or Decline.`,
+                type: 'projectInvite',
+                meta: {
+                    inviteToken: invite.token,
+                    inviteStatus: 'PENDING',
+                    projectId: project.id,
+                    projectTitle: project.title,
+                },
+            }), user);
             setInviteEmail('');
             setTeamMessage(`Invite created. Share this token with ${invite.email}: ${invite.token}`);
         } catch (error) {
@@ -104,9 +119,11 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                             <small>{workMode.description}</small>
                         </div>
                     </div>
-                    <button className="secondary compactHeroButton" onClick={() => navigateTo(setRoute, 'projects')}><ArrowRight size={16} /> {t('allProjects')}</button>
-                    <button className="secondary compactHeroButton" onClick={() => navigateTo(setRoute, 'projectTeam', project.id)}><Users size={18} /> Team</button>
-                    <button className="primary compactHeroButton" onClick={() => navigateTo(setRoute, 'addCandidate', project.id)}><UserPlus size={18} /> {t('addCandidate')}</button>
+                    <div className="detailHeroActions">
+                        <button className="secondary compactHeroButton" onClick={() => navigateTo(setRoute, 'projects')}><ArrowRight size={16} /> {t('allProjects')}</button>
+                        <button className="secondary compactHeroButton" onClick={() => navigateTo(setRoute, 'projectTeam', project.id)}><Users size={18} /> Team</button>
+                        <button className="primary compactHeroButton" onClick={() => navigateTo(setRoute, 'addCandidate', project.id)}><UserPlus size={18} /> {t('addCandidate')}</button>
+                    </div>
                 </section>
                 <section className="detailMeta">
                     <Metric label={t('candidates')} value={project.candidates.length} />

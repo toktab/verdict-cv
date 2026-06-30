@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Mail, MailOpen, Star, X } from 'lucide-react';
-import { readMessages, writeMessages } from '../messageStore';
+import { CheckCircle2, Mail, MailOpen, Star, X } from 'lucide-react';
+import { apiAcceptProjectInvite } from '../api';
+import { messageBelongsTo, readMessages, writeMessages } from '../messageStore';
 
 export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUserToken, openCompose }) {
     const [folder, setFolder] = useState('inbox');
     const [activeId, setActiveId] = useState(null);
     const [messages, setMessages] = useState(() => readMessages(user));
+    const [actionMessage, setActionMessage] = useState('');
     const visible = useMemo(() => messages.filter((message) => {
-        if (folder === 'sent') return message.from === user?.email;
+        if (folder === 'sent') return messageBelongsTo(message, user, 'from');
         if (folder === 'starred') return message.starred;
-        return message.to === user?.email;
-    }), [folder, messages, user?.email]);
+        return messageBelongsTo(message, user, 'to');
+    }), [folder, messages, user?.email, user?.username, user?.fullName]);
     const active = visible.find((message) => message.id === activeId) || null;
 
     useEffect(() => {
@@ -20,6 +22,10 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         window.addEventListener('verdictMessagesChanged', refreshMessages);
         return () => window.removeEventListener('verdictMessagesChanged', refreshMessages);
     }, [user]);
+
+    useEffect(() => {
+        setActionMessage('');
+    }, [activeId]);
 
     function updateMessage(id, patch) {
         const updated = messages.map((message) => message.id === id ? { ...message, ...patch } : message);
@@ -39,6 +45,22 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         if (message) {
             updateMessage(id, { read: !message.read });
         }
+    }
+
+    async function acceptInvite(message) {
+        setActionMessage('');
+        try {
+            await apiAcceptProjectInvite(message.meta.inviteToken, userToken);
+            updateMessage(message.id, { read: true, meta: { ...message.meta, inviteStatus: 'ACCEPTED' } });
+            setActionMessage('Invite accepted. Open Projects to see shared access.');
+        } catch (error) {
+            setActionMessage(error.message || 'Could not accept invite.');
+        }
+    }
+
+    function declineInvite(message) {
+        updateMessage(message.id, { read: true, meta: { ...message.meta, inviteStatus: 'DECLINED' } });
+        setActionMessage('Invite declined.');
     }
 
     return (
@@ -96,9 +118,20 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                         <div className="messageMetaGrid">
                             <span>To <strong>{active.to}</strong></span>
                             <span>{active.createdAt.slice(0, 16).replace('T', ' ')}</span>
-                            <span>{active.read ? 'Read' : 'Unread'}</span>
+                            <span>{active.meta?.inviteStatus || (active.read ? 'Read' : 'Unread')}</span>
                         </div>
+                        {actionMessage && <div className="inlineNotice">{actionMessage}</div>}
                         <p>{active.body}</p>
+                        {active.type === 'projectInvite' && active.meta?.inviteStatus === 'PENDING' && (
+                            <div className="inviteDecisionBox">
+                                <strong>Project invitation</strong>
+                                <span>{active.meta.projectTitle}</span>
+                                <div>
+                                    <button className="primary" type="button" onClick={() => acceptInvite(active)}><CheckCircle2 size={15} /> Accept</button>
+                                    <button className="destructive" type="button" onClick={() => declineInvite(active)}><X size={15} /> Decline</button>
+                                </div>
+                            </div>
+                        )}
                         <div className="messageModalActions">
                             <button className="secondary" type="button" onClick={() => toggleRead(active.id)}><MailOpen size={15} /> Mark {active.read ? 'unread' : 'read'}</button>
                             <button className="secondary" type="button" onClick={() => toggleStar(active.id)}><Star size={15} className={active.starred ? 'filled' : ''} /> {active.starred ? 'Unstar' : 'Star'}</button>

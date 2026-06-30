@@ -967,7 +967,7 @@ nav button:hover,
 
 .detailHero {
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 16px;
     align-items: center;
     border: 1px solid var(--line);
@@ -995,6 +995,15 @@ nav button:hover,
     min-height: 40px;
     padding: 0 12px;
     white-space: nowrap;
+}
+
+.detailHeroActions {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    max-width: 420px;
 }
 
 .detailScore {
@@ -2891,6 +2900,30 @@ mark {
     white-space: pre-wrap;
     color: var(--soft);
     line-height: 1.65;
+}
+
+.inviteDecisionBox {
+    border: 1px solid rgba(102, 217, 145, 0.34);
+    border-radius: 8px;
+    padding: 14px;
+    display: grid;
+    gap: 10px;
+    background: rgba(102, 217, 145, 0.08);
+}
+
+.inviteDecisionBox strong,
+.inviteDecisionBox span {
+    display: block;
+}
+
+.inviteDecisionBox span {
+    color: var(--soft);
+}
+
+.inviteDecisionBox div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .messageModalActions {

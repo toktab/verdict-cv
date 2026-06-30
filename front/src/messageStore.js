@@ -27,7 +27,7 @@ export function writeMessages(messages) {
     window.dispatchEvent(new Event('verdictMessagesChanged'));
 }
 
-export function createMessage({ from, fromName, to, subject, body }) {
+export function createMessage({ from, fromName, to, subject, body, type = 'message', meta = {} }) {
     return {
         id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
         from,
@@ -38,9 +38,25 @@ export function createMessage({ from, fromName, to, subject, body }) {
         createdAt: new Date().toISOString(),
         starred: false,
         read: false,
+        type,
+        meta,
     };
 }
 
 export function appendMessage(message, user) {
     writeMessages([message, ...readMessages(user)]);
+}
+
+export function messageBelongsTo(message, user, field = 'to') {
+    const value = normalizeRecipient(message?.[field]);
+    const targets = [
+        user?.email,
+        user?.username,
+        user?.fullName,
+    ].map(normalizeRecipient).filter(Boolean);
+    return targets.includes(value);
+}
+
+function normalizeRecipient(value = '') {
+    return String(value).trim().toLowerCase();
 }
