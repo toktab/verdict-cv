@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
+import { Activity, ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
 import { apiCreateProjectInvite, apiListProjectInvites, apiSendMessage } from '../../api';
 import { appendMessage, createMessage } from '../../messageStore';
 import { findProjectFromPath } from './projectPageUtils';
@@ -28,6 +28,8 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [candidateSenderOpen, setCandidateSenderOpen] = useState(false);
     const [candidateSearch, setCandidateSearch] = useState('');
     const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
+    const [activityMember, setActivityMember] = useState(null);
+    const [activityRows, setActivityRows] = useState(() => readActivity(project?.id));
     const members = useMemo(() => buildMembers(project, user, invites, roleOverrides), [project, user, invites, roleOverrides]);
     const myRole = members.find((member) => member.email === user?.email)?.role || 'Head Admin';
     const myPermissions = permissionsFor(myRole, user?.email, customPermissions);
@@ -46,6 +48,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     useEffect(() => {
         setRoleOverrides(readRoles(project?.id));
         setCustomPermissions(readCustomPermissions(project?.id));
+        setActivityRows(readActivity(project?.id));
     }, [project?.id]);
 
     if (!project) {
@@ -210,6 +213,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                                     </select>
                                     <div className="teamActionRow">
                                         <button className="secondary" type="button" disabled={!myPermissions.includes('canMessage')} onClick={() => openCompose?.({ to: member.email, subject: `Message about ${project.title}` })}><Mail size={15} /> Message</button>
+                                        <button className="secondary" type="button" disabled={!myPermissions.includes('canViewActivityLog')} onClick={() => { setActivityRows(readActivity(project.id)); setActivityMember(member); }}><Activity size={15} /> Activity</button>
                                         <button className="secondary" type="button" disabled={protectedMember || !myPermissions.includes('canPromoteMembers')} onClick={() => setRole(member.email, promote(member.role))}><UserCog size={15} /> Promote</button>
                                         <button className="secondary" type="button" disabled={protectedMember || !myPermissions.includes('canDemoteMembers')} onClick={() => setRole(member.email, demote(member.role))}>Demote</button>
                                         <button className="destructive" type="button" disabled={protectedMember || !myPermissions.includes('canKickMembers')} onClick={() => removeMember(member.email)}><Trash2 size={15} /> Kick</button>
@@ -269,6 +273,29 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                         <div className="editActions">
                             <button className="primary" disabled={!selectedCandidateIds.length} type="button" onClick={composeCandidatePackage}><Mail size={16} /> Open compose</button>
                             <button className="secondary" type="button" onClick={() => setSelectedCandidateIds([])}>Clear selection</button>
+                        </div>
+                    </section>
+                </div>
+            )}
+            {activityMember && (
+                <div className="candidateSendBackdrop" role="dialog" aria-modal="true">
+                    <section className="candidateSendModal">
+                        <div className="modalHead">
+                            <div>
+                                <span className="eyebrow">Activity log</span>
+                                <h2>{activityMember.name}</h2>
+                            </div>
+                            <button type="button" onClick={() => setActivityMember(null)}><X size={16} /> Close</button>
+                        </div>
+                        <div className="activityLogRows">
+                            {activityRows.filter((row) => sameIdentity(row.actorEmail, activityMember.email)).map((row) => (
+                                <article key={row.id}>
+                                    <strong>{row.action}</strong>
+                                    <span>{row.candidateName}</span>
+                                    <small>{row.createdAt.slice(0, 16).replace('T', ' ')}</small>
+                                </article>
+                            ))}
+                            {!activityRows.some((row) => sameIdentity(row.actorEmail, activityMember.email)) && <p className="mutedPanelText">No candidate activity has been recorded for this member yet.</p>}
                         </div>
                     </section>
                 </div>
@@ -358,4 +385,17 @@ function candidatePackageLine(candidate) {
         `Status: ${candidate.state}`,
         `Summary: ${candidate.summary || 'No summary available.'}`,
     ].join('\n');
+}
+
+function readActivity(projectId) {
+    if (!projectId) return [];
+    try {
+        return JSON.parse(localStorage.getItem(`projectActivity:${projectId}`) || '[]');
+    } catch {
+        return [];
+    }
+}
+
+function sameIdentity(left = '', right = '') {
+    return String(left).trim().toLowerCase() === String(right).trim().toLowerCase();
 }

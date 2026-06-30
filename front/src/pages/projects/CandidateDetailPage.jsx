@@ -66,6 +66,11 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         };
     }, [activeProject?.id, activeCandidate?.id, userToken]);
 
+    useEffect(() => {
+        if (!activeProject?.id || !activeCandidate?.id || !user) return;
+        writeActivity(activeProject.id, user, activeCandidate, 'opened candidate profile');
+    }, [activeProject?.id, activeCandidate?.id, user]);
+
     if (!activeProject || !activeCandidate) {
         return (
             <div className="shell">
@@ -148,6 +153,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
             setReviewNotes((current) => [note, ...current]);
             setNoteBody('');
             setNoteMessage('Reviewer note saved.');
+            writeActivity(activeProject.id, user, activeCandidate, `added reviewer note: ${noteDecision}`);
         } catch (error) {
             setNoteMessage(error.message || 'Could not save reviewer note.');
         } finally {
@@ -175,6 +181,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
             row.upvotes[myVoteKey] = { score: Number(voteScore), name: user?.fullName || user?.username || myVoteKey };
             delete row.downvotes[myVoteKey];
         });
+        writeActivity(activeProject.id, user, activeCandidate, `upvoted with ${voteScore}/5`);
     }
 
     function downvote() {
@@ -182,9 +189,11 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
             row.downvotes[myVoteKey] = { name: user?.fullName || user?.username || myVoteKey };
             delete row.upvotes[myVoteKey];
         });
+        writeActivity(activeProject.id, user, activeCandidate, 'downvoted');
     }
 
     function toggleStar() {
+        const willStar = !voteRow.stars?.[myVoteKey];
         saveVote((row) => {
             if (row.stars[myVoteKey]) {
                 delete row.stars[myVoteKey];
@@ -192,6 +201,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                 row.stars[myVoteKey] = { name: user?.fullName || user?.username || myVoteKey };
             }
         });
+        writeActivity(activeProject.id, user, activeCandidate, willStar ? 'starred candidate' : 'unstarred candidate');
     }
 
     function changePipelineStatus(status) {
@@ -199,6 +209,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         const next = { ...candidateStatuses, [activeCandidate.id]: status };
         setCandidateStatuses(next);
         localStorage.setItem(`candidateStatuses:${activeProject.id}`, JSON.stringify(next));
+        writeActivity(activeProject.id, user, activeCandidate, `changed status to ${status}`);
     }
 
     return (
@@ -761,8 +772,9 @@ const ROLE_PERMISSIONS = {
     Voter: ['canView', 'canVote'],
     Reviewer: ['canView', 'canVote', 'canAddNote'],
     Screener: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck'],
-    Coordinator: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose'],
-    Admin: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canManageMembers'],
+    Coordinator: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canViewActivityLog'],
+    Admin: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canKickMembers', 'canPromoteMembers', 'canDemoteMembers', 'canChangePermissions', 'canMessage', 'canViewActivityLog'],
+    'Head Admin': ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canKickMembers', 'canPromoteMembers', 'canDemoteMembers', 'canChangePermissions', 'canMessage', 'canViewActivityLog', 'protectedAccount'],
 };
 
 function hasPermission(role, permission) {
@@ -1114,6 +1126,32 @@ function localVerdictForSentence(sentence) {
 
 function normalizeLocal(value) {
     return String(value || '').toLowerCase().replace(/[^a-z0-9+#. ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function writeActivity(projectId, user, candidate, action) {
+    if (!projectId || !user || !candidate) return;
+    const key = `projectActivity:${projectId}`;
+    const actorEmail = user.email || user.username || 'unknown';
+    const entry = {
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+        actorEmail,
+        actorName: user.fullName || user.username || actorEmail,
+        candidateId: candidate.id,
+        candidateName: candidate.name,
+        action,
+        createdAt: new Date().toISOString(),
+    };
+    let rows = [];
+    try {
+        rows = JSON.parse(localStorage.getItem(key) || '[]');
+    } catch {
+        rows = [];
+    }
+    const last = rows[0];
+    if (last?.actorEmail === entry.actorEmail && last?.candidateId === entry.candidateId && last?.action === entry.action && Date.now() - Date.parse(last.createdAt) < 5000) {
+        return;
+    }
+    localStorage.setItem(key, JSON.stringify([entry, ...rows].slice(0, 300)));
 }
 
 function buildEvidenceRows(project, candidate, t) {

@@ -3154,6 +3154,27 @@ mark {
     color: var(--muted);
 }
 
+.activityLogRows {
+    display: grid;
+    gap: 8px;
+}
+
+.activityLogRows article {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: minmax(180px, 0.8fr) minmax(160px, 0.8fr) auto;
+    gap: 10px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.activityLogRows span,
+.activityLogRows small {
+    color: var(--muted);
+}
+
 .candidateTableRowTall {
     min-height: 86px;
 }
