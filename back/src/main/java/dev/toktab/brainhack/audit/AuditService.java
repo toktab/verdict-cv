@@ -115,6 +115,7 @@ public class AuditService {
         audit.setAnalyzerVersion(analyzerVersionFor(request.checkStateId()));
         audit.setPromptVersion(promptVersionFor(request.checkStateId()));
         audit.setStatus(AuditStatus.RUNNING);
+        setProgress(audit, "analyzing", 20, "Analyzing claim sentences.");
         audit.setOwner(owner);
         applyTemplate(audit, owner, request.templateId(), request.auditMode());
         applyCheckState(audit, request.checkStateId());
@@ -124,6 +125,7 @@ public class AuditService {
             List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(applyUnimportantRules(audit, analysis.verdicts()), evidenceText);
             audit.setEngine(analysis.engine());
             applyUsage(audit, analysis.usage());
+            setProgress(audit, "scoring", 70, "Scoring verdicts.");
             audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
             audit.setProcessingMillis(System.currentTimeMillis() - started);
             for (AnalyzedVerdict analyzed : normalizedVerdicts) {
@@ -131,6 +133,7 @@ public class AuditService {
             }
             countStatuses(audit);
             audit.setStatus(AuditStatus.COMPLETED);
+            setProgress(audit, "completed", 100, "Audit completed.");
             Audit saved = auditRepository.save(audit);
             snapshot(saved);
             rabbitEventPublisher.publish("audit.completed", Map.of("auditId", saved.getId(), "score", saved.getCredibilityScore(), "engine", saved.getEngine()));
@@ -140,6 +143,7 @@ public class AuditService {
         } catch (RuntimeException exception) {
             audit.setStatus(AuditStatus.FAILED);
             audit.setProcessingMillis(System.currentTimeMillis() - started);
+            setProgress(audit, "failed", 100, "Audit failed: " + exception.getClass().getSimpleName());
             auditRepository.save(audit);
             rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
             throw exception;
@@ -434,6 +438,7 @@ public class AuditService {
         audit.setAnalyzerVersion(analyzerVersionFor(request.checkStateId()));
         audit.setPromptVersion(promptVersionFor(request.checkStateId()));
         audit.setStatus(AuditStatus.RUNNING);
+        setProgress(audit, "queued", 0, "Queued for analysis.");
         audit.setOwner(owner);
         applyTemplate(audit, owner, request.templateId(), request.auditMode());
         applyCheckState(audit, request.checkStateId());
@@ -472,10 +477,12 @@ public class AuditService {
         }
         try {
             List<String> sentences = sentenceSplitter.split(audit.getClaimText());
+            saveProgress(audit, "analyzing", 20, "Analyzing claim sentences.");
             AuditAnalysisResult analysis = analyze(audit, sentences, audit.getEvidenceText());
             List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(applyUnimportantRules(audit, analysis.verdicts()), audit.getEvidenceText());
             audit.setEngine(analysis.engine());
             applyUsage(audit, analysis.usage());
+            setProgress(audit, "scoring", 70, "Scoring verdicts.");
             audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
             audit.setProcessingMillis(System.currentTimeMillis() - started);
             audit.getVerdicts().clear();
@@ -483,7 +490,9 @@ public class AuditService {
                 audit.addVerdict(toEntity(analyzed));
             }
             countStatuses(audit);
+            setProgress(audit, "snapshotting", 90, "Saving audit snapshot.");
             audit.setStatus(AuditStatus.COMPLETED);
+            setProgress(audit, "completed", 100, "Audit completed.");
             Audit saved = auditRepository.save(audit);
             snapshot(saved);
             rabbitEventPublisher.publish("audit.completed", Map.of("auditId", saved.getId(), "score", saved.getCredibilityScore(), "engine", saved.getEngine()));
@@ -491,6 +500,7 @@ public class AuditService {
         } catch (RuntimeException exception) {
             audit.setStatus(AuditStatus.FAILED);
             audit.setProcessingMillis(System.currentTimeMillis() - started);
+            setProgress(audit, "failed", 100, "Audit failed: " + exception.getClass().getSimpleName());
             auditRepository.save(audit);
             rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
             logService.recordSystem("AUDIT_ASYNC_FAILED", "auditId=" + audit.getId() + "; error=" + exception.getClass().getSimpleName());
@@ -585,6 +595,17 @@ public class AuditService {
         audit.setCompletionTokens(value.completionTokens());
         audit.setTotalTokens(value.totalTokens());
         audit.setEstimatedCostUsd(value.estimatedCostUsd());
+    }
+
+    private void saveProgress(Audit audit, String stage, int percent, String message) {
+        setProgress(audit, stage, percent, message);
+        auditRepository.saveAndFlush(audit);
+    }
+
+    private void setProgress(Audit audit, String stage, int percent, String message) {
+        audit.setProgressStage(stage);
+        audit.setProgressPercent(percent);
+        audit.setProgressMessage(trim(message, 160));
     }
 
     private void stampVerdictProvenance(Audit audit) {

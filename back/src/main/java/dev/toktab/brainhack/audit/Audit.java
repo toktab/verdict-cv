@@ -99,6 +99,15 @@ public class Audit {
     @Column(length = 16)
     private AuditStatus status = AuditStatus.RUNNING;
 
+    @Column(nullable = false, length = 40)
+    private String progressStage = "queued";
+
+    @Column(nullable = false)
+    private int progressPercent;
+
+    @Column(nullable = false, length = 160)
+    private String progressMessage = "Queued for analysis.";
+
     @Column(length = 80)
     private String templateId;
 
@@ -310,6 +319,30 @@ public class Audit {
 
     public void setStatus(AuditStatus status) {
         this.status = status;
+    }
+
+    public String getProgressStage() {
+        return progressStage == null ? "completed" : progressStage;
+    }
+
+    public void setProgressStage(String progressStage) {
+        this.progressStage = progressStage == null || progressStage.isBlank() ? "queued" : progressStage;
+    }
+
+    public int getProgressPercent() {
+        return progressPercent;
+    }
+
+    public void setProgressPercent(int progressPercent) {
+        this.progressPercent = Math.min(Math.max(progressPercent, 0), 100);
+    }
+
+    public String getProgressMessage() {
+        return progressMessage == null ? "" : progressMessage;
+    }
+
+    public void setProgressMessage(String progressMessage) {
+        this.progressMessage = progressMessage == null || progressMessage.isBlank() ? "Queued for analysis." : progressMessage;
     }
 
     public String getTemplateId() {

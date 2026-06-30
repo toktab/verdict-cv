@@ -1,6 +1,7 @@
 package dev.toktab.brainhack.audit;
 
 import dev.toktab.brainhack.api.dto.AuditResponse;
+import dev.toktab.brainhack.api.dto.AuditProgressResponse;
 import dev.toktab.brainhack.api.dto.AuditSummaryResponse;
 import dev.toktab.brainhack.api.dto.VerdictResponse;
 import java.util.Comparator;
@@ -75,6 +76,19 @@ public class AuditMapper {
                 audit.getCheckStateName(),
                 audit.getCreatedAt(),
                 topProblems
+        );
+    }
+
+    public AuditProgressResponse toProgress(Audit audit) {
+        return new AuditProgressResponse(
+                audit.getId(),
+                audit.getStatus(),
+                audit.getProgressStage(),
+                audit.getProgressPercent(),
+                audit.getProgressMessage(),
+                audit.getProcessingMillis(),
+                audit.getEngine(),
+                audit.getCreatedAt()
         );
     }
 

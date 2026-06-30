@@ -335,9 +335,9 @@ Advice: Track cost per account, project, state, and model so expensive modes can
 Fix notes: Added persisted prompt/completion/total token counters and estimated USD cost to audits, exposed usage in audit detail/summary DTOs, stored usage in snapshots, extracted OpenAI-style usage metadata from LLM responses, and made pricing configurable by environment. Commit: 6f89544.
 
 25. Add async job progress endpoint with stages.
-Status: TODO
+Status: FIXED
 Advice: Polling full audit records is heavier than necessary. Add a compact progress resource for queued/running/completed/failed audits.
-Fix notes: Pending.
+Fix notes: Added persisted progress stage, percent, and message fields on audits, stage updates through sync/async processing, a compact GET /api/audit/{id}/progress endpoint, and MockMvc coverage for owned progress access. Commit: PENDING.
 
 26. Add cancellation for long-running audits.
 Status: TODO

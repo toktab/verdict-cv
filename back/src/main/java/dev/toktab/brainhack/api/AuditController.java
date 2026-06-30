@@ -4,6 +4,7 @@ import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.account.UserTokenService;
 import dev.toktab.brainhack.account.AuthTokenResolver;
 import dev.toktab.brainhack.api.dto.AuditResponse;
+import dev.toktab.brainhack.api.dto.AuditProgressResponse;
 import dev.toktab.brainhack.api.dto.AuditRunRequest;
 import dev.toktab.brainhack.api.dto.AuditSnapshotResponse;
 import dev.toktab.brainhack.api.dto.AuditSummaryResponse;
@@ -92,6 +93,12 @@ public class AuditController {
     public AuditSummaryResponse summary(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorization, @RequestHeader(value = "X-User-Token", required = false) String token) {
         UserAccount user = userTokenService.requireUser(tokenResolver.userToken(authorization, token, null));
         return auditMapper.toSummary(auditService.getForUser(id, user));
+    }
+
+    @GetMapping("/{id}/progress")
+    public AuditProgressResponse progress(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorization, @RequestHeader(value = "X-User-Token", required = false) String token) {
+        UserAccount user = userTokenService.requireUser(tokenResolver.userToken(authorization, token, null));
+        return auditMapper.toProgress(auditService.getForUser(id, user));
     }
 
     @GetMapping("/{id}/snapshot")

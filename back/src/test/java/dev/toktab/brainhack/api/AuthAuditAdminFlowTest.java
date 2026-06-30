@@ -74,6 +74,17 @@ class AuthAuditAdminFlowTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(auditId));
 
+        mockMvc.perform(get("/api/audit/" + auditId + "/progress").header("X-User-Token", firstToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(auditId))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.stage").value("completed"))
+                .andExpect(jsonPath("$.percent").value(100))
+                .andExpect(jsonPath("$.message").value("Audit completed."));
+
+        mockMvc.perform(get("/api/audit/" + auditId + "/progress").header("X-User-Token", secondToken))
+                .andExpect(status().isBadRequest());
+
         mockMvc.perform(get("/api/audit/" + auditId).header("X-User-Token", secondToken))
                 .andExpect(status().isBadRequest());
 
