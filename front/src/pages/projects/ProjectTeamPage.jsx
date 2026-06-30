@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Crown, Mail, Shield, Trash2, UserCog, UserPlus } from 'lucide-react';
+import { ArrowRight, Crown, Lock, Mail, Shield, Trash2, UserCog, UserPlus } from 'lucide-react';
 import { apiCreateProjectInvite, apiListProjectInvites } from '../../api';
+import { appendMessage, createMessage } from '../../messageStore';
 import { findProjectFromPath } from './projectPageUtils';
 
-const ROLE_ORDER = ['Viewer', 'Voter', 'Reviewer', 'Screener', 'Coordinator', 'Admin'];
+const ROLE_ORDER = ['Viewer', 'Voter', 'Reviewer', 'Screener', 'Coordinator', 'Admin', 'Head Admin'];
 const ROLE_PERMISSIONS = {
     Viewer: ['canView'],
     Voter: ['canView', 'canVote'],
@@ -11,16 +12,18 @@ const ROLE_PERMISSIONS = {
     Screener: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck'],
     Coordinator: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canViewActivityLog'],
     Admin: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canManageMembers', 'canMessage', 'canViewActivityLog'],
+    'Head Admin': ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canManageMembers', 'canMessage', 'canViewActivityLog', 'protectedAccount'],
 };
 
-export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [] }) {
+export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], openCompose }) {
     const project = findProjectFromPath(projects) || projects[0];
     const [invites, setInvites] = useState([]);
     const [email, setEmail] = useState('');
     const [roleOverrides, setRoleOverrides] = useState(() => readRoles(project?.id));
     const [message, setMessage] = useState('');
+    const [notifyRoleChange, setNotifyRoleChange] = useState(true);
     const members = useMemo(() => buildMembers(project, user, invites, roleOverrides), [project, user, invites, roleOverrides]);
-    const myRole = members.find((member) => member.email === user?.email)?.role || 'Admin';
+    const myRole = members.find((member) => member.email === user?.email)?.role || 'Head Admin';
 
     useEffect(() => {
         if (!project?.id || !userToken) return;
@@ -49,15 +52,34 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     }
 
     function setRole(emailAddress, role) {
+        const member = members.find((row) => row.email === emailAddress);
+        if (!member || isProtectedMember(member)) return;
+        const previousRole = member.role;
+        if (previousRole === role) return;
         const next = { ...roleOverrides, [emailAddress]: role };
         setRoleOverrides(next);
         writeRoles(project.id, next);
+        sendRoleNotice(emailAddress, `Your role changed from ${previousRole} to ${role} on ${project.title}.`);
     }
 
     function removeMember(emailAddress) {
+        const member = members.find((row) => row.email === emailAddress);
+        if (!member || isProtectedMember(member)) return;
         const next = { ...roleOverrides, [emailAddress]: 'Kicked' };
         setRoleOverrides(next);
         writeRoles(project.id, next);
+        sendRoleNotice(emailAddress, `You were removed from ${project.title}.`);
+    }
+
+    function sendRoleNotice(to, body) {
+        if (!notifyRoleChange) return;
+        appendMessage(createMessage({
+            from: user?.email || 'system@verdict.local',
+            fromName: user?.fullName || user?.username || 'Team admin',
+            to,
+            subject: `Project team update: ${project.title}`,
+            body,
+        }), user);
     }
 
     return (
@@ -76,7 +98,20 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                 </section>
                 <section className="dashboardGrid">
                     <article className="dashboardPanel">
-                        <h2><Crown size={18} /> Your role</h2>
+                        <div className="rolePanelHead">
+                            <h2><Crown size={18} /> Your role</h2>
+                            <button
+                                className="secondary iconButton"
+                                type="button"
+                                title="Send team message"
+                                onClick={() => openCompose?.({
+                                    subject: `Team message: ${project.title}`,
+                                    body: `Project: ${project.title}\n\n`,
+                                })}
+                            >
+                                <Mail size={16} />
+                            </button>
+                        </div>
                         <strong>{myRole}</strong>
                         <p className="mutedPanelText">{roleDescription(myRole)}</p>
                         <div className="permissionChips">
@@ -98,24 +133,33 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                             <span className="eyebrow">Members</span>
                             <h2><Shield size={18} /> Role management</h2>
                         </div>
+                        <label className="notifyRoleToggle">
+                            <input type="checkbox" checked={notifyRoleChange} onChange={(event) => setNotifyRoleChange(event.target.checked)} />
+                            <span>Send message to them</span>
+                        </label>
                     </div>
                     <div className="teamMemberRows">
-                        {members.filter((member) => member.role !== 'Kicked').map((member) => (
-                            <article key={member.email}>
-                                <div>
-                                    <strong>{member.name}</strong>
-                                    <small>{member.email}</small>
-                                </div>
-                                <select value={member.role} onChange={(event) => setRole(member.email, event.target.value)}>
-                                    {ROLE_ORDER.map((role) => <option key={role}>{role}</option>)}
-                                </select>
-                                <div className="teamActionRow">
-                                    <button className="secondary" type="button" onClick={() => setRole(member.email, promote(member.role))}><UserCog size={15} /> Promote</button>
-                                    <button className="secondary" type="button" onClick={() => setRole(member.email, demote(member.role))}>Demote</button>
-                                    <button className="destructive" type="button" onClick={() => removeMember(member.email)}><Trash2 size={15} /> Kick</button>
-                                </div>
-                            </article>
-                        ))}
+                        {members.filter((member) => member.role !== 'Kicked').map((member) => {
+                            const protectedMember = isProtectedMember(member);
+                            return (
+                                <article key={member.email} className={protectedMember ? 'protectedMember' : ''}>
+                                    <div>
+                                        <strong>{member.name}</strong>
+                                        <small>{member.email}</small>
+                                    </div>
+                                    <select value={member.role} disabled={protectedMember} onChange={(event) => setRole(member.email, event.target.value)}>
+                                        {ROLE_ORDER.map((role) => <option key={role}>{role}</option>)}
+                                    </select>
+                                    <div className="teamActionRow">
+                                        <button className="secondary" type="button" onClick={() => openCompose?.({ to: member.email, subject: `Message about ${project.title}` })}><Mail size={15} /> Message</button>
+                                        <button className="secondary" type="button" disabled={protectedMember} onClick={() => setRole(member.email, promote(member.role))}><UserCog size={15} /> Promote</button>
+                                        <button className="secondary" type="button" disabled={protectedMember} onClick={() => setRole(member.email, demote(member.role))}>Demote</button>
+                                        <button className="destructive" type="button" disabled={protectedMember} onClick={() => removeMember(member.email)}><Trash2 size={15} /> Kick</button>
+                                        {protectedMember && <span className="protectedBadge"><Lock size={14} /> Protected</span>}
+                                    </div>
+                                </article>
+                            );
+                        })}
                     </div>
                 </section>
             </main>
@@ -127,7 +171,7 @@ function buildMembers(project, user, invites, overrides) {
     const rows = [{
         name: user?.fullName || user?.username || 'Project creator',
         email: user?.email || 'owner@verdict.local',
-        role: overrides[user?.email] || 'Admin',
+        role: 'Head Admin',
     }];
     for (const invite of invites || []) {
         rows.push({
@@ -140,12 +184,17 @@ function buildMembers(project, user, invites, overrides) {
 }
 
 function roleDescription(role) {
+    if (role === 'Head Admin') return 'Protected owner role. Cannot be edited, kicked, demoted, or promoted.';
     if (role === 'Admin') return 'Can manage members, send messages, vote, and change the full candidate pipeline.';
     if (role === 'Coordinator') return 'Can add notes, vote, move candidates through interview and hire/close decisions, and view activity.';
     if (role === 'Screener') return 'Can add notes, vote, and move candidates into OnCheck.';
     if (role === 'Reviewer') return 'Can add candidate notes and vote.';
     if (role === 'Voter') return 'Can upvote, downvote, star, and score candidates, but cannot add notes.';
     return 'Can view project and candidates only.';
+}
+
+function isProtectedMember(member) {
+    return member.role === 'Head Admin';
 }
 
 function promote(role) {

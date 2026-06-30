@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, Edit3, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, Save, ShieldCheck, Trash2, User, UserPlus, X } from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, Edit3, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, Save, Send, ShieldCheck, Trash2, User, UserPlus, X } from 'lucide-react';
 import IntroAnimation from './IntroAnimation';
 import { CandidateDetailPage } from './pages/projects/CandidateDetailPage';
 import { CandidateProfilePage } from './pages/projects/CandidateProfilePage';
@@ -13,6 +13,7 @@ import { ProjectsPage } from './pages/projects/ProjectsPage';
 import { SignalTracePage } from './pages/projects/SignalTracePage';
 import { LanguageContext, translate, useLanguage } from './i18n';
 import { apiLogin, apiRegister, apiMe, apiLogout, apiListProjects, javaApi, normaliseProject, normaliseUser } from './api';
+import { appendMessage, createMessage } from './messageStore';
 import './styles.css';
 
 const auditModes = {
@@ -270,6 +271,8 @@ function App() {
     const [error, setError] = useState('');
     const [introVisible, setIntroVisible] = useState(true);
     const [lang, setLangState] = useState(() => localStorage.getItem('verdictLang') || 'ge');
+    const [composeOpen, setComposeOpen] = useState(false);
+    const [composeDraft, setComposeDraft] = useState({ to: '', subject: '', body: '' });
 
     function setLang(nextLang) {
         localStorage.setItem('verdictLang', nextLang);
@@ -278,6 +281,14 @@ function App() {
 
     function t(key, replacements) {
         return translate(lang, key, replacements);
+    }
+
+    function openCompose(prefill = {}) {
+        setComposeDraft((current) => ({
+            ...current,
+            ...prefill,
+        }));
+        setComposeOpen(true);
     }
 
     useEffect(() => {
@@ -482,7 +493,7 @@ function App() {
     } else if (route === 'projectDetail') {
         content = <ProjectDetailPage Header={Header} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
     } else if (route === 'projectTeam') {
-        content = <ProjectTeamPage Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
+        content = <ProjectTeamPage Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} openCompose={openCompose} />;
     } else if (route === 'addCandidate') {
         content = <AddCandidatePage Header={Header} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} onProjectsChange={loadProjects} />;
     } else if (route === 'candidateDetail') {
@@ -498,7 +509,7 @@ function App() {
     } else if (route === 'profile') {
         content = <ProfilePage Header={Header} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
     } else if (route === 'messages') {
-        content = <MessagesPage Header={Header} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
+        content = <MessagesPage Header={Header} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} openCompose={openCompose} />;
     } else if (route === 'login') {
         content = <AuthPage mode="login" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
     } else if (route === 'register') {
@@ -584,7 +595,46 @@ function App() {
     return (
         <LanguageContext.Provider value={{ lang, setLang, t }}>
             {content}
+            <GlobalCompose
+                draft={composeDraft}
+                open={composeOpen}
+                setDraft={setComposeDraft}
+                setOpen={setComposeOpen}
+                user={user}
+            />
         </LanguageContext.Provider>
+    );
+}
+
+function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
+    if (!open) {
+        return null;
+    }
+
+    function sendMessage(event) {
+        event.preventDefault();
+        appendMessage(createMessage({
+            from: user?.email || 'me@verdict.local',
+            fromName: user?.fullName || user?.username || 'Current user',
+            to: draft.to.trim(),
+            subject: draft.subject,
+            body: draft.body,
+        }), user);
+        setDraft({ to: '', subject: '', body: '' });
+        setOpen(false);
+    }
+
+    return (
+        <form className="gmailCompose" onSubmit={sendMessage}>
+            <div className="composeHead">
+                <strong>New Message</strong>
+                <button type="button" onClick={() => setOpen(false)}><X size={16} /></button>
+            </div>
+            <input value={draft.to} onChange={(event) => setDraft({ ...draft, to: event.target.value })} placeholder="Recipients" required />
+            <input value={draft.subject} onChange={(event) => setDraft({ ...draft, subject: event.target.value })} placeholder="Subject" />
+            <textarea value={draft.body} onChange={(event) => setDraft({ ...draft, body: event.target.value })} placeholder="Description" required />
+            <button className="primary" type="submit"><Send size={16} /> Send</button>
+        </form>
     );
 }
 

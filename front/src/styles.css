@@ -990,6 +990,13 @@ nav button:hover,
     color: var(--muted);
 }
 
+.compactHeroButton {
+    align-self: start;
+    min-height: 40px;
+    padding: 0 12px;
+    white-space: nowrap;
+}
+
 .detailScore {
     min-width: 170px;
     border: 1px solid rgba(255, 99, 99, 0.3);
@@ -2727,7 +2734,7 @@ mark {
 
 .messagesPage {
     display: grid;
-    grid-template-columns: 220px minmax(320px, 1fr) minmax(300px, 0.85fr);
+    grid-template-columns: 220px minmax(320px, 1fr);
     gap: 14px;
 }
 
@@ -2764,7 +2771,7 @@ mark {
     background: rgba(255, 255, 255, 0.035);
     color: var(--text);
     display: grid;
-    grid-template-columns: 22px minmax(160px, 0.7fr) minmax(120px, 0.5fr) minmax(180px, 1fr);
+    grid-template-columns: 22px minmax(160px, 0.6fr) minmax(120px, 0.45fr) minmax(180px, 1fr) 72px auto;
     gap: 10px;
     align-items: center;
     padding: 10px;
@@ -2774,6 +2781,17 @@ mark {
 .messageRows button.active {
     border-color: rgba(255, 99, 99, 0.35);
     background: rgba(255, 99, 99, 0.08);
+}
+
+.messageRows button.unread {
+    border-color: rgba(102, 217, 145, 0.25);
+    background: rgba(102, 217, 145, 0.07);
+}
+
+.messageRows button.unread strong,
+.messageRows button.unread span {
+    color: #fff;
+    font-weight: 850;
 }
 
 .messageRows small {
@@ -2788,10 +2806,98 @@ mark {
     color: #facc15;
 }
 
+.messageStatus {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-align: center;
+}
+
+.messageMarkButton {
+    min-height: 30px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--soft);
+    background: rgba(255, 255, 255, 0.045);
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
 .messageReadPane {
     display: grid;
     align-content: start;
     gap: 10px;
+}
+
+.messageModalBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: grid;
+    place-items: center;
+    padding: 22px;
+    background: rgba(0, 0, 0, 0.48);
+    backdrop-filter: blur(10px);
+}
+
+.messageModal {
+    width: min(820px, calc(100vw - 36px));
+    max-height: min(720px, calc(100vh - 44px));
+    overflow: auto;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    padding: 20px;
+    background:
+            radial-gradient(circle at 0 0, rgba(255, 59, 59, 0.12), transparent 18rem),
+            #0f1117;
+    box-shadow: 0 26px 90px rgba(0, 0, 0, 0.62);
+}
+
+.messageModalHead {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: start;
+}
+
+.messageModalHead h2 {
+    margin: 6px 0 0;
+    font-size: clamp(24px, 4vw, 38px);
+    line-height: 1.04;
+}
+
+.messageMetaGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 18px 0;
+}
+
+.messageMetaGrid span {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.messageModal p {
+    white-space: pre-wrap;
+    color: var(--soft);
+    line-height: 1.65;
+}
+
+.messageModalActions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
 }
 
 .gmailCompose {
@@ -2861,10 +2967,60 @@ mark {
     padding: 12px;
 }
 
+.teamMemberRows article.protectedMember {
+    border-color: rgba(240, 184, 90, 0.38);
+    background: rgba(240, 184, 90, 0.08);
+}
+
 .teamActionRow {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+}
+
+.rolePanelHead,
+.notifyRoleToggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.rolePanelHead h2 {
+    margin: 0;
+}
+
+.iconButton {
+    width: 40px;
+    padding: 0;
+}
+
+.notifyRoleToggle {
+    min-height: 38px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--soft);
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.notifyRoleToggle input {
+    width: 16px;
+    height: 16px;
+}
+
+.protectedBadge {
+    min-height: 32px;
+    border: 1px solid rgba(240, 184, 90, 0.42);
+    border-radius: 999px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #ffe4b5;
+    background: rgba(240, 184, 90, 0.12);
+    font-size: 12px;
+    font-weight: 850;
 }
 
 .candidateTableRowTall {
