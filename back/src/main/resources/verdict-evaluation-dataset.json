@@ -1,0 +1,42 @@
+[
+  {
+    "id": "supported-spring-boot-api",
+    "expectedStatus": "SUPPORTED",
+    "claim": "Built REST APIs with Spring Boot and MySQL.",
+    "evidence": "The project reference confirms REST APIs built with Spring Boot and MySQL.",
+    "category": "skills",
+    "reason": "The claim and evidence directly match the same implementation details."
+  },
+  {
+    "id": "stretched-led-migration",
+    "expectedStatus": "STRETCHED",
+    "claim": "Led the payment migration.",
+    "evidence": "The reference says the candidate contributed backend tasks during a payment migration.",
+    "category": "leadership",
+    "reason": "Contribution is evidenced, but leadership is not proven."
+  },
+  {
+    "id": "unsupported-kubernetes-recovery",
+    "expectedStatus": "UNSUPPORTED",
+    "claim": "Recovered a production Kubernetes outage.",
+    "evidence": "No provided document mentions Kubernetes, outages, or incident response.",
+    "category": "operations",
+    "reason": "The evidence does not support the specific operational claim."
+  },
+  {
+    "id": "gap-degree-date",
+    "expectedStatus": "GAP",
+    "claim": "Graduated in 2023.",
+    "evidence": "The resume lists a university but does not include graduation dates.",
+    "category": "education",
+    "reason": "The topic is present, but the required date evidence is missing."
+  },
+  {
+    "id": "not-a-claim-contact",
+    "expectedStatus": "NOT_A_CLAIM",
+    "claim": "Email: candidate@example.com",
+    "evidence": "Candidate contact block.",
+    "category": "identity",
+    "reason": "Contact metadata is not a verifiable accomplishment claim."
+  }
+]

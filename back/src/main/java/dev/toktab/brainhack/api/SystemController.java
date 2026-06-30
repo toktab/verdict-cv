@@ -1,5 +1,7 @@
 package dev.toktab.brainhack.api;
 
+import dev.toktab.brainhack.audit.EvaluationDatasetService;
+import dev.toktab.brainhack.audit.EvaluationDatasetService.EvaluationDatasetResponse;
 import dev.toktab.brainhack.log.AuditLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.Connection;
@@ -14,10 +16,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class SystemController {
     private final DataSource dataSource;
     private final AuditLogService logService;
+    private final EvaluationDatasetService evaluationDatasetService;
 
-    public SystemController(DataSource dataSource, AuditLogService logService) {
+    public SystemController(DataSource dataSource, AuditLogService logService, EvaluationDatasetService evaluationDatasetService) {
         this.dataSource = dataSource;
         this.logService = logService;
+        this.evaluationDatasetService = evaluationDatasetService;
     }
 
     @GetMapping("/health")
@@ -29,5 +33,10 @@ public class SystemController {
             logService.record("DB_HEALTH_CHECK", request, 200, System.currentTimeMillis() - started, "visitor", "database=" + database + "; valid=" + valid);
             return Map.of("status", "UP", "database", database, "valid", valid);
         }
+    }
+
+    @GetMapping("/evaluation-dataset")
+    public EvaluationDatasetResponse evaluationDataset() {
+        return evaluationDatasetService.dataset();
     }
 }

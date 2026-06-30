@@ -315,9 +315,9 @@ Advice: Keep a small test corpus that catches prompt drift and status distributi
 Fix notes: Added fixed CV/job regression coverage asserting expected status distribution and per-verdict provenance.
 
 21. Add an evaluation dataset for verdict accuracy.
-Status: TODO
+Status: FIXED
 Advice: Maintain labeled SUPPORTED, STRETCHED, UNSUPPORTED, GAP, and NOT_A_CLAIM examples.
-Fix notes: Pending.
+Fix notes: Added versioned verdict-eval-v1 resource with labeled examples for all verdict statuses and exposed it through /api/system/evaluation-dataset.
 
 22. Add LLM response schema validation and repair.
 Status: TODO
