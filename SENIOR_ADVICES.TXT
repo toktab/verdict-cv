@@ -322,7 +322,7 @@ Fix notes: Added versioned verdict-eval-v1 resource with labeled examples for al
 22. Add LLM response schema validation and repair.
 Status: FIXED
 Advice: Validate every model response against the expected schema and either repair safely or fail visibly.
-Fix notes: Added LLM response schema validation, fenced/extra-text JSON repair, safe per-row fallback defaults, visible failures for missing verdict arrays, and regression tests for repaired and invalid model responses. Commit: PENDING.
+Fix notes: Added LLM response schema validation, fenced/extra-text JSON repair, safe per-row fallback defaults, visible failures for missing verdict arrays, and regression tests for repaired and invalid model responses. Commit: 8275262.
 
 23. Add retry, backoff, and timeout policy around LLM calls.
 Status: TODO
