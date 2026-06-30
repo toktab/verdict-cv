@@ -1,4 +1,6 @@
-import { Activity, ArrowRight, CheckCircle2, FileSearch, ShieldCheck, UserPlus } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Activity, ArrowRight, CheckCircle2, ClipboardCheck, FileSearch, ShieldCheck, UserPlus, Users } from 'lucide-react';
+import { apiAcceptProjectInvite, apiCreateProjectInvite, apiListProjectInvites } from '../../api';
 import { useLanguage } from '../../i18n';
 import { CandidateTable } from './components/CandidateTable';
 import { ProjectScoreStrip } from './components/ProjectScoreStrip';
@@ -6,7 +8,61 @@ import { bestCandidate, candidateTotals, findProjectFromPath, workModeInfo } fro
 
 export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [] }) {
     const { t } = useLanguage();
+    const [invites, setInvites] = useState([]);
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [inviteToken, setInviteToken] = useState('');
+    const [teamMessage, setTeamMessage] = useState('');
+    const [teamBusy, setTeamBusy] = useState(false);
     const project = findProjectFromPath(projects) || projects[0];
+    useEffect(() => {
+        if (!project?.id || !userToken) return;
+        let cancelled = false;
+        apiListProjectInvites(project.id, userToken)
+            .then((rows) => {
+                if (!cancelled) setInvites(rows || []);
+            })
+            .catch(() => {
+                if (!cancelled) setInvites([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [project?.id, userToken]);
+
+    async function createInvite(event) {
+        event.preventDefault();
+        if (!project?.id || !inviteEmail.trim()) return;
+        setTeamBusy(true);
+        setTeamMessage('');
+        try {
+            const invite = await apiCreateProjectInvite(project.id, { email: inviteEmail.trim(), role: 'REVIEWER' }, userToken);
+            setInvites((current) => [invite, ...current.filter((row) => row.id !== invite.id)]);
+            setInviteEmail('');
+            setTeamMessage(`Invite created. Share this token with ${invite.email}: ${invite.token}`);
+        } catch (error) {
+            setTeamMessage(error.message || 'Could not create invite.');
+        } finally {
+            setTeamBusy(false);
+        }
+    }
+
+    async function acceptInvite(event) {
+        event.preventDefault();
+        if (!inviteToken.trim()) return;
+        setTeamBusy(true);
+        setTeamMessage('');
+        try {
+            const invite = await apiAcceptProjectInvite(inviteToken.trim(), userToken);
+            setInvites((current) => [invite, ...current.filter((row) => row.id !== invite.id)]);
+            setInviteToken('');
+            setTeamMessage('Invite accepted. Refresh projects if the shared role is not visible yet.');
+        } catch (error) {
+            setTeamMessage(error.message || 'Could not accept invite.');
+        } finally {
+            setTeamBusy(false);
+        }
+    }
+
     if (!project) {
         return (
             <div className="shell">
@@ -118,6 +174,44 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                         <ProjectScoreStrip project={project} large />
                         <div className="healthLine"><span>{t('bestCandidate')}</span><strong>{best?.name || 'No candidates yet'}</strong></div>
                         <div className="healthLine"><span>{t('needsHumanReview')}</span><strong>{project.candidates.filter((candidate) => candidate.state === 'Needs review').length}</strong></div>
+                    </div>
+                </section>
+                <section className="teamInvitePanel">
+                    <div className="tableToolbar">
+                        <div>
+                            <span className="eyebrow">Team</span>
+                            <h2><Users size={18} /> Project invites</h2>
+                        </div>
+                        <span>{invites.length} invite{invites.length === 1 ? '' : 's'}</span>
+                    </div>
+                    {teamMessage && <div className="inlineNotice">{teamMessage}</div>}
+                    <div className="teamInviteGrid">
+                        <form className="teamInviteForm" onSubmit={createInvite}>
+                            <label>
+                                Reviewer email
+                                <input value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="reviewer@example.com" type="email" />
+                            </label>
+                            <button className="primary" disabled={teamBusy || !inviteEmail.trim()} type="submit"><UserPlus size={16} /> Create invite</button>
+                        </form>
+                        <form className="teamInviteForm" onSubmit={acceptInvite}>
+                            <label>
+                                Invite token
+                                <input value={inviteToken} onChange={(event) => setInviteToken(event.target.value)} placeholder="Paste invite token" />
+                            </label>
+                            <button className="secondary" disabled={teamBusy || !inviteToken.trim()} type="submit"><ClipboardCheck size={16} /> Accept invite</button>
+                        </form>
+                    </div>
+                    <div className="teamInviteList">
+                        {invites.map((invite) => (
+                            <article key={invite.id}>
+                                <div>
+                                    <strong>{invite.email}</strong>
+                                    <small>{invite.role} / {invite.status}</small>
+                                </div>
+                                <code>{invite.token}</code>
+                            </article>
+                        ))}
+                        {!invites.length && <p className="mutedPanelText">No project invites have been created yet.</p>}
                     </div>
                 </section>
                 <section className="jobListingGrid">

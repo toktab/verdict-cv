@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, History, Radar, RefreshCcw, ScanText } from 'lucide-react';
+import { Activity, ArrowRight, History, MessageSquarePlus, Radar, RefreshCcw, ScanText } from 'lucide-react';
 import { useLanguage } from '../../i18n';
-import { apiReanalyzeCandidate } from '../../api';
+import { apiCreateCandidateNote, apiListCandidateNotes, apiReanalyzeCandidate } from '../../api';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
 import { findCandidateFromPath, scorePercent, scoreTone } from './projectPageUtils';
 
@@ -19,6 +19,11 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const [severityFilter, setSeverityFilter] = useState('ALL');
     const [reanalyzing, setReanalyzing] = useState(false);
     const [reanalyzeMessage, setReanalyzeMessage] = useState('');
+    const [reviewNotes, setReviewNotes] = useState([]);
+    const [noteDecision, setNoteDecision] = useState('INTERVIEW');
+    const [noteBody, setNoteBody] = useState('');
+    const [noteMessage, setNoteMessage] = useState('');
+    const [noteBusy, setNoteBusy] = useState(false);
     const { project, candidate } = findCandidateFromPath(projects);
     const activeProject = project || projects[0];
     const activeCandidate = candidate || activeProject?.candidates?.[0];
@@ -37,6 +42,21 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
             return next;
         });
     }, [activeProject?.id, activeCandidate?.id, projectStateId, stateStorageKey]);
+
+    useEffect(() => {
+        if (!activeProject?.id || !activeCandidate?.id || !userToken) return;
+        let cancelled = false;
+        apiListCandidateNotes(activeProject.id, activeCandidate.id, userToken)
+            .then((rows) => {
+                if (!cancelled) setReviewNotes(rows || []);
+            })
+            .catch(() => {
+                if (!cancelled) setReviewNotes([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [activeProject?.id, activeCandidate?.id, userToken]);
 
     if (!activeProject || !activeCandidate) {
         return (
@@ -98,6 +118,27 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         }
     }
 
+    async function addReviewerNote(event) {
+        event.preventDefault();
+        if (!noteBody.trim()) return;
+        setNoteBusy(true);
+        setNoteMessage('');
+        try {
+            const note = await apiCreateCandidateNote(activeProject.id, activeCandidate.id, {
+                type: 'DECISION',
+                decision: noteDecision,
+                body: noteBody.trim(),
+            }, userToken);
+            setReviewNotes((current) => [note, ...current]);
+            setNoteBody('');
+            setNoteMessage('Reviewer note saved.');
+        } catch (error) {
+            setNoteMessage(error.message || 'Could not save reviewer note.');
+        } finally {
+            setNoteBusy(false);
+        }
+    }
+
     return (
         <div className="shell">
             <div className="pageGlow contentFadeIn" />
@@ -153,6 +194,44 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         <strong>{weakestClaim}</strong>
                         <p>{activeCandidate.unsupported + activeCandidate.stretched} review signals</p>
                     </article>
+                </section>
+                <section className="reviewNotesPanel">
+                    <div className="tableToolbar">
+                        <div>
+                            <span className="eyebrow">Reviewer notes</span>
+                            <h2><MessageSquarePlus size={18} /> Decision history</h2>
+                        </div>
+                        <span>{reviewNotes.length} note{reviewNotes.length === 1 ? '' : 's'}</span>
+                    </div>
+                    {noteMessage && <div className="inlineNotice">{noteMessage}</div>}
+                    <form className="reviewNoteForm" onSubmit={addReviewerNote}>
+                        <label>
+                            Decision
+                            <select value={noteDecision} onChange={(event) => setNoteDecision(event.target.value)}>
+                                <option value="INTERVIEW">Interview</option>
+                                <option value="HOLD">Hold</option>
+                                <option value="REJECT">Reject</option>
+                                <option value="NEEDS_EVIDENCE">Needs evidence</option>
+                            </select>
+                        </label>
+                        <label>
+                            Note
+                            <textarea value={noteBody} onChange={(event) => setNoteBody(event.target.value)} placeholder="Write the human review decision, evidence request, or follow-up context." />
+                        </label>
+                        <button className="primary" disabled={noteBusy || !noteBody.trim()} type="submit">Save note</button>
+                    </form>
+                    <div className="reviewNoteList">
+                        {reviewNotes.map((note) => (
+                            <article key={note.id}>
+                                <div>
+                                    <strong>{note.decision}</strong>
+                                    <small>{note.author_name || 'Reviewer'} / {formatNoteDate(note.created_at)}</small>
+                                </div>
+                                <p>{note.body}</p>
+                            </article>
+                        ))}
+                        {!reviewNotes.length && <p className="mutedPanelText">No reviewer decisions have been saved for this candidate yet.</p>}
+                    </div>
                 </section>
                 <section className="signalStatePanel">
                     <div className="signalDirectoryHead">
@@ -515,6 +594,11 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
 
 function candidateSourceText(candidate) {
     return candidate.cvText?.trim() || candidate.summary || 'No original CV text was stored for this candidate.';
+}
+
+function formatNoteDate(value) {
+    if (!value) return 'Just now';
+    return String(value).slice(0, 16).replace('T', ' ');
 }
 
 function candidateDecision(candidate) {

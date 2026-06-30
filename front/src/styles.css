@@ -2595,6 +2595,92 @@ mark {
     font-size: 13px;
 }
 
+.teamInvitePanel,
+.reviewNotesPanel {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.045);
+    padding: 18px;
+    display: grid;
+    gap: 16px;
+}
+
+.teamInviteGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.teamInviteForm,
+.reviewNoteForm {
+    display: grid;
+    gap: 12px;
+}
+
+.teamInviteForm label,
+.reviewNoteForm label {
+    display: grid;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 750;
+}
+
+.teamInviteForm button,
+.reviewNoteForm button {
+    justify-self: start;
+}
+
+.teamInviteList,
+.reviewNoteList {
+    display: grid;
+    gap: 10px;
+}
+
+.teamInviteList article,
+.reviewNoteList article {
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.32);
+    padding: 12px;
+    display: grid;
+    gap: 8px;
+}
+
+.teamInviteList article {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, auto);
+    align-items: center;
+}
+
+.teamInviteList strong,
+.reviewNoteList strong {
+    display: block;
+    color: var(--text);
+}
+
+.teamInviteList small,
+.reviewNoteList small {
+    color: var(--muted);
+}
+
+.teamInviteList code {
+    color: #fecaca;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 7px 9px;
+    overflow-wrap: anywhere;
+}
+
+.reviewNoteForm textarea {
+    min-height: 120px;
+}
+
+.reviewNoteList p {
+    margin: 0;
+    color: var(--muted);
+}
+
 .candidateDecisionLine {
     margin-top: 18px;
     display: grid;

@@ -122,6 +122,26 @@ export async function apiRunCandidateOsint(projectId, candidateId, { state, chec
     return post(`/projects/${projectId}/candidates/${candidateId}/osint/run`, { state, checks: checks || [] }, token);
 }
 
+export async function apiListProjectInvites(projectId, token) {
+    return get(`/projects/${projectId}/invites`, token);
+}
+
+export async function apiCreateProjectInvite(projectId, { email, role }, token) {
+    return post(`/projects/${projectId}/invites`, { email, role }, token);
+}
+
+export async function apiAcceptProjectInvite(inviteToken, token) {
+    return post(`/projects/invites/accept?token=${encodeURIComponent(inviteToken)}`, {}, token);
+}
+
+export async function apiListCandidateNotes(projectId, candidateId, token) {
+    return get(`/projects/${projectId}/candidates/${candidateId}/notes`, token);
+}
+
+export async function apiCreateCandidateNote(projectId, candidateId, { type, decision, body }, token) {
+    return post(`/projects/${projectId}/candidates/${candidateId}/notes`, { type, decision, body }, token);
+}
+
 export const javaApi = {
     history(token) {
         return get('/audit/history', token);
