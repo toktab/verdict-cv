@@ -105,6 +105,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                         </div>
                     </div>
                     <button className="secondary" onClick={() => navigateTo(setRoute, 'projects')}><ArrowRight size={16} /> {t('allProjects')}</button>
+                    <button className="secondary" onClick={() => navigateTo(setRoute, 'projectTeam', project.id)}><Users size={18} /> Team</button>
                     <button className="primary" onClick={() => navigateTo(setRoute, 'addCandidate', project.id)}><UserPlus size={18} /> {t('addCandidate')}</button>
                 </section>
                 <section className="detailMeta">

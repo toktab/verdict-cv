@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, Edit3, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Menu, Play, Save, ShieldCheck, Trash2, User, UserPlus, X } from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, Edit3, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, Save, ShieldCheck, Trash2, User, UserPlus, X } from 'lucide-react';
 import IntroAnimation from './IntroAnimation';
 import { CandidateDetailPage } from './pages/projects/CandidateDetailPage';
 import { CandidateProfilePage } from './pages/projects/CandidateProfilePage';
 import { HomePage } from './pages/HomePage';
+import { MessagesPage } from './pages/MessagesPage';
 import { AddCandidatePage } from './pages/projects/AddCandidatePage';
 import { NewJobPage } from './pages/projects/NewJobPage';
 import { ProjectDetailPage } from './pages/projects/ProjectDetailPage';
+import { ProjectTeamPage } from './pages/projects/ProjectTeamPage';
 import { ProjectsPage } from './pages/projects/ProjectsPage';
 import { SignalTracePage } from './pages/projects/SignalTracePage';
 import { LanguageContext, translate, useLanguage } from './i18n';
@@ -479,6 +481,8 @@ function App() {
         content = <NewJobPage Header={Header} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} onProjectsChange={loadProjects} />;
     } else if (route === 'projectDetail') {
         content = <ProjectDetailPage Header={Header} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
+    } else if (route === 'projectTeam') {
+        content = <ProjectTeamPage Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
     } else if (route === 'addCandidate') {
         content = <AddCandidatePage Header={Header} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} onProjectsChange={loadProjects} />;
     } else if (route === 'candidateDetail') {
@@ -493,6 +497,8 @@ function App() {
         content = <ProfilingModePage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} />;
     } else if (route === 'profile') {
         content = <ProfilePage Header={Header} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
+    } else if (route === 'messages') {
+        content = <MessagesPage Header={Header} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
     } else if (route === 'login') {
         content = <AuthPage mode="login" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
     } else if (route === 'register') {
@@ -585,10 +591,12 @@ function App() {
 function routeFromPath() {
     if (window.location.pathname === '/admin') return { route: 'admin' };
     if (window.location.pathname === '/dashboard') return { route: 'dashboard' };
+    if (window.location.pathname === '/messages') return { route: 'messages' };
     if (window.location.pathname === '/profile') return { route: 'profile' };
     if (window.location.pathname === '/projects') return { route: 'projects' };
     if (window.location.pathname === '/projects/new') return { route: 'newProject' };
     if (window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/new$/)) return { route: 'addCandidate' };
+    if (window.location.pathname.match(/^\/projects\/([^/]+)\/team$/)) return { route: 'projectTeam' };
     if (window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)\/signaltrace$/)) return { route: 'signalTrace' };
     if (window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)\/profile$/)) return { route: 'candidateProfile' };
     if (window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)$/)) return { route: 'candidateDetail' };
@@ -605,7 +613,7 @@ function routeFromPath() {
 
 function navigateTo(setRoute, next, id, childId) {
     setRoute(next);
-    const path = next === 'admin' ? '/admin' : next === 'dashboard' ? '/dashboard' : next === 'projects' ? '/projects' : next === 'newProject' ? '/projects/new' : next === 'projectDetail' ? `/projects/${id}` : next === 'addCandidate' ? `/projects/${id}/candidates/new` : next === 'signalTrace' ? `/projects/${id}/candidates/${childId}/signaltrace` : next === 'candidateProfile' ? `/projects/${id}/candidates/${childId}/profile` : next === 'candidateDetail' ? `/projects/${id}/candidates/${childId}` : next === 'profile' ? '/profile' : next === 'auditProfile' ? `/audit/${id}/profile` : next === 'auditDetail' ? `/audit/${id}` : next === 'app' ? '/projects' : next === 'login' ? '/login' : next === 'register' ? '/register' : '/';
+    const path = next === 'admin' ? '/admin' : next === 'dashboard' ? '/dashboard' : next === 'messages' ? '/messages' : next === 'projects' ? '/projects' : next === 'newProject' ? '/projects/new' : next === 'projectDetail' ? `/projects/${id}` : next === 'projectTeam' ? `/projects/${id}/team` : next === 'addCandidate' ? `/projects/${id}/candidates/new` : next === 'signalTrace' ? `/projects/${id}/candidates/${childId}/signaltrace` : next === 'candidateProfile' ? `/projects/${id}/candidates/${childId}/profile` : next === 'candidateDetail' ? `/projects/${id}/candidates/${childId}` : next === 'profile' ? '/profile' : next === 'auditProfile' ? `/audit/${id}/profile` : next === 'auditDetail' ? `/audit/${id}` : next === 'app' ? '/projects' : next === 'login' ? '/login' : next === 'register' ? '/register' : '/';
     window.history.replaceState(null, '', path);
     scrollToPageTop();
 }
@@ -669,6 +677,7 @@ function Header({ setRoute, user, userToken, setUser, setUserToken }) {
                 <button onClick={() => navigate('home')}>{t('home')}</button>
                 {user && <button className="quiet" onClick={() => navigate('dashboard')}><Gauge size={16} /> {t('dashboard')}</button>}
                 <button className="quiet" onClick={() => navigate('projects')}><LayoutDashboard size={16} /> {t('projects')}</button>
+                {user && <button className="quiet mailNavButton" onClick={() => navigate('messages')}><Mail size={16} /> Messages <b>1</b></button>}
                 <button className="quiet" onClick={() => navigate('projects')}><FileSearch size={16} /> {t('audits')}</button>
                 {user ? (
                     <div className="accountMenu">

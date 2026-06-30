@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, History, MessageSquarePlus, Radar, RefreshCcw, ScanText } from 'lucide-react';
+import { Activity, ArrowRight, History, MessageSquarePlus, Radar, RefreshCcw, ScanText, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { apiCreateCandidateNote, apiListCandidateNotes, apiReanalyzeCandidate } from '../../api';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
@@ -27,6 +27,9 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const { project, candidate } = findCandidateFromPath(projects);
     const activeProject = project || projects[0];
     const activeCandidate = candidate || activeProject?.candidates?.[0];
+    const [candidateVotes, setCandidateVotes] = useState(() => readCandidateVotes(activeProject?.id));
+    const [candidateStatuses, setCandidateStatuses] = useState(() => readCandidateStatuses(activeProject?.id));
+    const [voteScore, setVoteScore] = useState('3');
     const projectStateId = stateIdFromName(activeProject?.state);
     const stateStorageKey = candidateStateStorageKey(activeProject?.id, activeCandidate?.id);
     const [activeStateId, setActiveStateId] = useState(() => readCandidateState(stateStorageKey, projectStateId));
@@ -42,6 +45,11 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
             return next;
         });
     }, [activeProject?.id, activeCandidate?.id, projectStateId, stateStorageKey]);
+
+    useEffect(() => {
+        setCandidateVotes(readCandidateVotes(activeProject?.id));
+        setCandidateStatuses(readCandidateStatuses(activeProject?.id));
+    }, [activeProject?.id]);
 
     useEffect(() => {
         if (!activeProject?.id || !activeCandidate?.id || !userToken) return;
@@ -89,6 +97,10 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const strongestClaim = strongestRequirementClaim(activeProject, activeCandidate) || activeCandidate.claims.find(([, status]) => status === 'Supported')?.[0] || activeCandidate.role;
     const weakestClaim = weakestRequirementClaim(activeProject, activeCandidate) || activeCandidate.claims.find(([claim, status]) => status === 'Unsupported' && isActionableQuestionClaim(claim))?.[0] || activeCandidate.claims.find(([claim, status]) => status === 'Stretched' && isActionableQuestionClaim(claim))?.[0] || activeCandidate.risk;
     const recruiterSummary = buildRecruiterSummary(activeProject, activeCandidate, decision, coverage, strongestClaim, weakestClaim);
+    const voteRow = candidateVotes[activeCandidate.id] || {};
+    const voteStats = voteSummary(voteRow);
+    const myVoteKey = user?.email || user?.username || 'me';
+    const pipelineStatus = candidateStatuses[activeCandidate.id] || 'Unreviewed';
 
     function selectAnalysisState(stateId) {
         setActiveStateId(stateId);
@@ -137,6 +149,50 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         } finally {
             setNoteBusy(false);
         }
+    }
+
+    function saveVote(mutator) {
+        const next = { ...candidateVotes };
+        const row = {
+            upvotes: {},
+            downvotes: {},
+            stars: {},
+            ...(next[activeCandidate.id] || {}),
+        };
+        mutator(row);
+        next[activeCandidate.id] = row;
+        setCandidateVotes(next);
+        localStorage.setItem(`candidateVotes:${activeProject.id}`, JSON.stringify(next));
+    }
+
+    function upvote() {
+        saveVote((row) => {
+            row.upvotes[myVoteKey] = { score: Number(voteScore), name: user?.fullName || user?.username || myVoteKey };
+            delete row.downvotes[myVoteKey];
+        });
+    }
+
+    function downvote() {
+        saveVote((row) => {
+            row.downvotes[myVoteKey] = { name: user?.fullName || user?.username || myVoteKey };
+            delete row.upvotes[myVoteKey];
+        });
+    }
+
+    function toggleStar() {
+        saveVote((row) => {
+            if (row.stars[myVoteKey]) {
+                delete row.stars[myVoteKey];
+            } else {
+                row.stars[myVoteKey] = { name: user?.fullName || user?.username || myVoteKey };
+            }
+        });
+    }
+
+    function changePipelineStatus(status) {
+        const next = { ...candidateStatuses, [activeCandidate.id]: status };
+        setCandidateStatuses(next);
+        localStorage.setItem(`candidateStatuses:${activeProject.id}`, JSON.stringify(next));
     }
 
     return (
@@ -194,6 +250,45 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         <strong>{weakestClaim}</strong>
                         <p>{activeCandidate.unsupported + activeCandidate.stretched} review signals</p>
                     </article>
+                </section>
+                <section className="candidateVotingPanel">
+                    <div className="tableToolbar">
+                        <div>
+                            <span className="eyebrow">Voting</span>
+                            <h2>Candidate score and pipeline</h2>
+                        </div>
+                        <span>Avg {voteStats.average}/5 / {voteStats.downvotes} downvotes / {voteStats.stars} stars</span>
+                    </div>
+                    <div className="candidateVotingGrid">
+                        <article>
+                            <strong>Reviewer vote</strong>
+                            <label>
+                                Upvote score
+                                <select value={voteScore} onChange={(event) => setVoteScore(event.target.value)}>
+                                    {scoreOptions().map((score) => <option key={score} value={score}>{score}</option>)}
+                                </select>
+                            </label>
+                            <div className="teamActionRow">
+                                <button className="primary" type="button" onClick={upvote}><ThumbsUp size={16} /> Upvote</button>
+                                <button className="secondary" type="button" onClick={downvote}><ThumbsDown size={16} /> Downvote</button>
+                                <button className="secondary" type="button" onClick={toggleStar}><Star size={16} /> {voteRow.stars?.[myVoteKey] ? 'Unstar' : 'Star'}</button>
+                            </div>
+                        </article>
+                        <article>
+                            <strong>Status pipeline</strong>
+                            <label>
+                                Candidate status
+                                <select value={pipelineStatus} onChange={(event) => changePipelineStatus(event.target.value)}>
+                                    {['Unreviewed', 'OnCheck', 'OnInterview', 'Hired', 'Closed'].map((status) => <option key={status}>{status}</option>)}
+                                </select>
+                            </label>
+                            <small>Reviewer+: vote. Screener+: OnCheck. Coordinator+: interview, hire, close.</small>
+                        </article>
+                    </div>
+                    <div className="voteAttributionList">
+                        {voteAttribution(voteRow).map((line) => <span key={line}>{line}</span>)}
+                        {voteAttribution(voteRow).length === 0 && <span>No votes yet.</span>}
+                    </div>
                 </section>
                 <section className="reviewNotesPanel">
                     <div className="tableToolbar">
@@ -599,6 +694,46 @@ function candidateSourceText(candidate) {
 function formatNoteDate(value) {
     if (!value) return 'Just now';
     return String(value).slice(0, 16).replace('T', ' ');
+}
+
+function readCandidateVotes(projectId) {
+    if (!projectId) return {};
+    try {
+        return JSON.parse(localStorage.getItem(`candidateVotes:${projectId}`) || '{}');
+    } catch {
+        return {};
+    }
+}
+
+function readCandidateStatuses(projectId) {
+    if (!projectId) return {};
+    try {
+        return JSON.parse(localStorage.getItem(`candidateStatuses:${projectId}`) || '{}');
+    } catch {
+        return {};
+    }
+}
+
+function scoreOptions() {
+    return Array.from({ length: 11 }, (_, index) => (index * 0.5).toFixed(index % 2 ? 1 : 0));
+}
+
+function voteSummary(row = {}) {
+    const upvotes = Object.values(row.upvotes || {});
+    const average = upvotes.length ? (upvotes.reduce((sum, vote) => sum + Number(vote.score || 0), 0) / upvotes.length).toFixed(1) : '0.0';
+    return {
+        average,
+        downvotes: Object.keys(row.downvotes || {}).length,
+        stars: Object.keys(row.stars || {}).length,
+    };
+}
+
+function voteAttribution(row = {}) {
+    return [
+        ...Object.entries(row.upvotes || {}).map(([email, vote]) => `${vote.name || email}: upvote ${vote.score}/5`),
+        ...Object.entries(row.downvotes || {}).map(([email, vote]) => `${vote.name || email}: downvote`),
+        ...Object.entries(row.stars || {}).map(([email, vote]) => `${vote.name || email}: starred`),
+    ];
 }
 
 function candidateDecision(candidate) {
