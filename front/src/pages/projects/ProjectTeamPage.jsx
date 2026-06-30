@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Crown, Lock, Mail, Shield, Trash2, UserCog, UserPlus } from 'lucide-react';
-import { apiCreateProjectInvite, apiListProjectInvites } from '../../api';
+import { apiCreateProjectInvite, apiListProjectInvites, apiSendMessage } from '../../api';
 import { appendMessage, createMessage } from '../../messageStore';
 import { findProjectFromPath } from './projectPageUtils';
 
@@ -47,26 +47,8 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         event.preventDefault();
         const row = await apiCreateProjectInvite(project.id, { email, role: 'REVIEWER' }, userToken);
         setInvites((current) => [row, ...current]);
-        sendInviteMessage(row);
         setEmail('');
         setMessage(`Invite token created for ${row.email}: ${row.token}`);
-    }
-
-    function sendInviteMessage(inviteRow) {
-        appendMessage(createMessage({
-            from: user?.email || 'system@verdict.local',
-            fromName: user?.fullName || user?.username || 'Team admin',
-            to: inviteRow.email,
-            subject: `Invitation to ${project.title}`,
-            body: `${user?.fullName || user?.username || 'A team admin'} invited you to join ${project.title}. Open this message and choose Accept or Decline.`,
-            type: 'projectInvite',
-            meta: {
-                inviteToken: inviteRow.token,
-                inviteStatus: 'PENDING',
-                projectId: project.id,
-                projectTitle: project.title,
-            },
-        }), user);
     }
 
     function setRole(emailAddress, role) {
@@ -91,13 +73,17 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
 
     function sendRoleNotice(to, body) {
         if (!notifyRoleChange) return;
-        appendMessage(createMessage({
+        apiSendMessage({
+            to,
+            subject: `Project team update: ${project.title}`,
+            body,
+        }, userToken).catch(() => appendMessage(createMessage({
             from: user?.email || 'system@verdict.local',
             fromName: user?.fullName || user?.username || 'Team admin',
             to,
             subject: `Project team update: ${project.title}`,
             body,
-        }), user);
+        }), user));
     }
 
     return (

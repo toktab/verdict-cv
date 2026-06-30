@@ -134,6 +134,19 @@ export async function apiAcceptProjectInvite(inviteToken, token) {
     return post(`/projects/invites/accept?token=${encodeURIComponent(inviteToken)}`, {}, token);
 }
 
+export async function apiListMessages(token) {
+    const rows = await get('/messages', token);
+    return rows.map(normaliseMessage);
+}
+
+export async function apiSendMessage({ to, subject, body }, token) {
+    return normaliseMessage(await post('/messages', { to, subject, body }, token));
+}
+
+export async function apiUpdateMessage(id, payload, token) {
+    return normaliseMessage(await patch(`/messages/${id}`, payload, token));
+}
+
 export async function apiListCandidateNotes(projectId, candidateId, token) {
     return get(`/projects/${projectId}/candidates/${candidateId}/notes`, token);
 }
@@ -279,5 +292,27 @@ export function normaliseUser(raw) {
         organization: raw.organization || '',
         role: raw.role || 'user',
         emailVerified: raw.email_verified ?? raw.emailVerified ?? true,
+    };
+}
+
+export function normaliseMessage(raw) {
+    return {
+        id: String(raw.id),
+        from: raw.from,
+        fromName: raw.from_name || raw.fromName || '',
+        to: raw.to,
+        subject: raw.subject || 'No subject',
+        body: raw.body || '',
+        type: raw.type === 'PROJECT_INVITE' ? 'projectInvite' : 'message',
+        meta: {
+            inviteToken: raw.invite_token || raw.inviteToken || '',
+            inviteStatus: raw.invite_status || raw.inviteStatus || '',
+            projectId: raw.project_id || raw.projectId || null,
+            projectTitle: raw.project_title || raw.projectTitle || '',
+        },
+        read: Boolean(raw.read),
+        starred: Boolean(raw.starred),
+        createdAt: raw.created_at || raw.createdAt || new Date().toISOString(),
+        serverBacked: true,
     };
 }

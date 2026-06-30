@@ -1,0 +1,22 @@
+CREATE TABLE app_messages (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    sender_id BIGINT NOT NULL,
+    sender_email VARCHAR(160) NOT NULL,
+    sender_name VARCHAR(160) NOT NULL,
+    recipient_email VARCHAR(160) NOT NULL,
+    subject VARCHAR(220) NOT NULL,
+    body LONGTEXT NOT NULL,
+    type VARCHAR(40) NOT NULL,
+    invite_token VARCHAR(96) NULL,
+    invite_status VARCHAR(40) NULL,
+    project_id BIGINT NULL,
+    project_title VARCHAR(220) NULL,
+    read_flag BOOLEAN NOT NULL,
+    starred BOOLEAN NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_app_messages_recipient (recipient_email),
+    KEY idx_app_messages_sender (sender_id),
+    KEY idx_app_messages_created_at (created_at),
+    CONSTRAINT fk_app_messages_sender FOREIGN KEY (sender_id) REFERENCES user_accounts (id)
+);

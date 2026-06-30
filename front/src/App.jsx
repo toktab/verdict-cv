@@ -12,7 +12,7 @@ import { ProjectTeamPage } from './pages/projects/ProjectTeamPage';
 import { ProjectsPage } from './pages/projects/ProjectsPage';
 import { SignalTracePage } from './pages/projects/SignalTracePage';
 import { LanguageContext, translate, useLanguage } from './i18n';
-import { apiLogin, apiRegister, apiMe, apiLogout, apiListProjects, javaApi, normaliseProject, normaliseUser } from './api';
+import { apiLogin, apiRegister, apiMe, apiLogout, apiListProjects, apiSendMessage, javaApi, normaliseProject, normaliseUser } from './api';
 import { appendMessage, createMessage } from './messageStore';
 import './styles.css';
 
@@ -613,13 +613,19 @@ function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
 
     function sendMessage(event) {
         event.preventDefault();
-        appendMessage(createMessage({
+        apiSendMessage({
+            to: draft.to.trim(),
+            subject: draft.subject,
+            body: draft.body,
+        }, localStorage.getItem('verdictUserToken') || '')
+            .then(() => window.dispatchEvent(new Event('verdictMessagesChanged')))
+            .catch(() => appendMessage(createMessage({
             from: user?.email || 'me@verdict.local',
             fromName: user?.fullName || user?.username || 'Current user',
             to: draft.to.trim(),
             subject: draft.subject,
             body: draft.body,
-        }), user);
+        }), user));
         setDraft({ to: '', subject: '', body: '' });
         setOpen(false);
     }

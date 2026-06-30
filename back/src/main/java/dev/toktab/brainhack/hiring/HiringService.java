@@ -13,6 +13,7 @@ import dev.toktab.brainhack.hiring.HiringDtos.OsintRunResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintSourceResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectResponse;
+import dev.toktab.brainhack.messaging.MessageService;
 import jakarta.transaction.Transactional;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -68,6 +69,7 @@ public class HiringService {
     private final TeamMembershipRepository membershipRepository;
     private final ProjectInviteRepository inviteRepository;
     private final CandidateReviewNoteRepository noteRepository;
+    private final MessageService messageService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(java.time.Duration.ofSeconds(4))
@@ -80,7 +82,8 @@ public class HiringService {
             OrganizationRepository organizationRepository,
             TeamMembershipRepository membershipRepository,
             ProjectInviteRepository inviteRepository,
-            CandidateReviewNoteRepository noteRepository) {
+            CandidateReviewNoteRepository noteRepository,
+            MessageService messageService) {
         this.projectRepository = projectRepository;
         this.candidateRepository = candidateRepository;
         this.mapper = mapper;
@@ -88,6 +91,7 @@ public class HiringService {
         this.membershipRepository = membershipRepository;
         this.inviteRepository = inviteRepository;
         this.noteRepository = noteRepository;
+        this.messageService = messageService;
     }
 
     @Transactional
@@ -263,7 +267,9 @@ public class HiringService {
         invite.setInvitedEmail(defaulted(request.email(), "").toLowerCase(Locale.ROOT));
         invite.setRole(defaulted(request.role(), "REVIEWER").toUpperCase(Locale.ROOT));
         invite.setToken(randomToken());
-        return mapper.invite(inviteRepository.save(invite));
+        ProjectInvite saved = inviteRepository.save(invite);
+        messageService.createInviteMessage(actor, saved.getInvitedEmail(), project.getTitle(), project.getId(), saved.getToken());
+        return mapper.invite(saved);
     }
 
     @Transactional

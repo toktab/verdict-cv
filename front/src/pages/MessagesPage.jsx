@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Mail, MailOpen, Star, X } from 'lucide-react';
-import { apiAcceptProjectInvite } from '../api';
+import { apiAcceptProjectInvite, apiListMessages, apiUpdateMessage } from '../api';
 import { messageBelongsTo, readMessages, writeMessages } from '../messageStore';
 
 export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUserToken, openCompose }) {
@@ -17,20 +17,38 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
 
     useEffect(() => {
         function refreshMessages() {
-            setMessages(readMessages(user));
+            loadMessages();
         }
+        loadMessages();
         window.addEventListener('verdictMessagesChanged', refreshMessages);
         return () => window.removeEventListener('verdictMessagesChanged', refreshMessages);
-    }, [user]);
+    }, [user, userToken]);
 
     useEffect(() => {
         setActionMessage('');
     }, [activeId]);
 
+    async function loadMessages() {
+        if (!userToken) {
+            setMessages(readMessages(user));
+            return;
+        }
+        try {
+            setMessages(await apiListMessages(userToken));
+        } catch {
+            setMessages(readMessages(user));
+        }
+    }
+
     function updateMessage(id, patch) {
         const updated = messages.map((message) => message.id === id ? { ...message, ...patch } : message);
         setMessages(updated);
-        writeMessages(updated);
+        const message = messages.find((row) => row.id === id);
+        if (message?.serverBacked) {
+            apiUpdateMessage(id, serverPatch(patch), userToken).then(loadMessages).catch(() => writeMessages(updated));
+        } else {
+            writeMessages(updated);
+        }
     }
 
     function toggleStar(id) {
@@ -147,4 +165,12 @@ function folderLabel(folder) {
     if (folder === 'sent') return 'Sent';
     if (folder === 'starred') return 'Starred';
     return 'Inbox';
+}
+
+function serverPatch(patch) {
+    const next = {};
+    if (patch.read !== undefined) next.read = patch.read;
+    if (patch.starred !== undefined) next.starred = patch.starred;
+    if (patch.meta?.inviteStatus) next.invite_status = patch.meta.inviteStatus;
+    return next;
 }
