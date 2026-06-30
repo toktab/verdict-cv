@@ -337,7 +337,7 @@ Fix notes: Added persisted prompt/completion/total token counters and estimated 
 25. Add async job progress endpoint with stages.
 Status: FIXED
 Advice: Polling full audit records is heavier than necessary. Add a compact progress resource for queued/running/completed/failed audits.
-Fix notes: Added persisted progress stage, percent, and message fields on audits, stage updates through sync/async processing, a compact GET /api/audit/{id}/progress endpoint, and MockMvc coverage for owned progress access. Commit: PENDING.
+Fix notes: Added persisted progress stage, percent, and message fields on audits, stage updates through sync/async processing, a compact GET /api/audit/{id}/progress endpoint, and MockMvc coverage for owned progress access. Commit: a60b769.
 
 26. Add cancellation for long-running audits.
 Status: TODO
