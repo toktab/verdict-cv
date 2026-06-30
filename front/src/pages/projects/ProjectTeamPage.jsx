@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Crown, Lock, Mail, Shield, Trash2, UserCog, UserPlus } from 'lucide-react';
+import { ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
 import { apiCreateProjectInvite, apiListProjectInvites, apiSendMessage } from '../../api';
 import { appendMessage, createMessage } from '../../messageStore';
 import { findProjectFromPath } from './projectPageUtils';
@@ -22,8 +22,17 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [roleOverrides, setRoleOverrides] = useState(() => readRoles(project?.id));
     const [message, setMessage] = useState('');
     const [notifyRoleChange, setNotifyRoleChange] = useState(true);
+    const [candidateSenderOpen, setCandidateSenderOpen] = useState(false);
+    const [candidateSearch, setCandidateSearch] = useState('');
+    const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
     const members = useMemo(() => buildMembers(project, user, invites, roleOverrides), [project, user, invites, roleOverrides]);
     const myRole = members.find((member) => member.email === user?.email)?.role || 'Head Admin';
+    const visibleCandidates = useMemo(() => {
+        const needle = candidateSearch.trim().toLowerCase();
+        if (!needle) return project?.candidates || [];
+        return (project?.candidates || []).filter((candidate) => [candidate.name, candidate.role, candidate.risk, candidate.state]
+            .some((value) => String(value || '').toLowerCase().includes(needle)));
+    }, [candidateSearch, project?.candidates]);
 
     useEffect(() => {
         if (!project?.id || !userToken) return;
@@ -86,6 +95,25 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         }), user));
     }
 
+    function toggleCandidateSelection(candidateId, event) {
+        setSelectedCandidateIds((current) => {
+            if (event.ctrlKey || event.metaKey) {
+                return current.includes(candidateId) ? current.filter((id) => id !== candidateId) : [...current, candidateId];
+            }
+            return [candidateId];
+        });
+    }
+
+    function composeCandidatePackage() {
+        const selected = (project.candidates || []).filter((candidate) => selectedCandidateIds.includes(candidate.id));
+        if (!selected.length) return;
+        openCompose?.({
+            subject: `Candidate package: ${project.title}`,
+            body: `Project: ${project.title}\n\n${selected.map(candidatePackageLine).join('\n\n')}`,
+        });
+        setCandidateSenderOpen(false);
+    }
+
     return (
         <div className="shell">
             <div className="pageGlow contentFadeIn" />
@@ -142,6 +170,9 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                             <span>Send message to them</span>
                         </label>
                     </div>
+                    <div className="teamShortcutBar">
+                        <button className="secondary" type="button" onClick={() => setCandidateSenderOpen(true)}><Plus size={16} /> Send Candidate(s)</button>
+                    </div>
                     <div className="teamMemberRows">
                         {members.filter((member) => member.role !== 'Kicked').map((member) => {
                             const protectedMember = isProtectedMember(member);
@@ -167,6 +198,43 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                     </div>
                 </section>
             </main>
+            {candidateSenderOpen && (
+                <div className="candidateSendBackdrop" role="dialog" aria-modal="true">
+                    <section className="candidateSendModal">
+                        <div className="modalHead">
+                            <div>
+                                <span className="eyebrow">Send Candidate(s)</span>
+                                <h2>{project.title}</h2>
+                            </div>
+                            <button type="button" onClick={() => setCandidateSenderOpen(false)}><X size={16} /> Close</button>
+                        </div>
+                        <label className="candidateSendSearch">
+                            <Search size={16} />
+                            <input value={candidateSearch} onChange={(event) => setCandidateSearch(event.target.value)} placeholder="Search candidates" />
+                        </label>
+                        <p className="mutedPanelText">Hint: Ctrl+Select to select multiple candidates.</p>
+                        <div className="candidateSendList">
+                            {visibleCandidates.map((candidate) => (
+                                <button
+                                    className={selectedCandidateIds.includes(candidate.id) ? 'active' : ''}
+                                    key={candidate.id}
+                                    type="button"
+                                    onClick={(event) => toggleCandidateSelection(candidate.id, event)}
+                                >
+                                    <strong>{candidate.name}</strong>
+                                    <span>{candidate.role}</span>
+                                    <small>Score {candidate.score}% / match {candidate.match}% / risk {candidate.risk}</small>
+                                </button>
+                            ))}
+                            {!visibleCandidates.length && <p className="mutedPanelText">No candidates match that search.</p>}
+                        </div>
+                        <div className="editActions">
+                            <button className="primary" disabled={!selectedCandidateIds.length} type="button" onClick={composeCandidatePackage}><Mail size={16} /> Open compose</button>
+                            <button className="secondary" type="button" onClick={() => setSelectedCandidateIds([])}>Clear selection</button>
+                        </div>
+                    </section>
+                </div>
+            )}
         </div>
     );
 }
@@ -220,4 +288,15 @@ function readRoles(projectId) {
 
 function writeRoles(projectId, roles) {
     localStorage.setItem(`projectRoles:${projectId}`, JSON.stringify(roles));
+}
+
+function candidatePackageLine(candidate) {
+    return [
+        `${candidate.name} / ${candidate.role}`,
+        `Score: ${candidate.score}%`,
+        `Match: ${candidate.match}%`,
+        `Risk: ${candidate.risk}`,
+        `Status: ${candidate.state}`,
+        `Summary: ${candidate.summary || 'No summary available.'}`,
+    ].join('\n');
 }
