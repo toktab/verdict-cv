@@ -330,9 +330,9 @@ Advice: Make model failures predictable and avoid hanging worker threads.
 Fix notes: Added configurable LLM connect/read timeout, max attempts, and linear backoff around model requests so failures exit predictably. Commit: 122c03c.
 
 24. Add token and cost tracking for every LLM audit.
-Status: TODO
+Status: FIXED
 Advice: Track cost per account, project, state, and model so expensive modes can be governed.
-Fix notes: Pending.
+Fix notes: Added persisted prompt/completion/total token counters and estimated USD cost to audits, exposed usage in audit detail/summary DTOs, stored usage in snapshots, extracted OpenAI-style usage metadata from LLM responses, and made pricing configurable by environment. Commit: a60ef9b.
 
 25. Add async job progress endpoint with stages.
 Status: TODO

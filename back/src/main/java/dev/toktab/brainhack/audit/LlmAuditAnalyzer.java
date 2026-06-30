@@ -3,6 +3,8 @@ package dev.toktab.brainhack.audit;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +24,8 @@ public class LlmAuditAnalyzer {
     private final String url;
     private final int maxAttempts;
     private final int backoffMillis;
+    private final BigDecimal inputCostPerMillion;
+    private final BigDecimal outputCostPerMillion;
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
 
@@ -33,6 +37,8 @@ public class LlmAuditAnalyzer {
             @Value("${verdict.llm.timeout-seconds}") int timeoutSeconds,
             @Value("${verdict.llm.max-attempts}") int maxAttempts,
             @Value("${verdict.llm.backoff-millis}") int backoffMillis,
+            @Value("${verdict.llm.input-cost-per-million}") BigDecimal inputCostPerMillion,
+            @Value("${verdict.llm.output-cost-per-million}") BigDecimal outputCostPerMillion,
             ObjectMapper objectMapper,
             RestClient.Builder restClientBuilder) {
         this.apiKey = apiKey;
@@ -41,6 +47,8 @@ public class LlmAuditAnalyzer {
         this.url = url;
         this.maxAttempts = Math.max(1, maxAttempts);
         this.backoffMillis = Math.max(0, backoffMillis);
+        this.inputCostPerMillion = inputCostPerMillion == null ? BigDecimal.ZERO : inputCostPerMillion;
+        this.outputCostPerMillion = outputCostPerMillion == null ? BigDecimal.ZERO : outputCostPerMillion;
         this.objectMapper = objectMapper;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(java.time.Duration.ofSeconds(Math.max(1, timeoutSeconds)));
@@ -67,7 +75,7 @@ public class LlmAuditAnalyzer {
                 )
         );
         String response = requestWithRetry(body);
-        return new AuditAnalysisResult("LLM_" + model, parse(response, sentences));
+        return new AuditAnalysisResult("LLM_" + model, parse(response, sentences), usage(response));
     }
 
     private String requestWithRetry(Map<String, Object> body) {
@@ -152,6 +160,29 @@ public class LlmAuditAnalyzer {
         } catch (Exception exception) {
             throw new IllegalStateException("Could not parse LLM audit response", exception);
         }
+    }
+
+    LlmUsage usage(String response) {
+        try {
+            JsonNode usage = objectMapper.readTree(response).path("usage");
+            int promptTokens = usage.path("prompt_tokens").asInt(0);
+            int completionTokens = usage.path("completion_tokens").asInt(0);
+            int totalTokens = usage.path("total_tokens").asInt(promptTokens + completionTokens);
+            BigDecimal cost = estimateCost(promptTokens, completionTokens);
+            return new LlmUsage(promptTokens, completionTokens, totalTokens, cost);
+        } catch (Exception exception) {
+            return LlmUsage.zero();
+        }
+    }
+
+    private BigDecimal estimateCost(int promptTokens, int completionTokens) {
+        BigDecimal inputCost = BigDecimal.valueOf(promptTokens)
+                .multiply(inputCostPerMillion)
+                .divide(BigDecimal.valueOf(1_000_000), 12, RoundingMode.HALF_UP);
+        BigDecimal outputCost = BigDecimal.valueOf(completionTokens)
+                .multiply(outputCostPerMillion)
+                .divide(BigDecimal.valueOf(1_000_000), 12, RoundingMode.HALF_UP);
+        return inputCost.add(outputCost).setScale(6, RoundingMode.HALF_UP);
     }
 
     private JsonNode parseModelContent(String content) throws Exception {

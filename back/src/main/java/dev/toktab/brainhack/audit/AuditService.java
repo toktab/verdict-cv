@@ -123,6 +123,7 @@ public class AuditService {
             AuditAnalysisResult analysis = analyze(audit, sentences, evidenceText);
             List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(applyUnimportantRules(audit, analysis.verdicts()), evidenceText);
             audit.setEngine(analysis.engine());
+            applyUsage(audit, analysis.usage());
             audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
             audit.setProcessingMillis(System.currentTimeMillis() - started);
             for (AnalyzedVerdict analyzed : normalizedVerdicts) {
@@ -282,7 +283,7 @@ public class AuditService {
         }
         try {
             AuditAnalysisResult llm = llmAuditAnalyzer.analyze(sentences, evidenceText);
-            return new AuditAnalysisResult(local.engine() + "+" + llm.engine(), combineStrict(local.verdicts(), llm.verdicts()));
+            return new AuditAnalysisResult(local.engine() + "+" + llm.engine(), combineStrict(local.verdicts(), llm.verdicts()), llm.usage());
         } catch (RuntimeException exception) {
             logService.recordSystem("STRICT_WAR_AI_LLM_FALLBACK", exception.getMessage());
             return new AuditAnalysisResult("LOCAL_HEURISTIC_STRICT_LLM_FALLBACK", local.verdicts());
@@ -474,6 +475,7 @@ public class AuditService {
             AuditAnalysisResult analysis = analyze(audit, sentences, audit.getEvidenceText());
             List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(applyUnimportantRules(audit, analysis.verdicts()), audit.getEvidenceText());
             audit.setEngine(analysis.engine());
+            applyUsage(audit, analysis.usage());
             audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
             audit.setProcessingMillis(System.currentTimeMillis() - started);
             audit.getVerdicts().clear();
@@ -577,6 +579,14 @@ public class AuditService {
         return verdict;
     }
 
+    private void applyUsage(Audit audit, LlmUsage usage) {
+        LlmUsage value = usage == null ? LlmUsage.zero() : usage;
+        audit.setPromptTokens(value.promptTokens());
+        audit.setCompletionTokens(value.completionTokens());
+        audit.setTotalTokens(value.totalTokens());
+        audit.setEstimatedCostUsd(value.estimatedCostUsd());
+    }
+
     private void stampVerdictProvenance(Audit audit) {
         for (Verdict verdict : audit.getVerdicts()) {
             verdict.setEngine(audit.getEngine());
@@ -596,6 +606,10 @@ public class AuditService {
             snapshotPayload.put("evidenceFingerprint", audit.getEvidenceFingerprint());
             snapshotPayload.put("score", audit.getCredibilityScore());
             snapshotPayload.put("engine", audit.getEngine());
+            snapshotPayload.put("promptTokens", audit.getPromptTokens());
+            snapshotPayload.put("completionTokens", audit.getCompletionTokens());
+            snapshotPayload.put("totalTokens", audit.getTotalTokens());
+            snapshotPayload.put("estimatedCostUsd", audit.getEstimatedCostUsd());
             snapshotPayload.put("analyzerVersion", safe(audit.getAnalyzerVersion()));
             snapshotPayload.put("promptVersion", safe(audit.getPromptVersion()));
             snapshotPayload.put("createdAt", audit.getCreatedAt().toString());

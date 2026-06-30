@@ -1,0 +1,5 @@
+ALTER TABLE audits
+    ADD COLUMN prompt_tokens INT NOT NULL DEFAULT 0,
+    ADD COLUMN completion_tokens INT NOT NULL DEFAULT 0,
+    ADD COLUMN total_tokens INT NOT NULL DEFAULT 0,
+    ADD COLUMN estimated_cost_usd DECIMAL(12, 6) NOT NULL DEFAULT 0.000000;

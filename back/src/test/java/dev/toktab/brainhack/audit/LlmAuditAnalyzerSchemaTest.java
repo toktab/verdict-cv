@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
@@ -17,6 +18,8 @@ class LlmAuditAnalyzerSchemaTest {
             1,
             1,
             0,
+            new BigDecimal("1.00"),
+            new BigDecimal("2.00"),
             new ObjectMapper(),
             RestClient.builder()
     );
@@ -48,5 +51,26 @@ class LlmAuditAnalyzerSchemaTest {
                 """;
 
         assertThrows(IllegalStateException.class, () -> analyzer.parse(response, List.of("Claim.")));
+    }
+
+    @Test
+    void extractsTokensAndEstimatesCostFromUsageBlock() {
+        String response = """
+                {
+                  "usage": {
+                    "prompt_tokens": 1500,
+                    "completion_tokens": 250,
+                    "total_tokens": 1750
+                  },
+                  "choices": [{"message": {"content": "{\\"verdicts\\":[]}"}}]
+                }
+                """;
+
+        LlmUsage usage = analyzer.usage(response);
+
+        assertEquals(1500, usage.promptTokens());
+        assertEquals(250, usage.completionTokens());
+        assertEquals(1750, usage.totalTokens());
+        assertEquals(new BigDecimal("0.002000"), usage.estimatedCostUsd());
     }
 }

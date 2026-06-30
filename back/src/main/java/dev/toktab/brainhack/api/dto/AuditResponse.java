@@ -1,6 +1,7 @@
 package dev.toktab.brainhack.api.dto;
 
 import dev.toktab.brainhack.audit.AuditStatus;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -20,6 +21,10 @@ public record AuditResponse(
         String evidenceFingerprint,
         long processingMillis,
         String engine,
+        int promptTokens,
+        int completionTokens,
+        int totalTokens,
+        BigDecimal estimatedCostUsd,
         String analyzerVersion,
         String promptVersion,
         AuditStatus status,

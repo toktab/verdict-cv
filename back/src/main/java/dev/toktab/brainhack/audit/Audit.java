@@ -16,6 +16,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -75,6 +76,18 @@ public class Audit {
 
     @Column(nullable = false, length = 40)
     private String engine;
+
+    @Column(nullable = false)
+    private int promptTokens;
+
+    @Column(nullable = false)
+    private int completionTokens;
+
+    @Column(nullable = false)
+    private int totalTokens;
+
+    @Column(nullable = false, precision = 12, scale = 6)
+    private BigDecimal estimatedCostUsd = BigDecimal.ZERO;
 
     @Column(length = 80)
     private String analyzerVersion;
@@ -241,6 +254,38 @@ public class Audit {
 
     public void setEngine(String engine) {
         this.engine = engine;
+    }
+
+    public int getPromptTokens() {
+        return promptTokens;
+    }
+
+    public void setPromptTokens(int promptTokens) {
+        this.promptTokens = promptTokens;
+    }
+
+    public int getCompletionTokens() {
+        return completionTokens;
+    }
+
+    public void setCompletionTokens(int completionTokens) {
+        this.completionTokens = completionTokens;
+    }
+
+    public int getTotalTokens() {
+        return totalTokens;
+    }
+
+    public void setTotalTokens(int totalTokens) {
+        this.totalTokens = totalTokens;
+    }
+
+    public BigDecimal getEstimatedCostUsd() {
+        return estimatedCostUsd == null ? BigDecimal.ZERO : estimatedCostUsd;
+    }
+
+    public void setEstimatedCostUsd(BigDecimal estimatedCostUsd) {
+        this.estimatedCostUsd = estimatedCostUsd == null ? BigDecimal.ZERO : estimatedCostUsd;
     }
 
     public String getAnalyzerVersion() {
