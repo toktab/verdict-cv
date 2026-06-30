@@ -4,6 +4,10 @@ import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ImportResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.InviteRequest;
+import dev.toktab.brainhack.hiring.HiringDtos.InviteResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.NoteRequest;
+import dev.toktab.brainhack.hiring.HiringDtos.NoteResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintRunRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintRunResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintSourceResponse;
@@ -16,8 +20,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,19 +64,36 @@ public class HiringService {
     private final HiringProjectRepository projectRepository;
     private final HiringCandidateRepository candidateRepository;
     private final HiringMapper mapper;
+    private final OrganizationRepository organizationRepository;
+    private final TeamMembershipRepository membershipRepository;
+    private final ProjectInviteRepository inviteRepository;
+    private final CandidateReviewNoteRepository noteRepository;
+    private final SecureRandom secureRandom = new SecureRandom();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(java.time.Duration.ofSeconds(4))
             .build();
 
-    public HiringService(HiringProjectRepository projectRepository, HiringCandidateRepository candidateRepository, HiringMapper mapper) {
+    public HiringService(
+            HiringProjectRepository projectRepository,
+            HiringCandidateRepository candidateRepository,
+            HiringMapper mapper,
+            OrganizationRepository organizationRepository,
+            TeamMembershipRepository membershipRepository,
+            ProjectInviteRepository inviteRepository,
+            CandidateReviewNoteRepository noteRepository) {
         this.projectRepository = projectRepository;
         this.candidateRepository = candidateRepository;
         this.mapper = mapper;
+        this.organizationRepository = organizationRepository;
+        this.membershipRepository = membershipRepository;
+        this.inviteRepository = inviteRepository;
+        this.noteRepository = noteRepository;
     }
 
     @Transactional
     public List<ProjectResponse> projects(UserAccount owner) {
-        return projectRepository.findByOwnerIdAndDeletedAtIsNullOrderByCreatedAtDesc(owner.getId()).stream()
+        ensureOrganization(owner);
+        return projectRepository.findAccessible(owner.getId()).stream()
                 .map(mapper::project)
                 .toList();
     }
@@ -84,6 +107,7 @@ public class HiringService {
     public ProjectResponse createProject(UserAccount owner, ProjectRequest request) {
         HiringProject project = new HiringProject();
         project.setOwner(owner);
+        project.setOrganization(ensureOrganization(owner));
         project.setTitle(defaulted(request.title(), "Untitled role"));
         project.setDepartment(defaulted(request.department(), "Hiring"));
         project.setLocation(defaulted(request.location(), "Remote"));
@@ -137,14 +161,12 @@ public class HiringService {
 
     @Transactional
     public CandidateResponse candidate(UserAccount owner, Long projectId, Long candidateId) {
-        return mapper.candidate(candidateRepository.findByIdAndProjectIdAndProjectOwnerIdAndDeletedAtIsNull(candidateId, projectId, owner.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Candidate not found")));
+        return mapper.candidate(candidateEntity(owner, projectId, candidateId));
     }
 
     @Transactional
     public CandidateResponse reanalyzeCandidate(UserAccount owner, Long projectId, Long candidateId) {
-        HiringCandidate candidate = candidateRepository.findByIdAndProjectIdAndProjectOwnerIdAndDeletedAtIsNull(candidateId, projectId, owner.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Candidate not found"));
+        HiringCandidate candidate = candidateEntity(owner, projectId, candidateId);
         HiringCandidate refreshed = buildCandidate(candidate.getProject(), candidate.getName(), candidate.getRole(), candidate.getCvText(), candidate.getResumeFilename());
         candidate.setScore(refreshed.getScore());
         candidate.setMatchScore(refreshed.getMatchScore());
@@ -162,8 +184,7 @@ public class HiringService {
 
     @Transactional
     public OsintRunResponse runOsint(UserAccount owner, Long projectId, Long candidateId, OsintRunRequest request) {
-        HiringCandidate candidate = candidateRepository.findByIdAndProjectIdAndProjectOwnerIdAndDeletedAtIsNull(candidateId, projectId, owner.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Candidate not found"));
+        HiringCandidate candidate = candidateEntity(owner, projectId, candidateId);
         String state = defaulted(request == null ? "" : request.state(), "strict-war-ai");
         if (!"strict-war-ai".equals(state)) {
             throw new IllegalArgumentException("SignalTrace OSINT is only available in WAR_AI State.");
@@ -220,10 +241,71 @@ public class HiringService {
 
     @Transactional
     public void deleteCandidate(UserAccount owner, Long projectId, Long candidateId) {
-        HiringCandidate candidate = candidateRepository.findByIdAndProjectIdAndProjectOwnerIdAndDeletedAtIsNull(candidateId, projectId, owner.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Candidate not found"));
+        HiringCandidate candidate = candidateEntity(owner, projectId, candidateId);
         candidate.setDeletedAt(Instant.now());
         candidateRepository.save(candidate);
+    }
+
+    @Transactional
+    public List<InviteResponse> invites(UserAccount actor, Long projectId) {
+        HiringProject project = projectEntity(actor, projectId);
+        requireProjectOwner(actor, project);
+        return inviteRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream().map(mapper::invite).toList();
+    }
+
+    @Transactional
+    public InviteResponse invite(UserAccount actor, Long projectId, InviteRequest request) {
+        HiringProject project = projectEntity(actor, projectId);
+        requireProjectOwner(actor, project);
+        ProjectInvite invite = new ProjectInvite();
+        invite.setProject(project);
+        invite.setInvitedBy(actor);
+        invite.setInvitedEmail(defaulted(request.email(), "").toLowerCase(Locale.ROOT));
+        invite.setRole(defaulted(request.role(), "REVIEWER").toUpperCase(Locale.ROOT));
+        invite.setToken(randomToken());
+        return mapper.invite(inviteRepository.save(invite));
+    }
+
+    @Transactional
+    public InviteResponse acceptInvite(UserAccount actor, String token) {
+        ProjectInvite invite = inviteRepository.findByTokenAndStatus(token, "PENDING")
+                .orElseThrow(() -> new IllegalArgumentException("Invite not found"));
+        if (!actor.getEmail().equalsIgnoreCase(invite.getInvitedEmail())) {
+            throw new IllegalArgumentException("Invite belongs to a different account");
+        }
+        Organization organization = invite.getProject().getOrganization();
+        if (organization == null) {
+            organization = ensureOrganization(invite.getProject().getOwner());
+            invite.getProject().setOrganization(organization);
+        }
+        if (!membershipRepository.existsByOrganizationIdAndUserId(organization.getId(), actor.getId())) {
+            TeamMembership membership = new TeamMembership();
+            membership.setOrganization(organization);
+            membership.setUser(actor);
+            membership.setRole(invite.getRole());
+            membershipRepository.save(membership);
+        }
+        invite.setStatus("ACCEPTED");
+        invite.setAcceptedAt(Instant.now());
+        return mapper.invite(inviteRepository.save(invite));
+    }
+
+    @Transactional
+    public List<NoteResponse> notes(UserAccount actor, Long projectId, Long candidateId) {
+        HiringCandidate candidate = candidateEntity(actor, projectId, candidateId);
+        return noteRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getId()).stream().map(mapper::note).toList();
+    }
+
+    @Transactional
+    public NoteResponse addNote(UserAccount actor, Long projectId, Long candidateId, NoteRequest request) {
+        HiringCandidate candidate = candidateEntity(actor, projectId, candidateId);
+        CandidateReviewNote note = new CandidateReviewNote();
+        note.setCandidate(candidate);
+        note.setAuthor(actor);
+        note.setType(defaulted(request.type(), "NOTE").toUpperCase(Locale.ROOT));
+        note.setDecision(defaulted(request.decision(), "NONE").toUpperCase(Locale.ROOT));
+        note.setBody(defaulted(request.body(), ""));
+        return mapper.note(noteRepository.save(note));
     }
 
     private HiringCandidate buildCandidate(HiringProject project, String name, String role, String cvText, String filename) {
@@ -625,8 +707,41 @@ public class HiringService {
     }
 
     private HiringProject projectEntity(UserAccount owner, Long id) {
-        return projectRepository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner.getId())
+        return projectRepository.findAccessibleById(id, owner.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+    }
+
+    private HiringCandidate candidateEntity(UserAccount owner, Long projectId, Long candidateId) {
+        return candidateRepository.findAccessibleById(candidateId, projectId, owner.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Candidate not found"));
+    }
+
+    private Organization ensureOrganization(UserAccount owner) {
+        return organizationRepository.findFirstByOwnerIdOrderByCreatedAtAsc(owner.getId())
+                .orElseGet(() -> {
+                    Organization organization = new Organization();
+                    organization.setOwner(owner);
+                    organization.setName(defaulted(owner.getOrganization(), owner.getUsername() + " Team"));
+                    Organization saved = organizationRepository.save(organization);
+                    TeamMembership membership = new TeamMembership();
+                    membership.setOrganization(saved);
+                    membership.setUser(owner);
+                    membership.setRole("ORGANIZATION_ADMIN");
+                    membershipRepository.save(membership);
+                    return saved;
+                });
+    }
+
+    private void requireProjectOwner(UserAccount actor, HiringProject project) {
+        if (!project.getOwner().getId().equals(actor.getId())) {
+            throw new IllegalArgumentException("Project owner permissions required");
+        }
+    }
+
+    private String randomToken() {
+        byte[] bytes = new byte[36];
+        secureRandom.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     private List<ProjectRequest> sampleProjects() {

@@ -5,6 +5,7 @@ import dev.toktab.brainhack.account.UserSessionService;
 import dev.toktab.brainhack.api.dto.AuditRunRequest;
 import dev.toktab.brainhack.api.dto.LoginRequest;
 import dev.toktab.brainhack.api.dto.RegisterRequest;
+import dev.toktab.brainhack.api.dto.VerdictOverrideRequest;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +45,20 @@ class ServiceLayerBehaviorTest {
     }
 
     @Test
+    void refreshRotatesAccessTokenAndRevokesOldSession() {
+        UserSessionService.SessionResult registered = sessionService.register(user("refresh_user", "refresh@example.com"));
+
+        UserSessionService.SessionResult refreshed = sessionService.refresh(registered.refreshToken(), new MockHttpServletRequest());
+
+        assertThat(refreshed.token()).isNotBlank().isNotEqualTo(registered.token());
+        assertThat(refreshed.refreshToken()).isNotBlank().isNotEqualTo(registered.refreshToken());
+        assertThat(sessionService.me(refreshed.token()).getEmail()).isEqualTo("refresh@example.com");
+        assertThatThrownBy(() -> sessionService.me(registered.token()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("User authentication required");
+    }
+
+    @Test
     void auditOwnershipPreventsOtherUsersFromOpeningAudit() {
         UserAccount owner = sessionService.register(user("owner_user", "owner@example.com")).account();
         UserAccount other = sessionService.register(user("other_user", "other@example.com")).account();
@@ -68,6 +83,51 @@ class ServiceLayerBehaviorTest {
                     assertThat(verdict.getSentence()).contains("Spring Boot");
                     assertThat(verdict.getEvidencePointer()).containsIgnoringCase("Spring Boot");
                 });
+    }
+
+    @Test
+    void manualOverrideCreatesSnapshotAndVerdictProvenance() {
+        UserAccount owner = sessionService.register(user("override_user", "override@example.com")).account();
+        Audit audit = auditService.run(auditRequest(), new MockHttpServletRequest(), owner);
+        Verdict target = audit.getVerdicts().stream()
+                .filter(verdict -> verdict.getStatus() == VerdictStatus.UNSUPPORTED || verdict.getStatus() == VerdictStatus.STRETCHED)
+                .findFirst()
+                .orElse(audit.getVerdicts().get(0));
+
+        Audit overridden = auditService.overrideVerdict(audit.getId(), target.getId(), owner,
+                new VerdictOverrideRequest(VerdictStatus.SUPPORTED, "Reviewer verified this claim from a reference call."));
+
+        assertThat(overridden.getVerdicts())
+                .filteredOn(verdict -> verdict.getId().equals(target.getId()))
+                .singleElement()
+                .satisfies(verdict -> {
+                    assertThat(verdict.getStatus()).isEqualTo(VerdictStatus.SUPPORTED);
+                    assertThat(verdict.getManualOverrideReason()).contains("Reviewer verified");
+                    assertThat(verdict.getPromptVersion()).isNotBlank();
+                    assertThat(verdict.getAnalyzerVersion()).isNotBlank();
+                });
+        assertThat(auditService.latestSnapshot(audit.getId(), owner).payloadJson()).contains("Reviewer verified");
+    }
+
+    @Test
+    void fixedCvJobPromptRegressionKeepsExpectedStatusDistribution() {
+        UserAccount owner = sessionService.register(user("prompt_regression_user", "prompt-regression@example.com")).account();
+        Audit audit = auditService.run(new AuditRunRequest(
+                "Fixed CV",
+                "Fixed Job",
+                "Built REST APIs with Spring Boot and MySQL. Expert in Kubernetes production recovery. Led payment migration.",
+                "The candidate built REST APIs with Spring Boot and MySQL. The reference does not mention Kubernetes or payment migration leadership.",
+                "cv",
+                "default-cv",
+                "war"), new MockHttpServletRequest(), owner);
+
+        assertThat(audit.getSupportedCount()).isGreaterThanOrEqualTo(1);
+        assertThat(audit.getStretchedCount() + audit.getUnsupportedCount()).isGreaterThanOrEqualTo(1);
+        assertThat(audit.getVerdicts()).allSatisfy(verdict -> {
+            assertThat(verdict.getEngine()).isNotBlank();
+            assertThat(verdict.getAnalyzerVersion()).isNotBlank();
+            assertThat(verdict.getPromptVersion()).isNotBlank();
+        });
     }
 
     @Test

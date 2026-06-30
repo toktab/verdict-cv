@@ -52,6 +52,18 @@ public class Verdict {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String evidencePointer;
 
+    @Column(length = 80)
+    private String engine;
+
+    @Column(length = 80)
+    private String analyzerVersion;
+
+    @Column(length = 80)
+    private String promptVersion;
+
+    @Column(length = 120)
+    private String manualOverrideReason;
+
     public Long getId() {
         return id;
     }
@@ -122,5 +134,37 @@ public class Verdict {
 
     public void setEvidencePointer(String evidencePointer) {
         this.evidencePointer = evidencePointer;
+    }
+
+    public String getEngine() {
+        return engine;
+    }
+
+    public void setEngine(String engine) {
+        this.engine = engine;
+    }
+
+    public String getAnalyzerVersion() {
+        return analyzerVersion;
+    }
+
+    public void setAnalyzerVersion(String analyzerVersion) {
+        this.analyzerVersion = analyzerVersion;
+    }
+
+    public String getPromptVersion() {
+        return promptVersion;
+    }
+
+    public void setPromptVersion(String promptVersion) {
+        this.promptVersion = promptVersion;
+    }
+
+    public String getManualOverrideReason() {
+        return manualOverrideReason;
+    }
+
+    public void setManualOverrideReason(String manualOverrideReason) {
+        this.manualOverrideReason = manualOverrideReason;
     }
 }

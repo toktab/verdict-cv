@@ -35,6 +35,10 @@ public class HiringProject {
     @JoinColumn(name = "owner_id", nullable = false)
     private UserAccount owner;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
+
     @Column(nullable = false, length = 180)
     private String title;
 
@@ -69,6 +73,8 @@ public class HiringProject {
     public Long getId() { return id; }
     public UserAccount getOwner() { return owner; }
     public void setOwner(UserAccount owner) { this.owner = owner; }
+    public Organization getOrganization() { return organization; }
+    public void setOrganization(Organization organization) { this.organization = organization; }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getDepartment() { return department; }

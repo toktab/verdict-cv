@@ -265,54 +265,54 @@ Advice: Apply lightweight server-side limits to login, registration, audit runs,
 Fix notes: Added an in-memory rate-limit filter for auth, audit/OSINT, and admin endpoint families with configurable limits.
 
 11. Store tokens with expiration, device metadata, revocation reason, and last-used timestamp.
-Status: TODO
+Status: FIXED
 Advice: Session records should be operationally useful, not only authentication blobs.
-Fix notes: Pending.
+Fix notes: Added access/refresh session metadata with access expiration, refresh expiration, user agent, IP address, last-used timestamp, revoked timestamp, and revocation reason.
 
 12. Add refresh-token style sessions instead of long-lived raw bearer tokens.
-Status: TODO
+Status: FIXED
 Advice: Short-lived access tokens and revocable refresh sessions are safer once the app has real users.
-Fix notes: Pending.
+Fix notes: Added short-lived access tokens, rotating refresh tokens, /api/auth/refresh, and logout/refresh revocation instead of deleting session rows.
 
 13. Add role-based authorization.
-Status: TODO
+Status: FIXED
 Advice: Add user, reviewer, organization admin, and system admin roles instead of treating all authenticated users equally.
-Fix notes: Pending.
+Fix notes: Added AccountRole normalization for USER, REVIEWER, ORGANIZATION_ADMIN, and SYSTEM_ADMIN, with user accounts now storing canonical account roles.
 
 14. Add organization/team isolation.
-Status: TODO
+Status: FIXED
 Advice: Projects should belong to organizations or teams, not only individual accounts, so hiring review can be collaborative.
-Fix notes: Pending.
+Fix notes: Added organizations, team memberships, organization ownership on hiring projects, and project access queries scoped to owner or organization membership.
 
 15. Add invite-based team collaboration.
-Status: TODO
+Status: FIXED
 Advice: Let an owner invite reviewers into a project with limited permissions.
-Fix notes: Pending.
+Fix notes: Added project invite persistence plus endpoints to create, list, and accept reviewer invites, granting organization membership after email-matched acceptance.
 
 16. Add candidate reviewer notes and decision history.
-Status: TODO
+Status: FIXED
 Advice: Human judgment should be stored beside automated evidence, with timestamps and authors.
-Fix notes: Pending.
+Fix notes: Added candidate review notes with type, decision, author, body, and timestamp, exposed through candidate note list/create endpoints.
 
 17. Add manual claim override with audit trail.
-Status: TODO
+Status: FIXED
 Advice: Recruiters need to mark a claim verified, rejected, or needs evidence, but every override must preserve who changed it and why.
-Fix notes: Pending.
+Fix notes: Added verdict override endpoint and audit-trail table recording previous status, new status, reviewer, reason, and timestamp while updating verdict counts.
 
 18. Add immutable audit snapshots.
-Status: TODO
+Status: FIXED
 Advice: Exported reports should be reproducible later even if templates, prompts, or candidate data change.
-Fix notes: Pending.
+Fix notes: Added immutable audit snapshot records with serialized payload, owner, audit link, timestamp, and fingerprint on audit completion and manual override.
 
 19. Add model and prompt version tracking per verdict.
-Status: TODO
+Status: FIXED
 Advice: Per-audit metadata is good, but verdict-level provenance becomes important when mixed engines or retries are introduced.
-Fix notes: Pending.
+Fix notes: Added engine, analyzer version, and prompt version columns to verdicts and included them in verdict API responses and snapshots.
 
 20. Add prompt regression tests using fixed CV/job examples.
-Status: TODO
+Status: FIXED
 Advice: Keep a small test corpus that catches prompt drift and status distribution changes before demos or releases.
-Fix notes: Pending.
+Fix notes: Added fixed CV/job regression coverage asserting expected status distribution and per-verdict provenance.
 
 21. Add an evaluation dataset for verdict accuracy.
 Status: TODO

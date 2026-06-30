@@ -6,6 +6,10 @@ import dev.toktab.brainhack.account.UserSessionService;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ImportResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.InviteRequest;
+import dev.toktab.brainhack.hiring.HiringDtos.InviteResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.NoteRequest;
+import dev.toktab.brainhack.hiring.HiringDtos.NoteResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintRunRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintRunResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectRequest;
@@ -120,6 +124,45 @@ public class HiringController {
                                 @PathVariable Long projectId,
                                 @PathVariable Long candidateId) {
         hiringService.deleteCandidate(owner(authorization, legacyToken), projectId, candidateId);
+    }
+
+    @GetMapping("/{projectId}/invites")
+    public List<InviteResponse> invites(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                        @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                        @PathVariable Long projectId) {
+        return hiringService.invites(owner(authorization, legacyToken), projectId);
+    }
+
+    @PostMapping("/{projectId}/invites")
+    public InviteResponse invite(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                 @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                 @PathVariable Long projectId,
+                                 @Valid @RequestBody InviteRequest request) {
+        return hiringService.invite(owner(authorization, legacyToken), projectId, request);
+    }
+
+    @PostMapping("/invites/accept")
+    public InviteResponse acceptInvite(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                       @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                       @RequestParam String token) {
+        return hiringService.acceptInvite(owner(authorization, legacyToken), token);
+    }
+
+    @GetMapping("/{projectId}/candidates/{candidateId}/notes")
+    public List<NoteResponse> notes(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                    @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                    @PathVariable Long projectId,
+                                    @PathVariable Long candidateId) {
+        return hiringService.notes(owner(authorization, legacyToken), projectId, candidateId);
+    }
+
+    @PostMapping("/{projectId}/candidates/{candidateId}/notes")
+    public NoteResponse addNote(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                @PathVariable Long projectId,
+                                @PathVariable Long candidateId,
+                                @Valid @RequestBody NoteRequest request) {
+        return hiringService.addNote(owner(authorization, legacyToken), projectId, candidateId, request);
     }
 
     private UserAccount owner(String authorization, String legacyToken) {

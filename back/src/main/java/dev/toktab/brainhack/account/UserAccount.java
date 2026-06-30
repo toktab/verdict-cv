@@ -122,15 +122,17 @@ public class UserAccount {
 
     public void setRole(String role) {
         this.role = role;
-        this.accountRole = role;
+        if (this.accountRole == null || this.accountRole.isBlank()) {
+            this.accountRole = AccountRole.USER.name();
+        }
     }
 
     public String getAccountRole() {
-        return accountRole;
+        return AccountRole.from(accountRole).name();
     }
 
     public void setAccountRole(String accountRole) {
-        this.accountRole = accountRole;
+        this.accountRole = AccountRole.from(accountRole).name();
     }
 
     public String getPasswordHash() {

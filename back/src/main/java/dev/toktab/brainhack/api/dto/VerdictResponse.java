@@ -11,6 +11,10 @@ public record VerdictResponse(
         Confidence confidence,
         String reasonCategory,
         String explanation,
-        String evidencePointer
+        String evidencePointer,
+        String engine,
+        String analyzerVersion,
+        String promptVersion,
+        String manualOverrideReason
 ) {
 }

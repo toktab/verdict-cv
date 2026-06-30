@@ -5,10 +5,12 @@ import dev.toktab.brainhack.account.UserTokenService;
 import dev.toktab.brainhack.account.AuthTokenResolver;
 import dev.toktab.brainhack.api.dto.AuditResponse;
 import dev.toktab.brainhack.api.dto.AuditRunRequest;
+import dev.toktab.brainhack.api.dto.AuditSnapshotResponse;
 import dev.toktab.brainhack.api.dto.AuditSummaryResponse;
 import dev.toktab.brainhack.api.dto.AuditTemplateRequest;
 import dev.toktab.brainhack.api.dto.AuditTemplateResponse;
 import dev.toktab.brainhack.api.dto.CheckStateResponse;
+import dev.toktab.brainhack.api.dto.VerdictOverrideRequest;
 import dev.toktab.brainhack.audit.AuditMapper;
 import dev.toktab.brainhack.audit.AuditService;
 import dev.toktab.brainhack.audit.AuditTemplateService;
@@ -90,6 +92,23 @@ public class AuditController {
     public AuditSummaryResponse summary(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorization, @RequestHeader(value = "X-User-Token", required = false) String token) {
         UserAccount user = userTokenService.requireUser(tokenResolver.userToken(authorization, token, null));
         return auditMapper.toSummary(auditService.getForUser(id, user));
+    }
+
+    @GetMapping("/{id}/snapshot")
+    public AuditSnapshotResponse snapshot(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorization, @RequestHeader(value = "X-User-Token", required = false) String token) {
+        UserAccount user = userTokenService.requireUser(tokenResolver.userToken(authorization, token, null));
+        return auditService.latestSnapshot(id, user);
+    }
+
+    @PostMapping("/{id}/verdicts/{verdictId}/override")
+    public AuditResponse overrideVerdict(
+            @PathVariable Long id,
+            @PathVariable Long verdictId,
+            @Valid @RequestBody VerdictOverrideRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "X-User-Token", required = false) String token) {
+        UserAccount user = userTokenService.requireUser(tokenResolver.userToken(authorization, token, null));
+        return auditMapper.toResponse(auditService.overrideVerdict(id, verdictId, user, request));
     }
 
     @GetMapping("/history")

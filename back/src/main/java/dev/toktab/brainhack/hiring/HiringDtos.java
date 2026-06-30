@@ -59,6 +59,7 @@ public class HiringDtos {
 
     public record ProjectResponse(
             Long id,
+            @JsonProperty("organization_id") Long organizationId,
             String title,
             String department,
             String location,
@@ -95,6 +96,42 @@ public class HiringDtos {
             String summary,
             List<List<String>> claims,
             @JsonProperty("audit_phrase_matches") List<Map<String, Object>> auditPhraseMatches
+    ) {
+    }
+
+    public record InviteRequest(
+            @NotBlank @Size(max = 160) String email,
+            @Size(max = 80) String role
+    ) {
+    }
+
+    public record InviteResponse(
+            Long id,
+            @JsonProperty("project_id") Long projectId,
+            String email,
+            String role,
+            String token,
+            String status,
+            @JsonProperty("created_at") Instant createdAt,
+            @JsonProperty("accepted_at") Instant acceptedAt
+    ) {
+    }
+
+    public record NoteRequest(
+            @Size(max = 40) String type,
+            @Size(max = 80) String decision,
+            @NotBlank @Size(max = 12000) String body
+    ) {
+    }
+
+    public record NoteResponse(
+            Long id,
+            String type,
+            String decision,
+            String body,
+            @JsonProperty("author_id") Long authorId,
+            @JsonProperty("author_name") String authorName,
+            @JsonProperty("created_at") Instant createdAt
     ) {
     }
 }

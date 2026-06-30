@@ -79,7 +79,11 @@ public class AuditMapper {
                 verdict.getConfidence(),
                 verdict.getReasonCategory(),
                 verdict.getExplanation(),
-                verdict.getEvidencePointer()
+                verdict.getEvidencePointer(),
+                verdict.getEngine(),
+                verdict.getAnalyzerVersion(),
+                verdict.getPromptVersion(),
+                verdict.getManualOverrideReason()
         );
     }
 }

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.InviteResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.NoteResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectResponse;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +26,7 @@ public class HiringMapper {
     public ProjectResponse project(HiringProject project) {
         return new ProjectResponse(
                 project.getId(),
+                project.getOrganization() == null ? null : project.getOrganization().getId(),
                 project.getTitle(),
                 project.getDepartment(),
                 project.getLocation(),
@@ -37,6 +40,31 @@ public class HiringMapper {
                         .filter(candidate -> candidate.getDeletedAt() == null)
                         .map(this::candidate)
                         .toList()
+        );
+    }
+
+    public InviteResponse invite(ProjectInvite invite) {
+        return new InviteResponse(
+                invite.getId(),
+                invite.getProject().getId(),
+                invite.getInvitedEmail(),
+                invite.getRole(),
+                invite.getToken(),
+                invite.getStatus(),
+                invite.getCreatedAt(),
+                invite.getAcceptedAt()
+        );
+    }
+
+    public NoteResponse note(CandidateReviewNote note) {
+        return new NoteResponse(
+                note.getId(),
+                note.getType(),
+                note.getDecision(),
+                note.getBody(),
+                note.getAuthor().getId(),
+                note.getAuthor().getFullName(),
+                note.getCreatedAt()
         );
     }
 

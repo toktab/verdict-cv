@@ -1,14 +1,19 @@
 package dev.toktab.brainhack.audit;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.api.dto.AuditRunRequest;
+import dev.toktab.brainhack.api.dto.AuditSnapshotResponse;
 import dev.toktab.brainhack.api.dto.CheckStateResponse;
+import dev.toktab.brainhack.api.dto.VerdictOverrideRequest;
 import dev.toktab.brainhack.events.RabbitEventPublisher;
 import dev.toktab.brainhack.log.AuditLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Locale;
@@ -40,6 +45,10 @@ public class AuditService {
     private final TaskExecutor auditTaskExecutor;
     private final AuditTemplateService templateService;
     private final CheckStateService checkStateService;
+    private final VerdictRepository verdictRepository;
+    private final VerdictOverrideRepository overrideRepository;
+    private final AuditSnapshotRepository snapshotRepository;
+    private final ObjectMapper objectMapper;
     private final ConcurrentMap<Long, Object> warQuotaLocks = new ConcurrentHashMap<>();
     private final int maxClaimChars;
     private final int maxEvidenceChars;
@@ -57,6 +66,10 @@ public class AuditService {
             TaskExecutor auditTaskExecutor,
             AuditTemplateService templateService,
             CheckStateService checkStateService,
+            VerdictRepository verdictRepository,
+            VerdictOverrideRepository overrideRepository,
+            AuditSnapshotRepository snapshotRepository,
+            ObjectMapper objectMapper,
             @Value("${verdict.audit.max-claim-chars}") int maxClaimChars,
             @Value("${verdict.audit.max-evidence-chars}") int maxEvidenceChars) {
         this.auditRepository = auditRepository;
@@ -70,6 +83,10 @@ public class AuditService {
         this.auditTaskExecutor = auditTaskExecutor;
         this.templateService = templateService;
         this.checkStateService = checkStateService;
+        this.verdictRepository = verdictRepository;
+        this.overrideRepository = overrideRepository;
+        this.snapshotRepository = snapshotRepository;
+        this.objectMapper = objectMapper;
         this.maxClaimChars = maxClaimChars;
         this.maxEvidenceChars = maxEvidenceChars;
     }
@@ -114,6 +131,7 @@ public class AuditService {
             countStatuses(audit);
             audit.setStatus(AuditStatus.COMPLETED);
             Audit saved = auditRepository.save(audit);
+            snapshot(saved);
             rabbitEventPublisher.publish("audit.completed", Map.of("auditId", saved.getId(), "score", saved.getCredibilityScore(), "engine", saved.getEngine()));
             String actor = owner == null ? "visitor" : owner.getUsername();
             logService.record("AUDIT_RUN", httpRequest, 200, saved.getProcessingMillis(), actor, "auditId=" + saved.getId() + "; status=" + saved.getStatus() + "; score=" + saved.getCredibilityScore() + "; engine=" + saved.getEngine());
@@ -200,6 +218,39 @@ public class AuditService {
         audit.setCredibilityScore(scoringService.score(analyzed));
         countStatuses(audit);
         return auditRepository.save(audit);
+    }
+
+    @Transactional
+    public Audit overrideVerdict(Long auditId, Long verdictId, UserAccount owner, VerdictOverrideRequest request) {
+        Audit audit = getForUser(auditId, owner);
+        Verdict verdict = audit.getVerdicts().stream()
+                .filter(row -> row.getId().equals(verdictId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Verdict not found"));
+        VerdictOverride override = new VerdictOverride();
+        override.setVerdict(verdict);
+        override.setAuthor(owner);
+        override.setPreviousStatus(verdict.getStatus());
+        override.setNewStatus(request.status());
+        override.setReason(trim(request.reason(), 12000));
+        overrideRepository.save(override);
+        verdict.setStatus(request.status());
+        verdict.setManualOverrideReason(trim(request.reason(), 120));
+        verdict.setReasonCategory("manual override");
+        verdict.setExplanation(verdict.getExplanation() + " Manual reviewer override: " + trim(request.reason(), 500));
+        verdictRepository.save(verdict);
+        countStatuses(audit);
+        Audit saved = auditRepository.save(audit);
+        snapshot(saved);
+        return saved;
+    }
+
+    @Transactional
+    public AuditSnapshotResponse latestSnapshot(Long auditId, UserAccount owner) {
+        Audit audit = getForUser(auditId, owner);
+        AuditSnapshot snapshot = snapshotRepository.findFirstByAuditIdOrderByCreatedAtDesc(audit.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Audit snapshot not found"));
+        return new AuditSnapshotResponse(snapshot.getId(), audit.getId(), snapshot.getSnapshotFingerprint(), snapshot.getPayloadJson(), snapshot.getCreatedAt());
     }
 
     private AuditAnalysisResult analyze(Audit audit, List<String> sentences, String evidenceText) {
@@ -432,6 +483,7 @@ public class AuditService {
             countStatuses(audit);
             audit.setStatus(AuditStatus.COMPLETED);
             Audit saved = auditRepository.save(audit);
+            snapshot(saved);
             rabbitEventPublisher.publish("audit.completed", Map.of("auditId", saved.getId(), "score", saved.getCredibilityScore(), "engine", saved.getEngine()));
             logService.recordSystem("AUDIT_ASYNC_COMPLETED", "auditId=" + saved.getId() + "; score=" + saved.getCredibilityScore() + "; engine=" + saved.getEngine());
         } catch (RuntimeException exception) {
@@ -523,6 +575,55 @@ public class AuditService {
         verdict.setExplanation(analyzed.explanation());
         verdict.setEvidencePointer(analyzed.evidencePointer());
         return verdict;
+    }
+
+    private void stampVerdictProvenance(Audit audit) {
+        for (Verdict verdict : audit.getVerdicts()) {
+            verdict.setEngine(audit.getEngine());
+            verdict.setAnalyzerVersion(audit.getAnalyzerVersion());
+            verdict.setPromptVersion(audit.getPromptVersion());
+        }
+    }
+
+    private void snapshot(Audit audit) {
+        stampVerdictProvenance(audit);
+        try {
+            Map<String, Object> snapshotPayload = new LinkedHashMap<>();
+            snapshotPayload.put("auditId", audit.getId());
+            snapshotPayload.put("claimTitle", audit.getClaimTitle());
+            snapshotPayload.put("evidenceTitle", audit.getEvidenceTitle());
+            snapshotPayload.put("claimFingerprint", audit.getClaimFingerprint());
+            snapshotPayload.put("evidenceFingerprint", audit.getEvidenceFingerprint());
+            snapshotPayload.put("score", audit.getCredibilityScore());
+            snapshotPayload.put("engine", audit.getEngine());
+            snapshotPayload.put("analyzerVersion", safe(audit.getAnalyzerVersion()));
+            snapshotPayload.put("promptVersion", safe(audit.getPromptVersion()));
+            snapshotPayload.put("createdAt", audit.getCreatedAt().toString());
+            snapshotPayload.put("verdicts", audit.getVerdicts().stream().map(verdict -> Map.of(
+                            "id", verdict.getId(),
+                            "sentenceIndex", verdict.getSentenceIndex(),
+                            "sentence", verdict.getSentence(),
+                            "status", verdict.getStatus().name(),
+                            "confidence", verdict.getConfidence().name(),
+                            "engine", safe(verdict.getEngine()),
+                            "analyzerVersion", safe(verdict.getAnalyzerVersion()),
+                            "promptVersion", safe(verdict.getPromptVersion()),
+                            "manualOverrideReason", safe(verdict.getManualOverrideReason())
+                    )).toList());
+            String payload = objectMapper.writeValueAsString(snapshotPayload);
+            AuditSnapshot snapshot = new AuditSnapshot();
+            snapshot.setAudit(audit);
+            snapshot.setOwner(audit.getOwner());
+            snapshot.setPayloadJson(payload);
+            snapshot.setSnapshotFingerprint(fingerprintService.sha256(payload));
+            snapshotRepository.save(snapshot);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalArgumentException("Could not create immutable audit snapshot");
+        }
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
     }
 
     private void countStatuses(Audit audit) {

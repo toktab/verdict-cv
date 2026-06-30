@@ -7,6 +7,7 @@ import dev.toktab.brainhack.account.UserSessionService;
 import dev.toktab.brainhack.account.AuthTokenResolver;
 import dev.toktab.brainhack.api.dto.AuthResponse;
 import dev.toktab.brainhack.api.dto.LoginRequest;
+import dev.toktab.brainhack.api.dto.RefreshTokenRequest;
 import dev.toktab.brainhack.api.dto.RegisterRequest;
 import dev.toktab.brainhack.api.dto.UserProfileRequest;
 import dev.toktab.brainhack.api.dto.UserResponse;
@@ -41,16 +42,23 @@ public class AuthController {
 
     @PostMapping("/register")
     public AuthResponse register(@Valid @RequestBody RegisterRequest request, HttpServletRequest httpRequest) {
-        UserSessionService.SessionResult result = sessionService.register(request);
+        UserSessionService.SessionResult result = sessionService.register(request, httpRequest);
         logService.record("USER_REGISTER", httpRequest, 200, 0, result.account().getUsername(), "userId=" + result.account().getId());
-        return new AuthResponse(result.token(), userMapper.toResponse(result.account()));
+        return response(result);
     }
 
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
-        UserSessionService.SessionResult result = sessionService.login(request);
+        UserSessionService.SessionResult result = sessionService.login(request, httpRequest);
         logService.record("USER_LOGIN", httpRequest, 200, 0, result.account().getUsername(), "userId=" + result.account().getId());
-        return new AuthResponse(result.token(), userMapper.toResponse(result.account()));
+        return response(result);
+    }
+
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request, HttpServletRequest httpRequest) {
+        UserSessionService.SessionResult result = sessionService.refresh(request.refreshToken(), httpRequest);
+        logService.record("USER_REFRESH", httpRequest, 200, 0, result.account().getUsername(), "userId=" + result.account().getId());
+        return response(result);
     }
 
     @GetMapping("/me")
@@ -77,5 +85,15 @@ public class AuthController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = "X-User-Token", required = false) String legacyToken) {
         sessionService.logout(tokenResolver.userToken(authorization, legacyToken, null));
+    }
+
+    private AuthResponse response(UserSessionService.SessionResult result) {
+        return new AuthResponse(
+                result.token(),
+                result.token(),
+                result.refreshToken(),
+                result.accessExpiresAt(),
+                result.refreshExpiresAt(),
+                userMapper.toResponse(result.account()));
     }
 }

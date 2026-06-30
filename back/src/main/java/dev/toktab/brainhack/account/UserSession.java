@@ -26,6 +26,25 @@ public class UserSession {
     @Column(nullable = false)
     private Instant expiresAt;
 
+    @Column(nullable = false, unique = true, length = 96)
+    private String refreshToken;
+
+    @Column(nullable = false)
+    private Instant refreshExpiresAt;
+
+    @Column(length = 220)
+    private String userAgent;
+
+    @Column(length = 45)
+    private String ipAddress;
+
+    private Instant lastUsedAt;
+
+    @Column(length = 120)
+    private String revocationReason;
+
+    private Instant revokedAt;
+
     public String getToken() {
         return token;
     }
@@ -56,5 +75,61 @@ public class UserSession {
 
     public void setExpiresAt(Instant expiresAt) {
         this.expiresAt = expiresAt;
+    }
+
+    public String getRefreshToken() {
+        return refreshToken;
+    }
+
+    public void setRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
+    }
+
+    public Instant getRefreshExpiresAt() {
+        return refreshExpiresAt;
+    }
+
+    public void setRefreshExpiresAt(Instant refreshExpiresAt) {
+        this.refreshExpiresAt = refreshExpiresAt;
+    }
+
+    public String getUserAgent() {
+        return userAgent;
+    }
+
+    public void setUserAgent(String userAgent) {
+        this.userAgent = userAgent;
+    }
+
+    public String getIpAddress() {
+        return ipAddress;
+    }
+
+    public void setIpAddress(String ipAddress) {
+        this.ipAddress = ipAddress;
+    }
+
+    public Instant getLastUsedAt() {
+        return lastUsedAt;
+    }
+
+    public void setLastUsedAt(Instant lastUsedAt) {
+        this.lastUsedAt = lastUsedAt;
+    }
+
+    public String getRevocationReason() {
+        return revocationReason;
+    }
+
+    public void setRevocationReason(String revocationReason) {
+        this.revocationReason = revocationReason;
+    }
+
+    public Instant getRevokedAt() {
+        return revokedAt;
+    }
+
+    public void setRevokedAt(Instant revokedAt) {
+        this.revokedAt = revokedAt;
     }
 }

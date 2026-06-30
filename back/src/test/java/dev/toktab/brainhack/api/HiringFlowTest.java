@@ -292,6 +292,66 @@ class HiringFlowTest {
     }
 
     @Test
+    void projectInvitesGrantTeamAccessAndReviewerNotesKeepDecisionHistory() throws Exception {
+        String ownerToken = register("invite_owner");
+        String reviewerEmail = "reviewer_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10) + "@example.com";
+        String reviewerToken = registerWithEmail("invite_reviewer", reviewerEmail);
+        long projectId = createProject(ownerToken, "Shared Role", "Requirements:\n- Java", "[\"Java\"]");
+
+        MvcResult invite = mockMvc.perform(post("/api/projects/" + projectId + "/invites")
+                        .header("X-User-Token", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email":%s,
+                                  "role":"REVIEWER"
+                                }
+                                """.formatted(objectMapper.writeValueAsString(reviewerEmail))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andReturn();
+        String inviteToken = objectMapper.readTree(invite.getResponse().getContentAsString()).get("token").asText();
+
+        mockMvc.perform(post("/api/projects/invites/accept")
+                        .header("X-User-Token", reviewerToken)
+                        .param("token", inviteToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACCEPTED"));
+
+        MvcResult candidate = mockMvc.perform(post("/api/projects/" + projectId + "/candidates")
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name":"Shared Candidate",
+                                  "role":"Engineer",
+                                  "cv_text":"Java and Spring Boot"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        long candidateId = objectMapper.readTree(candidate.getResponse().getContentAsString()).get("id").asLong();
+
+        mockMvc.perform(post("/api/projects/" + projectId + "/candidates/" + candidateId + "/notes")
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "type":"DECISION",
+                                  "decision":"INTERVIEW",
+                                  "body":"Move forward after manual reviewer check."
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.decision").value("INTERVIEW"));
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/candidates/" + candidateId + "/notes")
+                        .header("X-User-Token", ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].body").value(containsString("Move forward")));
+    }
+
+    @Test
     void signalTraceOnlyRunsForStrictWarAiAndReturnsExtractedEvidence() throws Exception {
         String token = register("hiring_osint");
         long projectId = createProject(token, "OSINT Role", "Requirements:\n- GitHub portfolio", "[\"GitHub portfolio\"]");
@@ -331,20 +391,25 @@ class HiringFlowTest {
 
     private String register(String label) throws Exception {
         String username = label + "_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        return registerWithEmail(username, username + "@example.com");
+    }
+
+    private String registerWithEmail(String label, String email) throws Exception {
+        String username = label + "_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
         MvcResult result = mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "fullName":"Hiring Test User",
                                   "username":"%s",
-                                  "email":"%s@example.com",
+                                  "email":"%s",
                                   "country":"Georgia",
                                   "address":"Test address",
                                   "organization":"QA",
                                   "role":"Tester",
                                   "password":"password123"
                                 }
-                                """.formatted(username, username)))
+                                """.formatted(username, email)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token", not(blankOrNullString())))
                 .andReturn();
