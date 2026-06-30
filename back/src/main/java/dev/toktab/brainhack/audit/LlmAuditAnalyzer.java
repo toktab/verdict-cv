@@ -82,31 +82,72 @@ public class LlmAuditAnalyzer {
         return builder.toString();
     }
 
-    private List<AnalyzedVerdict> parse(String response, List<String> originalSentences) {
+    List<AnalyzedVerdict> parse(String response, List<String> originalSentences) {
         try {
             JsonNode root = objectMapper.readTree(response);
             String content = root.at("/choices/0/message/content").asText();
-            JsonNode verdicts = objectMapper.readTree(content).path("verdicts");
+            JsonNode verdicts = parseModelContent(content).path("verdicts");
+            if (!verdicts.isArray()) {
+                throw new IllegalStateException("LLM response did not contain verdicts array");
+            }
             List<Map<String, Object>> rows = verdicts.isArray()
                     ? objectMapper.convertValue(verdicts, new TypeReference<>() {})
                     : List.of();
+            if (rows.isEmpty() && !originalSentences.isEmpty()) {
+                throw new IllegalStateException("LLM response verdicts array was empty");
+            }
             List<AnalyzedVerdict> parsed = fallbackVerdicts(originalSentences);
             for (Map<String, Object> row : rows) {
                 int index = boundedIndex(row.get("sentenceIndex"), originalSentences.size());
-                parsed.set(index, new AnalyzedVerdict(
-                        index,
-                        string(row.get("sentence"), originalSentences.get(index)),
-                        verdictStatus(row.get("status")),
-                        confidence(row.get("confidence")),
-                        string(row.get("reasonCategory"), "model judgment"),
-                        string(row.get("explanation"), "The model did not provide a detailed explanation."),
-                        string(row.get("evidencePointer"), "No evidence found.")
-                ));
+                if (validRow(row, originalSentences.size())) {
+                    parsed.set(index, new AnalyzedVerdict(
+                            index,
+                            originalSentences.get(index),
+                            verdictStatus(row.get("status")),
+                            confidence(row.get("confidence")),
+                            string(row.get("reasonCategory"), "model judgment"),
+                            string(row.get("explanation"), "The model did not provide a detailed explanation."),
+                            string(row.get("evidencePointer"), "No evidence found.")
+                    ));
+                }
             }
             return parsed;
         } catch (Exception exception) {
             throw new IllegalStateException("Could not parse LLM audit response", exception);
         }
+    }
+
+    private JsonNode parseModelContent(String content) throws Exception {
+        try {
+            return objectMapper.readTree(content);
+        } catch (Exception ignored) {
+            return objectMapper.readTree(repairJsonObject(content));
+        }
+    }
+
+    private String repairJsonObject(String content) {
+        String cleaned = content == null ? "" : content.trim();
+        if (cleaned.startsWith("```")) {
+            cleaned = cleaned.replaceFirst("^```(?:json)?\\s*", "").replaceFirst("\\s*```$", "");
+        }
+        int start = cleaned.indexOf('{');
+        int end = cleaned.lastIndexOf('}');
+        if (start < 0 || end <= start) {
+            throw new IllegalStateException("LLM response did not contain a JSON object");
+        }
+        return cleaned.substring(start, end + 1);
+    }
+
+    private boolean validRow(Map<String, Object> row, int sentenceCount) {
+        if (row == null || sentenceCount <= 0) {
+            return false;
+        }
+        int index = boundedIndex(row.get("sentenceIndex"), sentenceCount);
+        return index >= 0
+                && row.containsKey("status")
+                && row.containsKey("confidence")
+                && !string(row.get("explanation"), "").isBlank()
+                && !string(row.get("evidencePointer"), "").isBlank();
     }
 
     private List<AnalyzedVerdict> fallbackVerdicts(List<String> originalSentences) {
