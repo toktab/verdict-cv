@@ -131,6 +131,7 @@ public class HiringDtos {
             String body,
             @JsonProperty("author_id") Long authorId,
             @JsonProperty("author_name") String authorName,
+            @JsonProperty("author_email") String authorEmail,
             @JsonProperty("created_at") Instant createdAt
     ) {
     }

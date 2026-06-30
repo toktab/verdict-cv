@@ -2681,6 +2681,28 @@ mark {
     color: var(--muted);
 }
 
+.reviewNoteList article.positive {
+    border-color: rgba(34, 197, 94, 0.38);
+    background: rgba(34, 197, 94, 0.08);
+}
+
+.reviewNoteList article.positive strong {
+    color: #bbf7d0;
+}
+
+.reviewNoteList article.negative {
+    border-color: rgba(248, 113, 113, 0.42);
+    background: rgba(248, 113, 113, 0.08);
+}
+
+.reviewNoteList article.negative strong {
+    color: #fecaca;
+}
+
+.reviewNoteList article.neutral {
+    border-color: rgba(148, 163, 184, 0.22);
+}
+
 .mailNavButton {
     position: relative;
 }

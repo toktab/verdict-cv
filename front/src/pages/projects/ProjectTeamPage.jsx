@@ -3,13 +3,14 @@ import { ArrowRight, Crown, Mail, Shield, Trash2, UserCog, UserPlus } from 'luci
 import { apiCreateProjectInvite, apiListProjectInvites } from '../../api';
 import { findProjectFromPath } from './projectPageUtils';
 
-const ROLE_ORDER = ['Viewer', 'Reviewer', 'Screener', 'Coordinator', 'Admin'];
+const ROLE_ORDER = ['Viewer', 'Voter', 'Reviewer', 'Screener', 'Coordinator', 'Admin'];
 const ROLE_PERMISSIONS = {
     Viewer: ['canView'],
-    Reviewer: ['canView', 'canVote'],
-    Screener: ['canView', 'canVote', 'canMarkOnCheck'],
-    Coordinator: ['canView', 'canVote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canViewActivityLog'],
-    Admin: ['canView', 'canVote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canManageMembers', 'canMessage', 'canViewActivityLog'],
+    Voter: ['canView', 'canVote'],
+    Reviewer: ['canView', 'canVote', 'canAddNote'],
+    Screener: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck'],
+    Coordinator: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canViewActivityLog'],
+    Admin: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canManageMembers', 'canMessage', 'canViewActivityLog'],
 };
 
 export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [] }) {
@@ -132,7 +133,7 @@ function buildMembers(project, user, invites, overrides) {
         rows.push({
             name: invite.email?.split('@')[0] || 'Reviewer',
             email: invite.email,
-            role: overrides[invite.email] || (invite.status === 'ACCEPTED' ? 'Reviewer' : 'Viewer'),
+            role: overrides[invite.email] || (invite.status === 'ACCEPTED' ? 'Voter' : 'Viewer'),
         });
     }
     return rows;
@@ -140,9 +141,10 @@ function buildMembers(project, user, invites, overrides) {
 
 function roleDescription(role) {
     if (role === 'Admin') return 'Can manage members, send messages, vote, and change the full candidate pipeline.';
-    if (role === 'Coordinator') return 'Can vote, move candidates through interview and hire/close decisions, and view activity.';
-    if (role === 'Screener') return 'Can vote and move candidates into OnCheck.';
-    if (role === 'Reviewer') return 'Can view candidates and vote.';
+    if (role === 'Coordinator') return 'Can add notes, vote, move candidates through interview and hire/close decisions, and view activity.';
+    if (role === 'Screener') return 'Can add notes, vote, and move candidates into OnCheck.';
+    if (role === 'Reviewer') return 'Can add candidate notes and vote.';
+    if (role === 'Voter') return 'Can upvote, downvote, star, and score candidates, but cannot add notes.';
     return 'Can view project and candidates only.';
 }
 

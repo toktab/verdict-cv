@@ -64,6 +64,7 @@ public class HiringMapper {
                 note.getBody(),
                 note.getAuthor().getId(),
                 note.getAuthor().getFullName(),
+                note.getAuthor().getEmail(),
                 note.getCreatedAt()
         );
     }

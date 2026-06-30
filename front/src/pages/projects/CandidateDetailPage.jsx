@@ -101,6 +101,9 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const voteStats = voteSummary(voteRow);
     const myVoteKey = user?.email || user?.username || 'me';
     const pipelineStatus = candidateStatuses[activeCandidate.id] || 'Unreviewed';
+    const projectRole = currentProjectRole(activeProject?.id, user);
+    const canVote = hasPermission(projectRole, 'canVote');
+    const canAddNote = hasPermission(projectRole, 'canAddNote');
 
     function selectAnalysisState(stateId) {
         setActiveStateId(stateId);
@@ -132,6 +135,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
 
     async function addReviewerNote(event) {
         event.preventDefault();
+        if (!canAddNote) return;
         if (!noteBody.trim()) return;
         setNoteBusy(true);
         setNoteMessage('');
@@ -152,6 +156,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     }
 
     function saveVote(mutator) {
+        if (!canVote) return;
         const next = { ...candidateVotes };
         const row = {
             upvotes: {},
@@ -190,6 +195,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     }
 
     function changePipelineStatus(status) {
+        if (!canSetStatus(projectRole, status)) return;
         const next = { ...candidateStatuses, [activeCandidate.id]: status };
         setCandidateStatuses(next);
         localStorage.setItem(`candidateStatuses:${activeProject.id}`, JSON.stringify(next));
@@ -269,9 +275,9 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                                 </select>
                             </label>
                             <div className="teamActionRow">
-                                <button className="primary" type="button" onClick={upvote}><ThumbsUp size={16} /> Upvote</button>
-                                <button className="secondary" type="button" onClick={downvote}><ThumbsDown size={16} /> Downvote</button>
-                                <button className="secondary" type="button" onClick={toggleStar}><Star size={16} /> {voteRow.stars?.[myVoteKey] ? 'Unstar' : 'Star'}</button>
+                                <button className="primary" disabled={!canVote} type="button" onClick={upvote}><ThumbsUp size={16} /> Upvote</button>
+                                <button className="secondary" disabled={!canVote} type="button" onClick={downvote}><ThumbsDown size={16} /> Downvote</button>
+                                <button className="secondary" disabled={!canVote} type="button" onClick={toggleStar}><Star size={16} /> {voteRow.stars?.[myVoteKey] ? 'Unstar' : 'Star'}</button>
                             </div>
                         </article>
                         <article>
@@ -282,7 +288,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                                     {['Unreviewed', 'OnCheck', 'OnInterview', 'Hired', 'Closed'].map((status) => <option key={status}>{status}</option>)}
                                 </select>
                             </label>
-                            <small>Reviewer+: vote. Screener+: OnCheck. Coordinator+: interview, hire, close.</small>
+                            <small>Your role: {projectRole}. Voter+: vote. Reviewer+: add notes. Screener+: OnCheck. Coordinator+: interview, hire, close.</small>
                         </article>
                     </div>
                     <div className="voteAttributionList">
@@ -299,6 +305,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         <span>{reviewNotes.length} note{reviewNotes.length === 1 ? '' : 's'}</span>
                     </div>
                     {noteMessage && <div className="inlineNotice">{noteMessage}</div>}
+                    {!canAddNote && <div className="inlineNotice">Your current role is {projectRole}. Reviewer or higher can add notes; everyone with project access can read them.</div>}
                     <form className="reviewNoteForm" onSubmit={addReviewerNote}>
                         <label>
                             Decision
@@ -313,18 +320,21 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                             Note
                             <textarea value={noteBody} onChange={(event) => setNoteBody(event.target.value)} placeholder="Write the human review decision, evidence request, or follow-up context." />
                         </label>
-                        <button className="primary" disabled={noteBusy || !noteBody.trim()} type="submit">Save note</button>
+                        <button className="primary" disabled={!canAddNote || noteBusy || !noteBody.trim()} type="submit">Save note</button>
                     </form>
                     <div className="reviewNoteList">
-                        {reviewNotes.map((note) => (
-                            <article key={note.id}>
+                        {reviewNotes.map((note) => {
+                            const noteTone = noteVoteTone(note, voteRow);
+                            return (
+                            <article className={noteTone.tone} key={note.id}>
                                 <div>
                                     <strong>{note.decision}</strong>
-                                    <small>{note.author_name || 'Reviewer'} / {formatNoteDate(note.created_at)}</small>
+                                    <small>{note.author_name || 'Reviewer'} / {formatNoteDate(note.created_at)} / {noteTone.label}</small>
                                 </div>
                                 <p>{note.body}</p>
                             </article>
-                        ))}
+                            );
+                        })}
                         {!reviewNotes.length && <p className="mutedPanelText">No reviewer decisions have been saved for this candidate yet.</p>}
                     </div>
                 </section>
@@ -734,6 +744,55 @@ function voteAttribution(row = {}) {
         ...Object.entries(row.downvotes || {}).map(([email, vote]) => `${vote.name || email}: downvote`),
         ...Object.entries(row.stars || {}).map(([email, vote]) => `${vote.name || email}: starred`),
     ];
+}
+
+function currentProjectRole(projectId, user) {
+    if (!projectId || !user) return 'Viewer';
+    try {
+        const roles = JSON.parse(localStorage.getItem(`projectRoles:${projectId}`) || '{}');
+        return roles[user.email] || roles[user.username] || 'Admin';
+    } catch {
+        return 'Admin';
+    }
+}
+
+const ROLE_PERMISSIONS = {
+    Viewer: ['canView'],
+    Voter: ['canView', 'canVote'],
+    Reviewer: ['canView', 'canVote', 'canAddNote'],
+    Screener: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck'],
+    Coordinator: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose'],
+    Admin: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canManageMembers'],
+};
+
+function hasPermission(role, permission) {
+    return (ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.Viewer).includes(permission);
+}
+
+function canSetStatus(role, status) {
+    if (status === 'Unreviewed') return hasPermission(role, 'canMarkOnCheck');
+    if (status === 'OnCheck') return hasPermission(role, 'canMarkOnCheck');
+    if (status === 'OnInterview') return hasPermission(role, 'canSetInterview');
+    if (status === 'Hired') return hasPermission(role, 'canHire');
+    if (status === 'Closed') return hasPermission(role, 'canClose');
+    return false;
+}
+
+function noteVoteTone(note, voteRow = {}) {
+    const author = note.author_email || note.authorEmail || note.author_name || note.authorName || 'Reviewer';
+    const upvote = Object.entries(voteRow.upvotes || {}).find(([email, vote]) => email === author || vote.name === author);
+    if (upvote) {
+        const score = Number(upvote[1].score || 0);
+        return {
+            tone: score >= 3 ? 'positive' : 'negative',
+            label: `voted ${score}/5`,
+        };
+    }
+    const downvote = Object.entries(voteRow.downvotes || {}).find(([email, vote]) => email === author || vote.name === author);
+    if (downvote) {
+        return { tone: 'negative', label: 'downvoted' };
+    }
+    return { tone: 'neutral', label: 'no vote attached' };
 }
 
 function candidateDecision(candidate) {
