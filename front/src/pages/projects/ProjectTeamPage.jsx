@@ -4,15 +4,17 @@ import { apiCreateProjectInvite, apiListProjectInvites, apiSendMessage } from '.
 import { appendMessage, createMessage } from '../../messageStore';
 import { findProjectFromPath } from './projectPageUtils';
 
-const ROLE_ORDER = ['Viewer', 'Voter', 'Reviewer', 'Screener', 'Coordinator', 'Admin', 'Head Admin'];
+const PERMISSION_ATOMS = ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canKickMembers', 'canPromoteMembers', 'canDemoteMembers', 'canChangePermissions', 'canMessage', 'canViewActivityLog'];
+const ROLE_ORDER = ['Viewer', 'Voter', 'Reviewer', 'Screener', 'Coordinator', 'Admin', 'Head Admin', 'Custom'];
 const ROLE_PERMISSIONS = {
     Viewer: ['canView'],
     Voter: ['canView', 'canVote'],
     Reviewer: ['canView', 'canVote', 'canAddNote'],
     Screener: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck'],
-    Coordinator: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canViewActivityLog'],
-    Admin: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canManageMembers', 'canMessage', 'canViewActivityLog'],
-    'Head Admin': ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canManageMembers', 'canMessage', 'canViewActivityLog', 'protectedAccount'],
+    Coordinator: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canKickMembers', 'canPromoteMembers', 'canDemoteMembers', 'canChangePermissions', 'canViewActivityLog'],
+    Admin: [...PERMISSION_ATOMS],
+    'Head Admin': [...PERMISSION_ATOMS, 'protectedAccount'],
+    Custom: ['canView'],
 };
 
 export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], openCompose }) {
@@ -20,6 +22,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [invites, setInvites] = useState([]);
     const [email, setEmail] = useState('');
     const [roleOverrides, setRoleOverrides] = useState(() => readRoles(project?.id));
+    const [customPermissions, setCustomPermissions] = useState(() => readCustomPermissions(project?.id));
     const [message, setMessage] = useState('');
     const [notifyRoleChange, setNotifyRoleChange] = useState(true);
     const [candidateSenderOpen, setCandidateSenderOpen] = useState(false);
@@ -27,6 +30,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
     const members = useMemo(() => buildMembers(project, user, invites, roleOverrides), [project, user, invites, roleOverrides]);
     const myRole = members.find((member) => member.email === user?.email)?.role || 'Head Admin';
+    const myPermissions = permissionsFor(myRole, user?.email, customPermissions);
     const visibleCandidates = useMemo(() => {
         const needle = candidateSearch.trim().toLowerCase();
         if (!needle) return project?.candidates || [];
@@ -41,6 +45,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
 
     useEffect(() => {
         setRoleOverrides(readRoles(project?.id));
+        setCustomPermissions(readCustomPermissions(project?.id));
     }, [project?.id]);
 
     if (!project) {
@@ -68,6 +73,11 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         const next = { ...roleOverrides, [emailAddress]: role };
         setRoleOverrides(next);
         writeRoles(project.id, next);
+        if (role === 'Custom' && !customPermissions[emailAddress]) {
+            const nextCustom = { ...customPermissions, [emailAddress]: ROLE_PERMISSIONS.Viewer };
+            setCustomPermissions(nextCustom);
+            writeCustomPermissions(project.id, nextCustom);
+        }
         sendRoleNotice(emailAddress, `Your role changed from ${previousRole} to ${role} on ${project.title}.`);
     }
 
@@ -114,6 +124,17 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         setCandidateSenderOpen(false);
     }
 
+    function toggleCustomPermission(emailAddress, permission) {
+        if (!myPermissions.includes('canChangePermissions')) return;
+        const current = customPermissions[emailAddress] || ROLE_PERMISSIONS.Viewer;
+        const nextPermissions = current.includes(permission)
+            ? current.filter((item) => item !== permission)
+            : [...current, permission];
+        const next = { ...customPermissions, [emailAddress]: nextPermissions.includes('canView') ? nextPermissions : ['canView', ...nextPermissions] };
+        setCustomPermissions(next);
+        writeCustomPermissions(project.id, next);
+    }
+
     return (
         <div className="shell">
             <div className="pageGlow contentFadeIn" />
@@ -147,7 +168,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                         <strong>{myRole}</strong>
                         <p className="mutedPanelText">{roleDescription(myRole)}</p>
                         <div className="permissionChips">
-                            {(ROLE_PERMISSIONS[myRole] || []).map((permission) => <span key={permission}>{permission}</span>)}
+                            {myPermissions.map((permission) => <span key={permission}>{permission}</span>)}
                         </div>
                     </article>
                     <article className="dashboardPanel">
@@ -176,22 +197,39 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                     <div className="teamMemberRows">
                         {members.filter((member) => member.role !== 'Kicked').map((member) => {
                             const protectedMember = isProtectedMember(member);
+                            const memberPermissions = permissionsFor(member.role, member.email, customPermissions);
                             return (
                                 <article key={member.email} className={protectedMember ? 'protectedMember' : ''}>
                                     <div>
                                         <strong>{member.name}</strong>
                                         <small>{member.email}</small>
+                                        {member.role === 'Custom' && <small>Custom permissions: {memberPermissions.length}</small>}
                                     </div>
-                                    <select value={member.role} disabled={protectedMember} onChange={(event) => setRole(member.email, event.target.value)}>
+                                    <select value={member.role} disabled={protectedMember || !myPermissions.includes('canChangePermissions')} onChange={(event) => setRole(member.email, event.target.value)}>
                                         {ROLE_ORDER.map((role) => <option key={role}>{role}</option>)}
                                     </select>
                                     <div className="teamActionRow">
-                                        <button className="secondary" type="button" onClick={() => openCompose?.({ to: member.email, subject: `Message about ${project.title}` })}><Mail size={15} /> Message</button>
-                                        <button className="secondary" type="button" disabled={protectedMember} onClick={() => setRole(member.email, promote(member.role))}><UserCog size={15} /> Promote</button>
-                                        <button className="secondary" type="button" disabled={protectedMember} onClick={() => setRole(member.email, demote(member.role))}>Demote</button>
-                                        <button className="destructive" type="button" disabled={protectedMember} onClick={() => removeMember(member.email)}><Trash2 size={15} /> Kick</button>
+                                        <button className="secondary" type="button" disabled={!myPermissions.includes('canMessage')} onClick={() => openCompose?.({ to: member.email, subject: `Message about ${project.title}` })}><Mail size={15} /> Message</button>
+                                        <button className="secondary" type="button" disabled={protectedMember || !myPermissions.includes('canPromoteMembers')} onClick={() => setRole(member.email, promote(member.role))}><UserCog size={15} /> Promote</button>
+                                        <button className="secondary" type="button" disabled={protectedMember || !myPermissions.includes('canDemoteMembers')} onClick={() => setRole(member.email, demote(member.role))}>Demote</button>
+                                        <button className="destructive" type="button" disabled={protectedMember || !myPermissions.includes('canKickMembers')} onClick={() => removeMember(member.email)}><Trash2 size={15} /> Kick</button>
                                         {protectedMember && <span className="protectedBadge"><Lock size={14} /> Protected</span>}
                                     </div>
+                                    {member.role === 'Custom' && (
+                                        <div className="customPermissionGrid">
+                                            {PERMISSION_ATOMS.map((permission) => (
+                                                <label key={permission}>
+                                                    <input
+                                                        checked={memberPermissions.includes(permission)}
+                                                        disabled={!myPermissions.includes('canChangePermissions') || permission === 'canView'}
+                                                        type="checkbox"
+                                                        onChange={() => toggleCustomPermission(member.email, permission)}
+                                                    />
+                                                    <span>{permission}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
                                 </article>
                             );
                         })}
@@ -257,6 +295,7 @@ function buildMembers(project, user, invites, overrides) {
 
 function roleDescription(role) {
     if (role === 'Head Admin') return 'Protected owner role. Cannot be edited, kicked, demoted, or promoted.';
+    if (role === 'Custom') return 'Custom permission set assigned by a Coordinator, Admin, or Head Admin.';
     if (role === 'Admin') return 'Can manage members, send messages, vote, and change the full candidate pipeline.';
     if (role === 'Coordinator') return 'Can add notes, vote, move candidates through interview and hire/close decisions, and view activity.';
     if (role === 'Screener') return 'Can add notes, vote, and move candidates into OnCheck.';
@@ -270,11 +309,13 @@ function isProtectedMember(member) {
 }
 
 function promote(role) {
-    return ROLE_ORDER[Math.min(ROLE_ORDER.length - 1, ROLE_ORDER.indexOf(role) + 1)] || 'Reviewer';
+    const promotable = ROLE_ORDER.filter((item) => item !== 'Custom');
+    return promotable[Math.min(promotable.length - 1, promotable.indexOf(role) + 1)] || 'Reviewer';
 }
 
 function demote(role) {
-    return ROLE_ORDER[Math.max(0, ROLE_ORDER.indexOf(role) - 1)] || 'Viewer';
+    const promotable = ROLE_ORDER.filter((item) => item !== 'Custom');
+    return promotable[Math.max(0, promotable.indexOf(role) - 1)] || 'Viewer';
 }
 
 function readRoles(projectId) {
@@ -288,6 +329,24 @@ function readRoles(projectId) {
 
 function writeRoles(projectId, roles) {
     localStorage.setItem(`projectRoles:${projectId}`, JSON.stringify(roles));
+}
+
+function readCustomPermissions(projectId) {
+    if (!projectId) return {};
+    try {
+        return JSON.parse(localStorage.getItem(`projectCustomPermissions:${projectId}`) || '{}');
+    } catch {
+        return {};
+    }
+}
+
+function writeCustomPermissions(projectId, permissions) {
+    localStorage.setItem(`projectCustomPermissions:${projectId}`, JSON.stringify(permissions));
+}
+
+function permissionsFor(role, email, customPermissions) {
+    if (role === 'Custom') return customPermissions[email] || ROLE_PERMISSIONS.Custom;
+    return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.Viewer;
 }
 
 function candidatePackageLine(candidate) {

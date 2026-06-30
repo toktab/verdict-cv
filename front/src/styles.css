@@ -3005,6 +3005,27 @@ mark {
     background: rgba(240, 184, 90, 0.08);
 }
 
+.customPermissionGrid {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 8px;
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+}
+
+.customPermissionGrid label {
+    min-height: 36px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--soft);
+    background: rgba(255, 255, 255, 0.035);
+}
+
 .teamActionRow {
     display: flex;
     flex-wrap: wrap;
