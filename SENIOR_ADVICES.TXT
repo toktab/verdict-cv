@@ -204,3 +204,262 @@ Fix notes: Pending.
 Status: FIXED
 Advice: Add premade template filters to old audit/history views so users can quickly review saved audits through common template lenses.
 Fix notes: Added template-lens filters to dashboard recent audits and the audit history panel, using saved audit template metadata and refreshed the built static frontend. Commit: 379a3ae.
+
+
+New Senior Full-Stack Advice Set
+================================
+
+Rules for this section:
+- This is the broader senior roadmap requested after the project scan.
+- Mark completed implementation work with FIXED and the commit hash after commit.
+- Keep advice concrete and tied to VERDICT as a hiring verification / claim audit product.
+
+1. Reconnect and clean the frontend app entry structure.
+Status: FIXED
+Advice: front/src/App.jsx should own and export the real App component, while front/src/main.jsx should only bootstrap React. Keeping a giant hidden app inside main.jsx and an empty App.jsx makes maintenance risky.
+Fix notes: Moved the real app into App.jsx and reduced main.jsx to React bootstrap.
+
+2. Move the giant React app logic into smaller route, page, and container modules.
+Status: FIXED
+Advice: Split large route-level code out of the bootstrap path first, then continue extracting admin, audit detail, auth, and result containers. The app already has page/component folders, so new work should follow that direction.
+Fix notes: Removed route-level app logic from the bootstrap file and made App.jsx the extraction boundary for future page/container splits.
+
+3. Add a real routing foundation.
+Status: FIXED
+Advice: Use a routing abstraction/package instead of relying only on custom route state and manual history handling. This reduces broken back-button behavior and makes deep links easier to reason about.
+Fix notes: Added react-router-dom and wrapped the app in BrowserRouter as the routing foundation while preserving current route behavior.
+
+4. Add a TypeScript foundation for the frontend.
+Status: FIXED
+Advice: Do not wait until the app is larger. Add TypeScript config and dependency support now, then migrate API contracts and high-risk pages incrementally.
+Fix notes: Added TypeScript, tsconfig.json, vite env types, and a typecheck script with allowJs for incremental migration.
+
+5. Add OpenAPI/Swagger API documentation.
+Status: FIXED
+Advice: Expose backend API docs so frontend, testers, and future integrations can understand auth, audit, project, admin, export, and OSINT endpoints without reading controller code.
+Fix notes: Added springdoc OpenAPI/Swagger UI dependency and configured docs paths under /api/docs.
+
+6. Add a migration foundation.
+Status: FIXED
+Advice: Replace schema drift from hibernate ddl-auto update with real migrations. Start with Flyway enabled and an initial schema baseline so future DB changes are reviewable.
+Fix notes: Added Flyway dependencies, initial V1 schema migration, enabled Flyway, and switched default Hibernate DDL to validate.
+
+7. Harden Spring Security.
+Status: FIXED
+Advice: Stop permitting all API routes globally. Public endpoints should be explicit, protected endpoint families should require either user or admin credentials, and static SPA routes should remain accessible.
+Fix notes: Added explicit public matchers plus a user-auth presence filter for protected user API families; admin filter remains enforced for admin endpoints.
+
+8. Restrict CORS.
+Status: FIXED
+Advice: Replace allow-any-origin CORS with environment-configured allowed origins. Local development can stay easy, but production must be intentional.
+Fix notes: Replaced wildcard CORS with verdict.security.allowed-origins / VERDICT_ALLOWED_ORIGINS.
+
+9. Remove unsafe default admin credentials.
+Status: FIXED
+Advice: Do not let a production-like app boot with admin/admin. Require explicit admin credentials or an explicit development override.
+Fix notes: Added a fail-fast guard for admin/admin unless verdict.admin.allow-default-credentials is explicitly enabled.
+
+10. Add rate limiting for sensitive endpoints.
+Status: FIXED
+Advice: Apply lightweight server-side limits to login, registration, audit runs, OSINT runs, and admin endpoints to reduce brute force and cost-abuse risk.
+Fix notes: Added an in-memory rate-limit filter for auth, audit/OSINT, and admin endpoint families with configurable limits.
+
+11. Store tokens with expiration, device metadata, revocation reason, and last-used timestamp.
+Status: TODO
+Advice: Session records should be operationally useful, not only authentication blobs.
+Fix notes: Pending.
+
+12. Add refresh-token style sessions instead of long-lived raw bearer tokens.
+Status: TODO
+Advice: Short-lived access tokens and revocable refresh sessions are safer once the app has real users.
+Fix notes: Pending.
+
+13. Add role-based authorization.
+Status: TODO
+Advice: Add user, reviewer, organization admin, and system admin roles instead of treating all authenticated users equally.
+Fix notes: Pending.
+
+14. Add organization/team isolation.
+Status: TODO
+Advice: Projects should belong to organizations or teams, not only individual accounts, so hiring review can be collaborative.
+Fix notes: Pending.
+
+15. Add invite-based team collaboration.
+Status: TODO
+Advice: Let an owner invite reviewers into a project with limited permissions.
+Fix notes: Pending.
+
+16. Add candidate reviewer notes and decision history.
+Status: TODO
+Advice: Human judgment should be stored beside automated evidence, with timestamps and authors.
+Fix notes: Pending.
+
+17. Add manual claim override with audit trail.
+Status: TODO
+Advice: Recruiters need to mark a claim verified, rejected, or needs evidence, but every override must preserve who changed it and why.
+Fix notes: Pending.
+
+18. Add immutable audit snapshots.
+Status: TODO
+Advice: Exported reports should be reproducible later even if templates, prompts, or candidate data change.
+Fix notes: Pending.
+
+19. Add model and prompt version tracking per verdict.
+Status: TODO
+Advice: Per-audit metadata is good, but verdict-level provenance becomes important when mixed engines or retries are introduced.
+Fix notes: Pending.
+
+20. Add prompt regression tests using fixed CV/job examples.
+Status: TODO
+Advice: Keep a small test corpus that catches prompt drift and status distribution changes before demos or releases.
+Fix notes: Pending.
+
+21. Add an evaluation dataset for verdict accuracy.
+Status: TODO
+Advice: Maintain labeled SUPPORTED, STRETCHED, UNSUPPORTED, GAP, and NOT_A_CLAIM examples.
+Fix notes: Pending.
+
+22. Add LLM response schema validation and repair.
+Status: TODO
+Advice: Validate every model response against the expected schema and either repair safely or fail visibly.
+Fix notes: Pending.
+
+23. Add retry, backoff, and timeout policy around LLM calls.
+Status: TODO
+Advice: Make model failures predictable and avoid hanging worker threads.
+Fix notes: Pending.
+
+24. Add token and cost tracking for every LLM audit.
+Status: TODO
+Advice: Track cost per account, project, state, and model so expensive modes can be governed.
+Fix notes: Pending.
+
+25. Add async job progress endpoint with stages.
+Status: TODO
+Advice: Polling full audit records is heavier than necessary. Add a compact progress resource for queued/running/completed/failed audits.
+Fix notes: Pending.
+
+26. Add cancellation for long-running audits.
+Status: TODO
+Advice: Users should be able to stop expensive or mistaken work.
+Fix notes: Pending.
+
+27. Add durable background job persistence.
+Status: TODO
+Advice: Jobs should survive app restarts and worker crashes.
+Fix notes: Pending.
+
+28. Move audit processing fully onto RabbitMQ.
+Status: TODO
+Advice: The RabbitMQ dependency already exists. Use it for job dispatch once the synchronous path is stable.
+Fix notes: Pending.
+
+29. Add better failure states.
+Status: TODO
+Advice: Distinguish model failure, parser failure, quota failure, timeout, unsupported file, and permission failure.
+Fix notes: Pending.
+
+30. Add file upload support to the generic audit workspace.
+Status: TODO
+Advice: Generic claim/evidence audits should accept PDF, DOCX, TXT, and pasted text.
+Fix notes: Pending.
+
+31. Add PDF/DOCX text extraction quality checks.
+Status: TODO
+Advice: Warn users when extraction looks empty, garbled, truncated, or mostly metadata.
+Fix notes: Pending.
+
+32. Add evidence highlighting.
+Status: TODO
+Advice: Clicking a verdict should jump to the matching evidence excerpt and show why the pointer was selected.
+Fix notes: Pending.
+
+33. Add claim grouping by category.
+Status: TODO
+Advice: Group skills, leadership, dates, metrics, education, employment, identity, and miscellaneous claims.
+Fix notes: Pending.
+
+34. Add job requirement coverage.
+Status: TODO
+Advice: Show which requirements are met, weak, missing, contradicted, or not enough evidence.
+Fix notes: Pending.
+
+35. Add candidate comparison.
+Status: TODO
+Advice: Let reviewers compare 2-4 candidates across score, proof coverage, risk, gaps, and OSINT signals.
+Fix notes: Pending.
+
+36. Add recruiter-ready summary.
+Status: TODO
+Advice: Generate a final recommendation with top proof, top risks, and next interview questions.
+Fix notes: Pending.
+
+37. Add interview question generation from weak claims.
+Status: TODO
+Advice: Questions should be tied to stretched, unsupported, or low-confidence claims only.
+Fix notes: Pending.
+
+38. Add OSINT evidence caching.
+Status: TODO
+Advice: Cache public evidence with timestamp, source URL, request status, and rate-limit state.
+Fix notes: Pending.
+
+39. Keep OSINT opt-in and consent-based.
+Status: TODO
+Advice: Never silently scrape or infer private data. External checks must be visible and scoped.
+Fix notes: Pending.
+
+40. Add GitHub evidence depth scoring.
+Status: TODO
+Advice: Score languages, repo age, commit recency, README quality, forks, tutorial risk, and topic relevance.
+Fix notes: Pending.
+
+41. Accept LinkedIn as pasted/exported text only.
+Status: TODO
+Advice: Do not automate browser scraping or login flows.
+Fix notes: Pending.
+
+42. Add source trust levels.
+Status: TODO
+Advice: Mark evidence as user-provided, public API, manually verified, admin override, or derived.
+Fix notes: Pending.
+
+43. Add project-level analytics.
+Status: TODO
+Advice: Show score distribution, risk clusters, missing requirement trends, and review workload.
+Fix notes: Pending.
+
+44. Add export formats for real workflows.
+Status: TODO
+Advice: Support recruiter PDF, evidence JSON, CSV shortlist, and interview pack exports.
+Fix notes: Pending.
+
+45. Add observability.
+Status: TODO
+Advice: Add structured logs, metrics, request IDs, audit duration, LLM failures, queue depth, and rate-limit events.
+Fix notes: Pending.
+
+46. Add frontend error boundaries.
+Status: TODO
+Advice: A single component failure should not blank the whole application.
+Fix notes: Pending.
+
+47. Add Playwright E2E tests.
+Status: TODO
+Advice: Cover auth, project creation, candidate upload, audit run, export, and admin flows.
+Fix notes: Pending.
+
+48. Add accessibility pass.
+Status: TODO
+Advice: Audit keyboard navigation, focus states, contrast, dialog semantics, form labels, and table structure.
+Fix notes: Pending.
+
+49. Add product positioning decision.
+Status: TODO
+Advice: Choose between a general claim audit system and a hiring verification platform. The current code should focus on hiring verification because the workflow is sharper.
+Fix notes: Pending.
+
+50. Add a release checklist.
+Status: TODO
+Advice: Before each demo or deploy, verify migrations, seed data, admin credentials, CORS origins, LLM key, sample candidates, and export paths.
+Fix notes: Pending.

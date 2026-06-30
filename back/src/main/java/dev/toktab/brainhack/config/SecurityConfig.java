@@ -1,6 +1,8 @@
 package dev.toktab.brainhack.config;
 
 import dev.toktab.brainhack.admin.AdminAuthFilter;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -16,22 +18,51 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 public class SecurityConfig {
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, AdminAuthFilter adminAuthFilter) throws Exception {
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            RateLimitFilter rateLimitFilter,
+            UserAuthPresenceFilter userAuthPresenceFilter,
+            AdminAuthFilter adminAuthFilter,
+            CorsConfigurationSource corsConfigurationSource) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/register",
+                                "/api/admin/login",
+                                "/api/docs/**",
+                                "/api/docs",
+                                "/api/docs/ui/**",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/api/system/**",
+                                "/api/telemetry",
+                                "/",
+                                "/index.html",
+                                "/assets/**",
+                                "/favicon.svg")
+                        .permitAll()
+                        .requestMatchers("/api/**").permitAll()
+                        .anyRequest().permitAll())
+                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(userAuthPresenceFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(adminAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 
     @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+    CorsConfigurationSource corsConfigurationSource(@Value("${verdict.security.allowed-origins:http://localhost:5173,http://localhost:8080}") String allowedOrigins) {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOriginPattern("*");
+        List.of(allowedOrigins.split(",")).stream()
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .forEach(config::addAllowedOrigin);
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
+        config.setAllowCredentials(false);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

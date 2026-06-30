@@ -18,7 +18,11 @@ public class AdminSessionService {
 
     public AdminSessionService(
             @Value("${verdict.admin.username}") String username,
-            @Value("${verdict.admin.password}") String password) {
+            @Value("${verdict.admin.password}") String password,
+            @Value("${verdict.admin.allow-default-credentials:false}") boolean allowDefaultCredentials) {
+        if (!allowDefaultCredentials && "admin".equals(username) && "admin".equals(password)) {
+            throw new IllegalStateException("Default admin credentials are disabled. Set VERDICT_ADMIN_USERNAME and VERDICT_ADMIN_PASSWORD.");
+        }
         this.username = username;
         this.passwordHash = BCrypt.hashpw(password, BCrypt.gensalt(10));
     }

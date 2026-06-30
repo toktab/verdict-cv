@@ -48,7 +48,7 @@ class AuthAuditAdminFlowTest {
         String secondToken = register("ownertwo");
 
         mockMvc.perform(get("/api/audit/history"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isUnauthorized());
 
         MvcResult auditResult = mockMvc.perform(post("/api/audit/run")
                         .header("X-User-Token", firstToken)
@@ -219,9 +219,9 @@ class AuthAuditAdminFlowTest {
         String requestId = "test-request-123";
 
         mockMvc.perform(get("/api/audit/history").header("X-Request-Id", requestId))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnauthorized())
                 .andExpect(header().string("X-Request-Id", requestId))
-                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
                 .andExpect(jsonPath("$.requestId").value(requestId));
     }
 

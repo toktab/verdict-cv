@@ -39,7 +39,7 @@ class HiringFlowTest {
     @Test
     void hiringApisRequireAuthenticationAndAcceptBearerTokens() throws Exception {
         mockMvc.perform(get("/api/projects"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("User authentication required"));
 
         String token = register("hiring_bearer");
