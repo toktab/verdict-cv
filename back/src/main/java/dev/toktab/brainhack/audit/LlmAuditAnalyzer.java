@@ -10,7 +10,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClient;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 
 @Component
 public class LlmAuditAnalyzer {
@@ -18,6 +20,8 @@ public class LlmAuditAnalyzer {
     private final String model;
     private final double temperature;
     private final String url;
+    private final int maxAttempts;
+    private final int backoffMillis;
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
 
@@ -26,14 +30,22 @@ public class LlmAuditAnalyzer {
             @Value("${verdict.llm.model}") String model,
             @Value("${verdict.llm.temperature}") double temperature,
             @Value("${verdict.llm.url}") String url,
+            @Value("${verdict.llm.timeout-seconds}") int timeoutSeconds,
+            @Value("${verdict.llm.max-attempts}") int maxAttempts,
+            @Value("${verdict.llm.backoff-millis}") int backoffMillis,
             ObjectMapper objectMapper,
             RestClient.Builder restClientBuilder) {
         this.apiKey = apiKey;
         this.model = model;
         this.temperature = temperature;
         this.url = url;
+        this.maxAttempts = Math.max(1, maxAttempts);
+        this.backoffMillis = Math.max(0, backoffMillis);
         this.objectMapper = objectMapper;
-        this.restClient = restClientBuilder.build();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(java.time.Duration.ofSeconds(Math.max(1, timeoutSeconds)));
+        requestFactory.setReadTimeout(java.time.Duration.ofSeconds(Math.max(1, timeoutSeconds)));
+        this.restClient = restClientBuilder.requestFactory(requestFactory).build();
     }
 
     public boolean configured() {
@@ -54,14 +66,39 @@ public class LlmAuditAnalyzer {
                         Map.of("role", "user", "content", prompt)
                 )
         );
-        String response = restClient.post()
-                .uri(url)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .body(String.class);
+        String response = requestWithRetry(body);
         return new AuditAnalysisResult("LLM_" + model, parse(response, sentences));
+    }
+
+    private String requestWithRetry(Map<String, Object> body) {
+        RuntimeException last = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return restClient.post()
+                        .uri(url)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(body)
+                        .retrieve()
+                        .body(String.class);
+            } catch (RestClientException exception) {
+                last = exception;
+                sleepBeforeRetry(attempt);
+            }
+        }
+        throw new IllegalStateException("LLM request failed after " + maxAttempts + " attempt(s)", last);
+    }
+
+    private void sleepBeforeRetry(int attempt) {
+        if (attempt >= maxAttempts || backoffMillis <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep((long) backoffMillis * attempt);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("LLM request retry interrupted", exception);
+        }
     }
 
     private String buildPrompt(List<String> sentences, String evidenceText) {

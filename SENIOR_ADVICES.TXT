@@ -325,9 +325,9 @@ Advice: Validate every model response against the expected schema and either rep
 Fix notes: Added LLM response schema validation, fenced/extra-text JSON repair, safe per-row fallback defaults, visible failures for missing verdict arrays, and regression tests for repaired and invalid model responses. Commit: 8275262.
 
 23. Add retry, backoff, and timeout policy around LLM calls.
-Status: TODO
+Status: FIXED
 Advice: Make model failures predictable and avoid hanging worker threads.
-Fix notes: Pending.
+Fix notes: Added configurable LLM connect/read timeout, max attempts, and linear backoff around model requests so failures exit predictably. Commit: PENDING.
 
 24. Add token and cost tracking for every LLM audit.
 Status: TODO

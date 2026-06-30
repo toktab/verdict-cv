@@ -14,6 +14,9 @@ class LlmAuditAnalyzerSchemaTest {
             "test-model",
             0.1,
             "https://example.test",
+            1,
+            1,
+            0,
             new ObjectMapper(),
             RestClient.builder()
     );
