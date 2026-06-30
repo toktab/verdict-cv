@@ -327,7 +327,7 @@ Fix notes: Added LLM response schema validation, fenced/extra-text JSON repair, 
 23. Add retry, backoff, and timeout policy around LLM calls.
 Status: FIXED
 Advice: Make model failures predictable and avoid hanging worker threads.
-Fix notes: Added configurable LLM connect/read timeout, max attempts, and linear backoff around model requests so failures exit predictably. Commit: PENDING.
+Fix notes: Added configurable LLM connect/read timeout, max attempts, and linear backoff around model requests so failures exit predictably. Commit: 122c03c.
 
 24. Add token and cost tracking for every LLM audit.
 Status: TODO
