@@ -5629,12 +5629,77 @@ select {
     color: var(--text);
 }
 
+.auditScoreExplainer {
+    margin: 16px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+    gap: 12px;
+}
+
+.auditScoreLevelPanel {
+    margin-top: 0;
+    min-height: 100%;
+}
+
+.auditScoreDrivers {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
+            rgba(7, 7, 9, 0.9);
+}
+
+.auditScoreDrivers > div {
+    grid-column: 1 / -1;
+}
+
+.auditScoreDrivers h3 {
+    margin: 4px 0 0;
+}
+
+.auditScoreDrivers article {
+    min-height: 82px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    display: grid;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.028);
+}
+
+.auditScoreDrivers article span,
+.auditScoreDrivers article small {
+    color: var(--muted);
+    line-height: 1.35;
+}
+
+.auditScoreDrivers article strong {
+    color: var(--text);
+    font-size: 18px;
+}
+
+.auditScoreDrivers article.positive {
+    border-color: rgba(102, 217, 145, 0.26);
+}
+
+.auditScoreDrivers article.warning {
+    border-color: rgba(240, 184, 90, 0.34);
+}
+
+.auditScoreDrivers article.negative {
+    border-color: rgba(255, 99, 99, 0.34);
+}
+
 .stickyAuditBar {
     position: sticky;
     top: 76px;
     z-index: 8;
     display: grid;
-    grid-template-columns: repeat(6, minmax(88px, auto)) minmax(260px, 1fr);
+    grid-template-columns: repeat(7, minmax(84px, auto)) minmax(260px, 1fr);
     gap: 8px;
     align-items: center;
     border: 1px solid rgba(255, 99, 99, 0.32);
@@ -6270,6 +6335,9 @@ select {
     }
 
     .stickyAuditBar,
+    .auditScoreExplainer,
+    .auditScoreDrivers,
+    .auditScoreLevelPanel,
     .denseVerdictHead,
     .denseVerdictRow {
         grid-template-columns: 1fr;
@@ -6660,6 +6728,7 @@ select {
     }
 
     .denseVerdictPanel,
+    .auditScoreExplainer,
     .verdictGrid,
     .detailVerdictTable,
     .verdictTable {
