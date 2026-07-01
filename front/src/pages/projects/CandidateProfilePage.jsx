@@ -3,27 +3,21 @@ import { ArrowRight, PanelRightOpen } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
 import { findCandidateFromPath, scoreTone } from './projectPageUtils';
+import { ProjectRouteState } from './ProjectRouteState';
 
-export function CandidateProfilePage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [] }) {
+export function CandidateProfilePage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false }) {
     const { t } = useLanguage();
     const { project, candidate } = findCandidateFromPath(projects);
-    const activeProject = project || projects[0];
-    const activeCandidate = candidate || activeProject?.candidates?.[0];
+    const activeProject = project;
+    const activeCandidate = candidate;
     const [activeProfile, setActiveProfile] = useState(null);
     const profileText = useMemo(() => activeCandidate ? candidateSourceText(activeCandidate) : '', [activeCandidate]);
     const profileItems = useMemo(() => activeCandidate ? buildProfileItems(profileText, activeCandidate) : [], [profileText, activeCandidate]);
     const wordStats = useMemo(() => importantWordStats(profileText, profileItems), [profileText, profileItems]);
 
     if (!activeProject || !activeCandidate) {
-        return (
-            <div className="shell">
-                <div className="pageGlow contentFadeIn" />
-                <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-                <main className="workspace contentFadeIn">
-                    <div className="loading"><strong>Loading candidate…</strong></div>
-                </main>
-            </div>
-        );
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow="Profiling" title={activeProject ? 'Candidate profile not found' : 'Project not found'} message={activeProject ? 'This profiling route points to a candidate that is unavailable.' : 'This profile route points to a project that is unavailable or not shared with your account.'} />;
+
     }
 
     return (

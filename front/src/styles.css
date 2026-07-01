@@ -2770,6 +2770,33 @@ mark {
     line-height: 1.6;
 }
 
+.routeRecoveryActions,
+.routeStateActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.routeStatePanel {
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: radial-gradient(circle at 0 0, rgba(255, 59, 59, 0.18), transparent 20rem), linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)), var(--panel);
+    padding: 28px;
+    display: grid;
+    gap: 14px;
+}
+
+.routeStatePanel h1,
+.routeStatePanel p {
+    margin: 0;
+}
+
+.routeStatePanel p {
+    max-width: 680px;
+    color: var(--soft);
+    line-height: 1.6;
+}
+
 .messagesPage {
     display: grid;
     grid-template-columns: 220px minmax(320px, 1fr);

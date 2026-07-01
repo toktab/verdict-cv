@@ -3,6 +3,7 @@ import { Activity, ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, 
 import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMembers, apiSendMessage } from '../../api';
 import { appendMessage, createMessage } from '../../messageStore';
 import { findProjectFromPath } from './projectPageUtils';
+import { ProjectRouteState } from './ProjectRouteState';
 
 const PERMISSION_ATOMS = ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canInvite', 'canTeamManage', 'canKickMembers', 'canPromoteMembers', 'canDemoteMembers', 'canChangePermissions', 'canMessage', 'canViewActivityLog'];
 const ROLE_ORDER = ['Viewer', 'Voter', 'Reviewer', 'Screener', 'Coordinator', 'Admin', 'Head Admin', 'Custom'];
@@ -17,8 +18,8 @@ const ROLE_PERMISSIONS = {
     Custom: ['canView'],
 };
 
-export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], openCompose }) {
-    const project = findProjectFromPath(projects) || projects[0];
+export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false, openCompose }) {
+    const project = findProjectFromPath(projects);
     const [invites, setInvites] = useState([]);
     const [serverMembers, setServerMembers] = useState(null);
     const [email, setEmail] = useState('');
@@ -64,12 +65,8 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     }, [project?.id]);
 
     if (!project) {
-        return (
-            <div className="shell">
-                <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-                <main className="workspace contentFadeIn"><div className="loading"><strong>Loading team...</strong></div></main>
-            </div>
-        );
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow="Team" title="Project team not found" message="This team route is unavailable, deleted, or not shared with your account." />;
+
     }
 
     async function invite(event) {

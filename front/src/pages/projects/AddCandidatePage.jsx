@@ -4,10 +4,11 @@ import { useLanguage } from '../../i18n';
 import { apiAddCandidate, apiUploadCandidateResume } from '../../api';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
 import { findProjectFromPath } from './projectPageUtils';
+import { ProjectRouteState } from './ProjectRouteState';
 
-export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], onProjectsChange }) {
+export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false, onProjectsChange }) {
     const { t } = useLanguage();
-    const project = findProjectFromPath(projects) || projects[0];
+    const project = findProjectFromPath(projects);
     const [candidateName, setCandidateName] = useState('');
     const [resumeFile, setResumeFile] = useState(null);
     const [cvText, setCvText] = useState('');
@@ -22,15 +23,8 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
     const mediumRiskCount = detectedMatches.filter((match) => match.risk === 'Medium').length;
 
     if (!project) {
-        return (
-            <div className="shell">
-                <div className="pageGlow contentFadeIn" />
-                <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-                <main className="workspace contentFadeIn">
-                    <div className="loading"><strong>Loading project…</strong></div>
-                </main>
-            </div>
-        );
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} title="Project not found" message="Choose an existing project before adding a candidate." />;
+
     }
 
     async function analyzeCandidate() {

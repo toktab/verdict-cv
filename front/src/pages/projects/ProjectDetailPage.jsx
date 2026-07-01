@@ -5,8 +5,9 @@ import { useLanguage } from '../../i18n';
 import { CandidateTable } from './components/CandidateTable';
 import { ProjectScoreStrip } from './components/ProjectScoreStrip';
 import { bestCandidate, candidateTotals, findProjectFromPath, workModeInfo } from './projectPageUtils';
+import { ProjectRouteState } from './ProjectRouteState';
 
-export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [] }) {
+export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false }) {
     const { t } = useLanguage();
     const [invites, setInvites] = useState([]);
     const [inviteEmail, setInviteEmail] = useState('');
@@ -14,7 +15,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
     const [members, setMembers] = useState([]);
     const [teamMessage, setTeamMessage] = useState('');
     const [teamBusy, setTeamBusy] = useState(false);
-    const project = findProjectFromPath(projects) || projects[0];
+    const project = findProjectFromPath(projects);
     useEffect(() => {
         if (!project?.id || !userToken) return;
         let cancelled = false;
@@ -72,15 +73,8 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
     }
 
     if (!project) {
-        return (
-            <div className="shell">
-                <div className="pageGlow contentFadeIn" />
-                <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-                <main className="workspace contentFadeIn">
-                    <div className="loading"><strong>Loading project…</strong></div>
-                </main>
-            </div>
-        );
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} title="Project not found" message="This project is unavailable, deleted, or not shared with your account." />;
+
     }
     const totals = candidateTotals(project.candidates);
     const workMode = workModeInfo(project, t);

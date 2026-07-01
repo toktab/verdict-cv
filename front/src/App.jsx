@@ -262,6 +262,7 @@ function App() {
     const [templates, setTemplates] = useState([]);
     const [states, setStates] = useState([]);
     const [projects, setProjects] = useState([]);
+    const [projectsLoading, setProjectsLoading] = useState(false);
     const [templateForm, setTemplateForm] = useState(emptyTemplateForm(demoCase.auditMode));
     const [selectedDemoId, setSelectedDemoId] = useState(demoCases[0]?.id || '');
     const [demoConfirmOpen, setDemoConfirmOpen] = useState(false);
@@ -417,11 +418,19 @@ function App() {
     }
 
     async function loadProjects() {
+        if (!userToken) {
+            setProjects([]);
+            setProjectsLoading(false);
+            return;
+        }
+        setProjectsLoading(true);
         try {
             const rows = await apiListProjects(userToken);
             setProjects(rows.map(normaliseProject));
         } catch {
             setProjects([]);
+        } finally {
+            setProjectsLoading(false);
         }
     }
 
@@ -555,17 +564,17 @@ function App() {
     } else if (route === 'newProject') {
         content = <NewJobPage Header={AppHeader} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} onProjectsChange={loadProjects} />;
     } else if (route === 'projectDetail') {
-        content = <ProjectDetailPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
+        content = <ProjectDetailPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} />;
     } else if (route === 'projectTeam') {
-        content = <ProjectTeamPage Header={AppHeader} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} openCompose={openCompose} />;
+        content = <ProjectTeamPage Header={AppHeader} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} openCompose={openCompose} />;
     } else if (route === 'addCandidate') {
-        content = <AddCandidatePage Header={AppHeader} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} onProjectsChange={loadProjects} />;
+        content = <AddCandidatePage Header={AppHeader} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} onProjectsChange={loadProjects} />;
     } else if (route === 'candidateDetail') {
-        content = <CandidateDetailPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} onProjectsChange={loadProjects} />;
+        content = <CandidateDetailPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} onProjectsChange={loadProjects} />;
     } else if (route === 'candidateProfile') {
-        content = <CandidateProfilePage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
+        content = <CandidateProfilePage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} />;
     } else if (route === 'signalTrace') {
-        content = <SignalTracePage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
+        content = <SignalTracePage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} />;
     } else if (route === 'auditDetail') {
         content = <AuditDetailPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} />;
     } else if (route === 'auditProfile') {
@@ -668,7 +677,22 @@ function App() {
 
     return (
         <LanguageContext.Provider value={{ lang, setLang, t }}>
-            <ErrorBoundary key={route}>
+            <ErrorBoundary
+                key={route}
+                resetKey={`${route}:${detailAuditId || ''}`}
+                route={route}
+                onDashboard={() => navigateTo(setRoute, userToken ? 'dashboard' : 'home')}
+                onProjects={() => navigateTo(setRoute, userToken ? 'projects' : 'home')}
+                onLogout={async () => {
+                    if (userToken) {
+                        await api.logout(userToken).catch(() => null);
+                    }
+                    localStorage.removeItem('verdictUserToken');
+                    setUserToken('');
+                    setUser(null);
+                    navigateTo(setRoute, 'home');
+                }}
+            >
                 {content}
             </ErrorBoundary>
             <GlobalCompose

@@ -4,6 +4,7 @@ import { useLanguage } from '../../i18n';
 import { apiCreateCandidateNote, apiListCandidateNotes, apiReanalyzeCandidate } from '../../api';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
 import { findCandidateFromPath, scorePercent, scoreTone } from './projectPageUtils';
+import { ProjectRouteState } from './ProjectRouteState';
 
 const analysisStates = [
     { id: 'light', name: 'Light State', shortName: 'Light', description: 'Fast first pass with obvious contradiction checks.' },
@@ -12,7 +13,7 @@ const analysisStates = [
     { id: 'strict-war-ai', name: 'WAR_AI State', shortName: 'WAR_AI', description: 'Deep AI-assisted verification with OSINT-ready evidence.' },
 ];
 
-export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], onProjectsChange }) {
+export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false, onProjectsChange }) {
     const { t } = useLanguage();
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [confidenceFilter, setConfidenceFilter] = useState('ALL');
@@ -25,8 +26,8 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const [noteMessage, setNoteMessage] = useState('');
     const [noteBusy, setNoteBusy] = useState(false);
     const { project, candidate } = findCandidateFromPath(projects);
-    const activeProject = project || projects[0];
-    const activeCandidate = candidate || activeProject?.candidates?.[0];
+    const activeProject = project;
+    const activeCandidate = candidate;
     const [candidateVotes, setCandidateVotes] = useState(() => readCandidateVotes(activeProject?.id));
     const [candidateStatuses, setCandidateStatuses] = useState(() => readCandidateStatuses(activeProject?.id));
     const [voteScore, setVoteScore] = useState('3');
@@ -72,15 +73,8 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     }, [activeProject?.id, activeCandidate?.id, user]);
 
     if (!activeProject || !activeCandidate) {
-        return (
-            <div className="shell">
-                <div className="pageGlow contentFadeIn" />
-                <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-                <main className="workspace contentFadeIn">
-                    <div className="loading"><strong>Loading candidate…</strong></div>
-                </main>
-            </div>
-        );
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow="Candidate" title={activeProject ? 'Candidate not found' : 'Project not found'} message={activeProject ? 'This candidate is unavailable or was removed from the project.' : 'This candidate route points to a project that is unavailable or not shared with your account.'} />;
+
     }
 
     const verdictRows = buildCandidateVerdicts(activeCandidate);

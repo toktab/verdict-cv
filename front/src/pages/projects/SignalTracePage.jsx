@@ -3,6 +3,7 @@ import { ArrowRight, BriefcaseBusiness, CodeXml, Radar, Search, Users } from 'lu
 import { useLanguage } from '../../i18n';
 import { apiRunCandidateOsint } from '../../api';
 import { findCandidateFromPath } from './projectPageUtils';
+import { ProjectRouteState } from './ProjectRouteState';
 
 const signalStates = [
     { id: 'light', name: 'Light State', shortName: 'Light', description: 'Fast first pass with obvious contradiction checks.' },
@@ -139,11 +140,11 @@ const signalGroupsGe = [
     },
 ];
 
-export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [] }) {
+export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false }) {
     const { lang, t } = useLanguage();
     const { project, candidate } = findCandidateFromPath(projects);
-    const activeProject = project || projects[0];
-    const activeCandidate = candidate || activeProject?.candidates?.[0];
+    const activeProject = project;
+    const activeCandidate = candidate;
     const projectStateId = stateIdFromName(activeProject?.state);
     const stateStorageKey = candidateStateStorageKey(activeProject?.id, activeCandidate?.id);
     const [activeStateId, setActiveStateId] = useState(() => readCandidateState(stateStorageKey, projectStateId));
@@ -184,15 +185,8 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
     }, [activeProject, activeCandidate, activeStateId, selectedStateInitialized, signalTraceUnlocked]);
 
     if (!activeProject || !activeCandidate) {
-        return (
-            <div className="shell">
-                <div className="pageGlow contentFadeIn" />
-                <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-                <main className="workspace contentFadeIn">
-                    <div className="loading"><strong>Loading candidate…</strong></div>
-                </main>
-            </div>
-        );
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow="SignalTrace" title={activeProject ? 'Candidate signal route not found' : 'Project not found'} message={activeProject ? 'This SignalTrace route points to a candidate that is unavailable.' : 'This SignalTrace route points to a project that is unavailable or not shared with your account.'} />;
+
     }
 
     function toggle(id) {
