@@ -139,6 +139,45 @@ public class HiringDtos {
     ) {
     }
 
+    public record VoteRequest(
+            @NotBlank @Size(max = 40) String action,
+            Double score
+    ) {
+    }
+
+    public record CandidateStatusRequest(
+            @NotBlank @Size(max = 80) String status
+    ) {
+    }
+
+    public record VoteSummaryResponse(
+            String average,
+            int downvotes,
+            int stars,
+            @JsonProperty("starred_by_me") boolean starredByMe,
+            @JsonProperty("my_vote") String myVote,
+            @JsonProperty("my_score") Double myScore,
+            List<String> attribution
+    ) {
+    }
+
+    public record ActivityResponse(
+            Long id,
+            String action,
+            @JsonProperty("candidate_name") String candidateName,
+            @JsonProperty("actor_name") String actorName,
+            @JsonProperty("actor_email") String actorEmail,
+            @JsonProperty("created_at") Instant createdAt
+    ) {
+    }
+
+    public record CandidateWorkflowResponse(
+            String status,
+            @JsonProperty("vote_summary") VoteSummaryResponse voteSummary,
+            List<ActivityResponse> activity
+    ) {
+    }
+
     public record NoteResponse(
             Long id,
             String type,

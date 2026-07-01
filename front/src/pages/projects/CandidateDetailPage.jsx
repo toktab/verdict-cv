@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Activity, ArrowRight, History, MessageSquarePlus, Radar, RefreshCcw, ScanText, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useLanguage } from '../../i18n';
-import { apiCreateCandidateNote, apiListCandidateNotes, apiReanalyzeCandidate } from '../../api';
+import { apiCreateCandidateNote, apiGetCandidateWorkflow, apiListCandidateNotes, apiReanalyzeCandidate, apiUpdateCandidateStatus, apiVoteCandidate } from '../../api';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
 import { findCandidateFromPath, scorePercent, scoreTone } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
@@ -25,6 +25,8 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const [noteBody, setNoteBody] = useState('');
     const [noteMessage, setNoteMessage] = useState('');
     const [noteBusy, setNoteBusy] = useState(false);
+    const [workflow, setWorkflow] = useState(null);
+    const [workflowMessage, setWorkflowMessage] = useState('');
     const { project, candidate } = findCandidateFromPath(projects);
     const activeProject = project;
     const activeCandidate = candidate;
@@ -50,7 +52,24 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     useEffect(() => {
         setCandidateVotes(readCandidateVotes(activeProject?.id));
         setCandidateStatuses(readCandidateStatuses(activeProject?.id));
+        setWorkflow(null);
+        setWorkflowMessage('');
     }, [activeProject?.id]);
+
+    useEffect(() => {
+        if (!activeProject?.id || !activeCandidate?.id || !userToken) return;
+        let cancelled = false;
+        apiGetCandidateWorkflow(activeProject.id, activeCandidate.id, userToken)
+            .then((row) => {
+                if (!cancelled) setWorkflow(row);
+            })
+            .catch(() => {
+                if (!cancelled) setWorkflow(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [activeProject?.id, activeCandidate?.id, userToken]);
 
     useEffect(() => {
         if (!activeProject?.id || !activeCandidate?.id || !userToken) return;
@@ -97,12 +116,13 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const weakestClaim = weakestRequirementClaim(activeProject, activeCandidate) || activeCandidate.claims.find(([claim, status]) => status === 'Unsupported' && isActionableQuestionClaim(claim))?.[0] || activeCandidate.claims.find(([claim, status]) => status === 'Stretched' && isActionableQuestionClaim(claim))?.[0] || activeCandidate.risk;
     const recruiterSummary = buildRecruiterSummary(activeProject, activeCandidate, decision, coverage, strongestClaim, weakestClaim);
     const voteRow = candidateVotes[activeCandidate.id] || {};
-    const voteStats = voteSummary(voteRow);
+    const voteStats = workflow?.voteSummary || voteSummary(voteRow);
     const myVoteKey = user?.email || user?.username || 'me';
-    const pipelineStatus = candidateStatuses[activeCandidate.id] || 'Unreviewed';
-    const projectRole = currentProjectRole(activeProject?.id, user);
-    const canVote = hasPermission(projectRole, 'canVote');
-    const canAddNote = hasPermission(projectRole, 'canAddNote');
+    const pipelineStatus = workflow?.status || candidateStatuses[activeCandidate.id] || activeCandidate.state || 'Unreviewed';
+    const projectRole = activeProject?.myRole || currentProjectRole(activeProject?.id, user);
+    const projectPermissions = activeProject?.myPermissions || [];
+    const canVote = hasProjectPermission(projectRole, projectPermissions, 'canVote');
+    const canAddNote = hasProjectPermission(projectRole, projectPermissions, 'canAddNote');
 
     function selectAnalysisState(stateId) {
         setActiveStateId(stateId);
@@ -170,7 +190,11 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         localStorage.setItem(`candidateVotes:${activeProject.id}`, JSON.stringify(next));
     }
 
-    function upvote() {
+    async function upvote() {
+        if (userToken) {
+            await saveServerVote('UPVOTE', Number(voteScore));
+            return;
+        }
         saveVote((row) => {
             row.upvotes[myVoteKey] = { score: Number(voteScore), name: user?.fullName || user?.username || myVoteKey };
             delete row.downvotes[myVoteKey];
@@ -178,7 +202,11 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         writeActivity(activeProject.id, user, activeCandidate, `upvoted with ${voteScore}/5`);
     }
 
-    function downvote() {
+    async function downvote() {
+        if (userToken) {
+            await saveServerVote('DOWNVOTE');
+            return;
+        }
         saveVote((row) => {
             row.downvotes[myVoteKey] = { name: user?.fullName || user?.username || myVoteKey };
             delete row.upvotes[myVoteKey];
@@ -186,8 +214,12 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         writeActivity(activeProject.id, user, activeCandidate, 'downvoted');
     }
 
-    function toggleStar() {
-        const willStar = !voteRow.stars?.[myVoteKey];
+    async function toggleStar() {
+        const willStar = workflow ? !workflow.voteSummary.starredByMe : !voteRow.stars?.[myVoteKey];
+        if (userToken) {
+            await saveServerVote(willStar ? 'STAR' : 'UNSTAR');
+            return;
+        }
         saveVote((row) => {
             if (row.stars[myVoteKey]) {
                 delete row.stars[myVoteKey];
@@ -198,8 +230,32 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         writeActivity(activeProject.id, user, activeCandidate, willStar ? 'starred candidate' : 'unstarred candidate');
     }
 
-    function changePipelineStatus(status) {
-        if (!canSetStatus(projectRole, status)) return;
+    async function saveServerVote(action, score = null) {
+        if (!canVote) return;
+        setWorkflowMessage('');
+        try {
+            const next = await apiVoteCandidate(activeProject.id, activeCandidate.id, { action, score }, userToken);
+            setWorkflow(next);
+            setWorkflowMessage('Workflow saved.');
+        } catch (error) {
+            setWorkflowMessage(error.message || 'Could not save workflow vote.');
+        }
+    }
+
+    async function changePipelineStatus(status) {
+        if (!canSetStatus(projectRole, projectPermissions, status)) return;
+        if (userToken) {
+            setWorkflowMessage('');
+            try {
+                const next = await apiUpdateCandidateStatus(activeProject.id, activeCandidate.id, { status }, userToken);
+                setWorkflow(next);
+                await onProjectsChange?.();
+                setWorkflowMessage('Candidate status saved.');
+            } catch (error) {
+                setWorkflowMessage(error.message || 'Could not save candidate status.');
+            }
+            return;
+        }
         const next = { ...candidateStatuses, [activeCandidate.id]: status };
         setCandidateStatuses(next);
         localStorage.setItem(`candidateStatuses:${activeProject.id}`, JSON.stringify(next));
@@ -270,6 +326,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         </div>
                         <span>Avg {voteStats.average}/5 / {voteStats.downvotes} downvotes / {voteStats.stars} stars</span>
                     </div>
+                    {workflowMessage && <div className="inlineNotice">{workflowMessage}</div>}
                     <div className="candidateVotingGrid">
                         <article>
                             <strong>Reviewer vote</strong>
@@ -282,7 +339,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                             <div className="teamActionRow">
                                 <button className="primary" disabled={!canVote} type="button" onClick={upvote}><ThumbsUp size={16} /> Upvote</button>
                                 <button className="secondary" disabled={!canVote} type="button" onClick={downvote}><ThumbsDown size={16} /> Downvote</button>
-                                <button className="secondary" disabled={!canVote} type="button" onClick={toggleStar}><Star size={16} /> {voteRow.stars?.[myVoteKey] ? 'Unstar' : 'Star'}</button>
+                                <button className="secondary" disabled={!canVote} type="button" onClick={toggleStar}><Star size={16} /> {workflow?.voteSummary?.starredByMe || voteRow.stars?.[myVoteKey] ? 'Unstar' : 'Star'}</button>
                             </div>
                         </article>
                         <article>
@@ -297,10 +354,32 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         </article>
                     </div>
                     <div className="voteAttributionList">
-                        {voteAttribution(voteRow).map((line) => <span key={line}>{line}</span>)}
-                        {voteAttribution(voteRow).length === 0 && <span>No votes yet.</span>}
+                        {(workflow?.voteSummary?.attribution || voteAttribution(voteRow)).map((line) => <span key={line}>{line}</span>)}
+                        {(workflow?.voteSummary?.attribution || voteAttribution(voteRow)).length === 0 && <span>No votes yet.</span>}
                     </div>
                 </section>
+                {workflow?.activity?.length > 0 && (
+                    <section className="reviewNotesPanel">
+                        <div className="tableToolbar">
+                            <div>
+                                <span className="eyebrow">Activity</span>
+                                <h2><History size={18} /> Candidate workflow trail</h2>
+                            </div>
+                            <span>{workflow.activity.length} event{workflow.activity.length === 1 ? '' : 's'}</span>
+                        </div>
+                        <div className="reviewNoteList">
+                            {workflow.activity.map((row) => (
+                                <article key={row.id}>
+                                    <div>
+                                        <strong>{row.action}</strong>
+                                        <small>{row.actor_name || row.actorName || 'Reviewer'} / {formatNoteDate(row.created_at || row.createdAt)}</small>
+                                    </div>
+                                    <p>{row.candidate_name || row.candidateName || activeCandidate.name}</p>
+                                </article>
+                            ))}
+                        </div>
+                    </section>
+                )}
                 <section className="reviewNotesPanel">
                     <div className="tableToolbar">
                         <div>
@@ -775,12 +854,16 @@ function hasPermission(role, permission) {
     return (ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.Viewer).includes(permission);
 }
 
-function canSetStatus(role, status) {
-    if (status === 'Unreviewed') return hasPermission(role, 'canMarkOnCheck');
-    if (status === 'OnCheck') return hasPermission(role, 'canMarkOnCheck');
-    if (status === 'OnInterview') return hasPermission(role, 'canSetInterview');
-    if (status === 'Hired') return hasPermission(role, 'canHire');
-    if (status === 'Closed') return hasPermission(role, 'canClose');
+function hasProjectPermission(role, permissions = [], permission) {
+    return permissions.length ? permissions.includes(permission) || permissions.includes('protectedAccount') : hasPermission(role, permission);
+}
+
+function canSetStatus(role, permissions = [], status) {
+    if (status === 'Unreviewed') return hasProjectPermission(role, permissions, 'canMarkOnCheck');
+    if (status === 'OnCheck') return hasProjectPermission(role, permissions, 'canMarkOnCheck');
+    if (status === 'OnInterview') return hasProjectPermission(role, permissions, 'canSetInterview');
+    if (status === 'Hired') return hasProjectPermission(role, permissions, 'canHire');
+    if (status === 'Closed') return hasProjectPermission(role, permissions, 'canClose');
     return false;
 }
 

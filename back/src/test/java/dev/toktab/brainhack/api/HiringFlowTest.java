@@ -371,6 +371,41 @@ class HiringFlowTest {
                 .andReturn();
         long candidateId = objectMapper.readTree(candidate.getResponse().getContentAsString()).get("id").asLong();
 
+        mockMvc.perform(post("/api/projects/" + projectId + "/candidates/" + candidateId + "/votes")
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "action":"UPVOTE",
+                                  "score":4.5
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.vote_summary.average").value("4.5"))
+                .andExpect(jsonPath("$.vote_summary.attribution", hasItem(containsString("upvote 4.5/5"))));
+
+        mockMvc.perform(patch("/api/projects/" + projectId + "/candidates/" + candidateId + "/status")
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"OnInterview\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Project permission required: canSetInterview"));
+
+        mockMvc.perform(patch("/api/projects/" + projectId + "/candidates/" + candidateId + "/status")
+                        .header("X-User-Token", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"OnInterview\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OnInterview"))
+                .andExpect(jsonPath("$.activity[0].action").value("changed status to OnInterview"));
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/candidates/" + candidateId + "/workflow")
+                        .header("X-User-Token", reviewerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OnInterview"))
+                .andExpect(jsonPath("$.vote_summary.my_vote").value("UPVOTE"))
+                .andExpect(jsonPath("$.vote_summary.my_score").value(4.5));
+
         mockMvc.perform(post("/api/projects/" + projectId + "/candidates/" + candidateId + "/notes")
                         .header("X-User-Token", reviewerToken)
                         .contentType(MediaType.APPLICATION_JSON)

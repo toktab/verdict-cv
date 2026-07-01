@@ -5,6 +5,8 @@ import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.account.UserSessionService;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.CandidateStatusRequest;
+import dev.toktab.brainhack.hiring.HiringDtos.CandidateWorkflowResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ImportResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.InviteRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.InviteResponse;
@@ -15,11 +17,13 @@ import dev.toktab.brainhack.hiring.HiringDtos.OsintRunResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectMemberResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.VoteRequest;
 import dev.toktab.brainhack.hiring.HiringService;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -171,6 +175,32 @@ public class HiringController {
                                 @PathVariable Long candidateId,
                                 @Valid @RequestBody NoteRequest request) {
         return hiringService.addNote(owner(authorization, legacyToken), projectId, candidateId, request);
+    }
+
+    @GetMapping("/{projectId}/candidates/{candidateId}/workflow")
+    public CandidateWorkflowResponse workflow(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                              @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                              @PathVariable Long projectId,
+                                              @PathVariable Long candidateId) {
+        return hiringService.workflow(owner(authorization, legacyToken), projectId, candidateId);
+    }
+
+    @PostMapping("/{projectId}/candidates/{candidateId}/votes")
+    public CandidateWorkflowResponse vote(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                          @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                          @PathVariable Long projectId,
+                                          @PathVariable Long candidateId,
+                                          @Valid @RequestBody VoteRequest request) {
+        return hiringService.vote(owner(authorization, legacyToken), projectId, candidateId, request);
+    }
+
+    @PatchMapping("/{projectId}/candidates/{candidateId}/status")
+    public CandidateWorkflowResponse updateStatus(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                                  @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                                  @PathVariable Long projectId,
+                                                  @PathVariable Long candidateId,
+                                                  @Valid @RequestBody CandidateStatusRequest request) {
+        return hiringService.updateCandidateStatus(owner(authorization, legacyToken), projectId, candidateId, request);
     }
 
     private UserAccount owner(String authorization, String legacyToken) {

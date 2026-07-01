@@ -3,17 +3,22 @@ package dev.toktab.brainhack.hiring;
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.CandidateStatusRequest;
+import dev.toktab.brainhack.hiring.HiringDtos.CandidateWorkflowResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ImportResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.InviteRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.InviteResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.NoteRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.NoteResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.ActivityResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintRunRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintRunResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintSourceResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectMemberResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.VoteRequest;
+import dev.toktab.brainhack.hiring.HiringDtos.VoteSummaryResponse;
 import dev.toktab.brainhack.messaging.MessageService;
 import jakarta.transaction.Transactional;
 import java.net.URI;
@@ -356,7 +361,10 @@ public class HiringService {
     @Transactional
     public List<NoteResponse> notes(UserAccount actor, Long projectId, Long candidateId) {
         HiringCandidate candidate = candidateEntity(actor, projectId, candidateId);
-        return noteRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getId()).stream().map(mapper::note).toList();
+        return noteRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getId()).stream()
+                .filter(note -> !Set.of("VOTE", "STATUS", "ACTIVITY").contains(defaulted(note.getType(), "").toUpperCase(Locale.ROOT)))
+                .map(mapper::note)
+                .toList();
     }
 
     @Transactional
@@ -369,6 +377,48 @@ public class HiringService {
         note.setDecision(defaulted(request.decision(), "NONE").toUpperCase(Locale.ROOT));
         note.setBody(defaulted(request.body(), ""));
         return mapper.note(noteRepository.save(note));
+    }
+
+    @Transactional
+    public CandidateWorkflowResponse workflow(UserAccount actor, Long projectId, Long candidateId) {
+        return workflowResponse(actor, candidateEntity(actor, projectId, candidateId));
+    }
+
+    @Transactional
+    public CandidateWorkflowResponse vote(UserAccount actor, Long projectId, Long candidateId, VoteRequest request) {
+        HiringCandidate candidate = candidateEntity(actor, projectId, candidateId);
+        requirePermission(actor, candidate.getProject(), "canVote");
+        String action = defaulted(request.action(), "").toUpperCase(Locale.ROOT);
+        if (!Set.of("UPVOTE", "DOWNVOTE", "STAR", "UNSTAR").contains(action)) {
+            throw new IllegalArgumentException("Unsupported vote action");
+        }
+        double score = request.score() == null ? 0.0 : Math.max(0.0, Math.min(5.0, request.score()));
+        CandidateReviewNote note = new CandidateReviewNote();
+        note.setCandidate(candidate);
+        note.setAuthor(actor);
+        note.setType("VOTE");
+        note.setDecision(action);
+        note.setBody(action.equals("UPVOTE") ? "score=" + score : "");
+        noteRepository.save(note);
+        return workflowResponse(actor, candidate);
+    }
+
+    @Transactional
+    public CandidateWorkflowResponse updateCandidateStatus(UserAccount actor, Long projectId, Long candidateId, CandidateStatusRequest request) {
+        HiringCandidate candidate = candidateEntity(actor, projectId, candidateId);
+        String status = normalizeCandidateStatus(request.status());
+        requireStatusPermission(actor, candidate.getProject(), status);
+        candidate.setState(status);
+        candidateRepository.save(candidate);
+
+        CandidateReviewNote note = new CandidateReviewNote();
+        note.setCandidate(candidate);
+        note.setAuthor(actor);
+        note.setType("STATUS");
+        note.setDecision(status.toUpperCase(Locale.ROOT));
+        note.setBody("Changed candidate status to " + status);
+        noteRepository.save(note);
+        return workflowResponse(actor, candidate);
     }
 
     private HiringCandidate buildCandidate(HiringProject project, String name, String role, String cvText, String filename) {
@@ -399,7 +449,7 @@ public class HiringService {
         candidate.setMatchScore(match);
         candidate.setScore(score);
         candidate.setRisk(score < 45 || unsupported >= 3 ? "High" : score < 70 || stretched >= 3 ? "Medium" : "Low");
-        candidate.setState(score >= 75 ? "Interview ready" : score >= 55 ? "Needs review" : "Reject");
+        candidate.setState("Unreviewed");
         candidate.setOsint("Partial");
         candidate.setMemory("No prior record");
         candidate.setFlags(flags);
@@ -805,6 +855,165 @@ public class HiringService {
         if (!permissionsFor(actor, project).contains(permission)) {
             throw new IllegalArgumentException("Project permission required: " + permission);
         }
+    }
+
+    private void requireStatusPermission(UserAccount actor, HiringProject project, String status) {
+        String permission = switch (status) {
+            case "Unreviewed", "OnCheck" -> "canMarkOnCheck";
+            case "OnInterview" -> "canSetInterview";
+            case "Hired" -> "canHire";
+            case "Closed" -> "canClose";
+            default -> "canMarkOnCheck";
+        };
+        requirePermission(actor, project, permission);
+    }
+
+    private String normalizeCandidateStatus(String status) {
+        String clean = defaulted(status, "Unreviewed").replace("_", "").replace("-", "").replace(" ", "").toLowerCase(Locale.ROOT);
+        return switch (clean) {
+            case "oncheck" -> "OnCheck";
+            case "oninterview" -> "OnInterview";
+            case "hired" -> "Hired";
+            case "closed" -> "Closed";
+            case "unreviewed" -> "Unreviewed";
+            default -> throw new IllegalArgumentException("Unsupported candidate status");
+        };
+    }
+
+    private CandidateWorkflowResponse workflowResponse(UserAccount actor, HiringCandidate candidate) {
+        List<CandidateReviewNote> events = noteRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getId()).stream()
+                .filter(note -> Set.of("VOTE", "STATUS", "ACTIVITY").contains(defaulted(note.getType(), "").toUpperCase(Locale.ROOT)))
+                .toList();
+        return new CandidateWorkflowResponse(
+                workflowStatus(defaulted(candidate.getState(), "Unreviewed")),
+                voteSummary(actor, events),
+                events.stream()
+                        .limit(80)
+                        .map(note -> new ActivityResponse(
+                                note.getId(),
+                                activityLabel(note),
+                                candidate.getName(),
+                                displayName(note.getAuthor()),
+                                note.getAuthor().getEmail(),
+                                note.getCreatedAt()
+                        ))
+                        .toList()
+        );
+    }
+
+    private VoteSummaryResponse voteSummary(UserAccount actor, List<CandidateReviewNote> events) {
+        Map<String, CandidateReviewNote> latestVoteByAuthor = new LinkedHashMap<>();
+        Map<String, CandidateReviewNote> latestStarByAuthor = new LinkedHashMap<>();
+        for (CandidateReviewNote event : events) {
+            if (!"VOTE".equalsIgnoreCase(event.getType())) {
+                continue;
+            }
+            String email = event.getAuthor().getEmail().toLowerCase(Locale.ROOT);
+            if (Set.of("UPVOTE", "DOWNVOTE").contains(event.getDecision())) {
+                latestVoteByAuthor.putIfAbsent(email, event);
+            }
+            if (Set.of("STAR", "UNSTAR").contains(event.getDecision())) {
+                latestStarByAuthor.putIfAbsent(email, event);
+            }
+        }
+
+        List<Double> scores = new ArrayList<>();
+        int downvotes = 0;
+        List<String> attribution = new ArrayList<>();
+        String actorEmail = actor.getEmail().toLowerCase(Locale.ROOT);
+        String myVote = "";
+        Double myScore = null;
+        for (CandidateReviewNote event : latestVoteByAuthor.values()) {
+            String email = event.getAuthor().getEmail().toLowerCase(Locale.ROOT);
+            if ("UPVOTE".equals(event.getDecision())) {
+                double score = scoreFromBody(event.getBody());
+                scores.add(score);
+                attribution.add(displayName(event.getAuthor()) + ": upvote " + score + "/5");
+                if (email.equals(actorEmail)) {
+                    myVote = "UPVOTE";
+                    myScore = score;
+                }
+            } else if ("DOWNVOTE".equals(event.getDecision())) {
+                downvotes++;
+                attribution.add(displayName(event.getAuthor()) + ": downvote");
+                if (email.equals(actorEmail)) {
+                    myVote = "DOWNVOTE";
+                }
+            }
+        }
+
+        int stars = 0;
+        boolean starredByMe = false;
+        for (CandidateReviewNote event : latestStarByAuthor.values()) {
+            if ("STAR".equals(event.getDecision())) {
+                stars++;
+                attribution.add(displayName(event.getAuthor()) + ": starred");
+                if (event.getAuthor().getEmail().equalsIgnoreCase(actor.getEmail())) {
+                    starredByMe = true;
+                }
+            }
+        }
+
+        double average = scores.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+        return new VoteSummaryResponse(String.format(Locale.ROOT, "%.1f", average), downvotes, stars, starredByMe, myVote, myScore, attribution);
+    }
+
+    private String workflowStatus(String status) {
+        try {
+            return normalizeCandidateStatus(status);
+        } catch (IllegalArgumentException exception) {
+            return "Unreviewed";
+        }
+    }
+
+    private String activityLabel(CandidateReviewNote note) {
+        if ("STATUS".equalsIgnoreCase(note.getType())) {
+            return "changed status to " + displayRoleish(note.getDecision());
+        }
+        if ("VOTE".equalsIgnoreCase(note.getType())) {
+            if ("UPVOTE".equals(note.getDecision())) {
+                return "upvoted with " + scoreFromBody(note.getBody()) + "/5";
+            }
+            if ("DOWNVOTE".equals(note.getDecision())) {
+                return "downvoted";
+            }
+            if ("STAR".equals(note.getDecision())) {
+                return "starred candidate";
+            }
+            if ("UNSTAR".equals(note.getDecision())) {
+                return "unstarred candidate";
+            }
+        }
+        return defaulted(note.getBody(), note.getDecision());
+    }
+
+    private String displayRoleish(String value) {
+        String clean = defaulted(value, "").toLowerCase(Locale.ROOT);
+        return switch (clean) {
+            case "oncheck" -> "OnCheck";
+            case "oninterview" -> "OnInterview";
+            case "hired" -> "Hired";
+            case "closed" -> "Closed";
+            case "unreviewed" -> "Unreviewed";
+            default -> value;
+        };
+    }
+
+    private double scoreFromBody(String body) {
+        if (body == null) {
+            return 0.0;
+        }
+        for (String part : body.split(";")) {
+            String[] bits = part.split("=", 2);
+            if (bits.length == 2 && "score".equalsIgnoreCase(bits[0].trim())) {
+                try {
+                    return Double.parseDouble(bits[1].trim());
+                } catch (NumberFormatException ignored) {
+                    return 0.0;
+                }
+            }
+        }
+        return 0.0;
     }
 
     private String actorRole(UserAccount actor, HiringProject project) {

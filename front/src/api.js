@@ -165,6 +165,18 @@ export async function apiCreateCandidateNote(projectId, candidateId, { type, dec
     return post(`/projects/${projectId}/candidates/${candidateId}/notes`, { type, decision, body }, token);
 }
 
+export async function apiGetCandidateWorkflow(projectId, candidateId, token) {
+    return normaliseWorkflow(await get(`/projects/${projectId}/candidates/${candidateId}/workflow`, token));
+}
+
+export async function apiVoteCandidate(projectId, candidateId, { action, score }, token) {
+    return normaliseWorkflow(await post(`/projects/${projectId}/candidates/${candidateId}/votes`, { action, score }, token));
+}
+
+export async function apiUpdateCandidateStatus(projectId, candidateId, { status }, token) {
+    return normaliseWorkflow(await patch(`/projects/${projectId}/candidates/${candidateId}/status`, { status }, token));
+}
+
 export const javaApi = {
     history(token) {
         return get('/audit/history', token);
@@ -316,6 +328,23 @@ export function normaliseUser(raw) {
         organization: raw.organization || '',
         role: raw.role || 'user',
         emailVerified: raw.email_verified ?? raw.emailVerified ?? true,
+    };
+}
+
+export function normaliseWorkflow(raw = {}) {
+    const summary = raw.vote_summary || raw.voteSummary || {};
+    return {
+        status: raw.status || 'Unreviewed',
+        voteSummary: {
+            average: summary.average || '0.0',
+            downvotes: summary.downvotes || 0,
+            stars: summary.stars || 0,
+            starredByMe: Boolean(summary.starred_by_me ?? summary.starredByMe),
+            myVote: summary.my_vote || summary.myVote || '',
+            myScore: summary.my_score ?? summary.myScore ?? null,
+            attribution: summary.attribution || [],
+        },
+        activity: raw.activity || [],
     };
 }
 
