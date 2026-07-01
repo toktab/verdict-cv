@@ -355,9 +355,9 @@ Advice: The RabbitMQ dependency already exists. Use it for job dispatch once the
 Fix notes: Added a RabbitMQ audit job queue/exchange/binding, Rabbit-backed audit job dispatcher, Rabbit listener for queued audit IDs, async start/recovery dispatch through Rabbit when enabled, and executor fallback when Rabbit is disabled or unavailable. Commit: fdef8f9.
 
 29. Add better failure states.
-Status: TODO
+Status: FIXED
 Advice: Distinguish model failure, parser failure, quota failure, timeout, unsupported file, and permission failure.
-Fix notes: Pending.
+Fix notes: Added persisted audit failure type/message fields, exposed them on audit detail, summary, and progress responses, classified common runtime failures into model, parser, quota, timeout, unsupported file, permission, validation, and unknown states, and covered successful NONE states in API tests. Commit: PENDING.
 
 30. Add file upload support to the generic audit workspace.
 Status: TODO

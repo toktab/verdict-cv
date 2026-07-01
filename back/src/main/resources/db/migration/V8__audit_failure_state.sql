@@ -1,0 +1,3 @@
+ALTER TABLE audits
+    ADD COLUMN failure_type VARCHAR(32) NOT NULL DEFAULT 'NONE',
+    ADD COLUMN failure_message VARCHAR(240) NULL;

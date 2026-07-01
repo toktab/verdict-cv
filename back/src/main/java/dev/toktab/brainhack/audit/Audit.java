@@ -99,6 +99,13 @@ public class Audit {
     @Column(length = 16)
     private AuditStatus status = AuditStatus.RUNNING;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    private AuditFailureType failureType = AuditFailureType.NONE;
+
+    @Column(length = 240)
+    private String failureMessage;
+
     @Column(nullable = false, length = 40)
     private String progressStage = "queued";
 
@@ -333,6 +340,22 @@ public class Audit {
 
     public void setStatus(AuditStatus status) {
         this.status = status;
+    }
+
+    public AuditFailureType getFailureType() {
+        return failureType == null ? AuditFailureType.NONE : failureType;
+    }
+
+    public void setFailureType(AuditFailureType failureType) {
+        this.failureType = failureType == null ? AuditFailureType.NONE : failureType;
+    }
+
+    public String getFailureMessage() {
+        return failureMessage;
+    }
+
+    public void setFailureMessage(String failureMessage) {
+        this.failureMessage = failureMessage;
     }
 
     public String getProgressStage() {

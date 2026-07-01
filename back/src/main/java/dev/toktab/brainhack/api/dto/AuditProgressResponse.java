@@ -1,11 +1,14 @@
 package dev.toktab.brainhack.api.dto;
 
 import dev.toktab.brainhack.audit.AuditStatus;
+import dev.toktab.brainhack.audit.AuditFailureType;
 import java.time.Instant;
 
 public record AuditProgressResponse(
         Long id,
         AuditStatus status,
+        AuditFailureType failureType,
+        String failureMessage,
         String stage,
         int percent,
         String message,

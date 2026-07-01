@@ -63,6 +63,7 @@ class AuthAuditAdminFlowTest {
                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.failureType").value("NONE"))
                 .andExpect(jsonPath("$.analyzerVersion").value("local-heuristic-v2"))
                 .andExpect(jsonPath("$.promptVersion").value("none-local-deterministic"))
                 .andExpect(jsonPath("$.verdicts", hasSize(2)))
@@ -78,6 +79,7 @@ class AuthAuditAdminFlowTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(auditId))
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.failureType").value("NONE"))
                 .andExpect(jsonPath("$.stage").value("completed"))
                 .andExpect(jsonPath("$.percent").value(100))
                 .andExpect(jsonPath("$.message").value("Audit completed."));

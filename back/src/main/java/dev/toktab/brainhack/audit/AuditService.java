@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.springframework.web.client.RestClientException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -118,6 +119,7 @@ public class AuditService {
         audit.setAnalyzerVersion(analyzerVersionFor(request.checkStateId()));
         audit.setPromptVersion(promptVersionFor(request.checkStateId()));
         audit.setStatus(AuditStatus.RUNNING);
+        clearFailure(audit);
         Instant now = Instant.now();
         audit.setQueuedAt(now);
         audit.setStartedAt(now);
@@ -141,6 +143,7 @@ public class AuditService {
             }
             countStatuses(audit);
             audit.setStatus(AuditStatus.COMPLETED);
+            clearFailure(audit);
             audit.setFinishedAt(Instant.now());
             audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
             setProgress(audit, "completed", 100, "Audit completed.");
@@ -153,6 +156,7 @@ public class AuditService {
         } catch (RuntimeException exception) {
             audit.setStatus(AuditStatus.FAILED);
             audit.setProcessingMillis(System.currentTimeMillis() - started);
+            applyFailure(audit, exception);
             audit.setFinishedAt(Instant.now());
             audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
             setProgress(audit, "failed", 100, "Audit failed: " + exception.getClass().getSimpleName());
@@ -227,6 +231,7 @@ public class AuditService {
         }
         audit.setCancellationRequested(true);
         audit.setStatus(AuditStatus.CANCELLED);
+        clearFailure(audit);
         audit.setFinishedAt(Instant.now());
         audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
         setProgress(audit, "cancelled", 100, "Audit cancelled by user.");
@@ -468,6 +473,7 @@ public class AuditService {
         audit.setAnalyzerVersion(analyzerVersionFor(request.checkStateId()));
         audit.setPromptVersion(promptVersionFor(request.checkStateId()));
         audit.setStatus(AuditStatus.RUNNING);
+        clearFailure(audit);
         audit.setQueuedAt(Instant.now());
         setProgress(audit, "queued", 0, "Queued for analysis.");
         audit.setOwner(owner);
@@ -534,6 +540,7 @@ public class AuditService {
             countStatuses(audit);
             setProgress(audit, "snapshotting", 90, "Saving audit snapshot.");
             audit.setStatus(AuditStatus.COMPLETED);
+            clearFailure(audit);
             audit.setFinishedAt(Instant.now());
             audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
             setProgress(audit, "completed", 100, "Audit completed.");
@@ -544,6 +551,7 @@ public class AuditService {
         } catch (RuntimeException exception) {
             audit.setStatus(AuditStatus.FAILED);
             audit.setProcessingMillis(System.currentTimeMillis() - started);
+            applyFailure(audit, exception);
             audit.setFinishedAt(Instant.now());
             audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
             setProgress(audit, "failed", 100, "Audit failed: " + exception.getClass().getSimpleName());
@@ -576,6 +584,7 @@ public class AuditService {
     private void markCancelled(Audit audit) {
         audit.setCancellationRequested(true);
         audit.setStatus(AuditStatus.CANCELLED);
+        clearFailure(audit);
         audit.setFinishedAt(Instant.now());
         audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
         setProgress(audit, "cancelled", 100, "Audit cancelled by user.");
@@ -684,6 +693,44 @@ public class AuditService {
         audit.setProgressStage(stage);
         audit.setProgressPercent(percent);
         audit.setProgressMessage(trim(message, 160));
+    }
+
+    private void clearFailure(Audit audit) {
+        audit.setFailureType(AuditFailureType.NONE);
+        audit.setFailureMessage(null);
+    }
+
+    private void applyFailure(Audit audit, RuntimeException exception) {
+        AuditFailureType type = classifyFailure(exception);
+        audit.setFailureType(type);
+        audit.setFailureMessage(trim(exception.getMessage(), 240));
+    }
+
+    private AuditFailureType classifyFailure(RuntimeException exception) {
+        String message = exception.getMessage() == null ? "" : exception.getMessage().toLowerCase(Locale.ROOT);
+        String className = exception.getClass().getSimpleName().toLowerCase(Locale.ROOT);
+        if (message.contains("war-state can be used") || message.contains("quota")) {
+            return AuditFailureType.QUOTA_FAILURE;
+        }
+        if (message.contains("unsupported file") || message.contains("unsupported format")) {
+            return AuditFailureType.UNSUPPORTED_FILE;
+        }
+        if (exception instanceof SecurityException || message.contains("authentication required") || message.contains("permission")) {
+            return AuditFailureType.PERMISSION_FAILURE;
+        }
+        if (className.contains("timeout") || message.contains("timeout") || message.contains("timed out")) {
+            return AuditFailureType.TIMEOUT;
+        }
+        if (message.contains("parse llm") || message.contains("json") || message.contains("verdicts array")) {
+            return AuditFailureType.PARSER_FAILURE;
+        }
+        if (exception instanceof RestClientException || message.contains("llm request failed") || message.contains("model")) {
+            return AuditFailureType.MODEL_FAILURE;
+        }
+        if (exception instanceof IllegalArgumentException) {
+            return AuditFailureType.VALIDATION_FAILURE;
+        }
+        return AuditFailureType.UNKNOWN;
     }
 
     private void stampVerdictProvenance(Audit audit) {

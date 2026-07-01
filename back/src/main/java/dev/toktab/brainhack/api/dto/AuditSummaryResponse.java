@@ -1,6 +1,7 @@
 package dev.toktab.brainhack.api.dto;
 
 import dev.toktab.brainhack.audit.AuditStatus;
+import dev.toktab.brainhack.audit.AuditFailureType;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -23,6 +24,8 @@ public record AuditSummaryResponse(
         String analyzerVersion,
         String promptVersion,
         AuditStatus status,
+        AuditFailureType failureType,
+        String failureMessage,
         String templateId,
         String templateName,
         String checkStateId,
