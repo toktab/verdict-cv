@@ -1,0 +1,231 @@
+VERDICT Startup Full-Stack Priority Steps
+========================================
+
+Perspective: senior startup fullstack developer.
+Goal: turn VERDICT from a strong prototype into a reliable, demo-ready, trustable hiring verification product.
+Sorting: most important first. Visual quality is treated as product trust, not decoration.
+
+Scanned areas:
+- Spring Boot backend: auth, audits, hiring projects, team invites, messages, admin, logging.
+- React frontend: dashboard, audit workspace, projects, candidates, team, messages, admin, profile.
+- Existing planning docs: front/newstufftodo, SENIOR_ADVICES.TXT, project-review-fixes.txt.
+
+
+P0 - Must Fix Before Anything Else
+----------------------------------
+
+1. Make the app route/runtime impossible to break into the Recovery screen.
+Why this matters:
+The user already hit "VERDICT hit a display problem." If the logged-in app crashes, every other feature feels untrustworthy.
+Do this:
+- Reproduce login, dashboard, projects, messages, team, admin, candidate detail, and audit detail routes.
+- Add route-level error boundaries with useful fallback actions: Back to dashboard, Reload data, Logout.
+- Remove or guard any code that assumes project/user/message data exists before async loading finishes.
+- Make empty, loading, forbidden, and not-found states explicit for every route.
+- Keep one small manual smoke checklist in docs so this can be tested after every big change.
+
+2. Make permissions server-authoritative, especially Team, Invite, and Project visibility.
+Why this matters:
+The current Team page has frontend permission atoms like canInvite and canTeamManage, but backend logic still leans heavily on project owner checks. This can cause invited users, owners, and team views to disagree.
+Do this:
+- Define one backend permission model: Viewer, Voter, Reviewer, Screener, Coordinator, Admin, Head Admin, Custom.
+- Persist custom permissions instead of relying on frontend localStorage overrides.
+- Add canInvite and canTeamManage on the backend.
+- Return "myPermissions" and "myRole" from project/member APIs so UI does not guess.
+- If a user lacks canTeamManage, Team page should show only members: name, email, role, active/inactive.
+- Make accepted invite membership visible to both owner and invited account immediately.
+- Add backend tests for owner view, invited member view, canInvite, canTeamManage, and forbidden actions.
+
+3. Stabilize message delivery and message state.
+Why this matters:
+Messaging is now a core collaboration feature. If sent/received/read/star/reply/forward state differs between accounts, users will not trust the product.
+Do this:
+- Make server messages the source of truth; use local fallback only for logged-out demo mode.
+- Add backend support for replyToMessageId, forwardedFromMessageId, readAt, starred, archived, and candidate attachments.
+- Log message events with sender, receiver, title, body summary, email, name, timestamp, and action type.
+- Make the message popup fixed-size, side-docked, scrollable, and safe for long text.
+- Add visible delivery states: sending, sent, failed, retry.
+- Verify both accounts see the same inbox/sent/team message state after refresh.
+
+4. Lock the core hiring workflow end to end.
+Why this matters:
+VERDICT is valuable only if a team can create a job, add candidates, review them, discuss them, and make a decision without data confusion.
+Do this:
+- Persist candidate votes, score out of 5, star, downvote, notes, and status changes on the backend.
+- Add candidate lifecycle statuses: Unreviewed, OnCheck, OnInterview, Hired, Closed.
+- Gate each status transition by backend permission.
+- Add per-candidate activity history: viewed, note added, vote changed, status changed, message sent.
+- Show aggregate score, vote count, downvote count, stars, and "voted by" detail in project and candidate views.
+
+
+P1 - High Impact Startup Work
+-----------------------------
+
+5. Upgrade visual trust on the highest-value screens.
+Why this matters:
+This product sells confidence. Visual polish directly affects whether people believe the analysis.
+Do this:
+- Make Dashboard, Project Detail, Candidate Detail, Team, Messages, and Audit Result feel like one product family.
+- Use clear density: operational screens should be compact, scan-friendly, and not too card-heavy.
+- Add consistent empty/loading/error states with the same motion language.
+- Improve candidate comparison visuals: score strips, risk labels, evidence snippets, status timeline.
+- Make mobile layouts clean, especially Messages, Team, Candidate Detail, and Admin.
+- Keep animations smooth and purposeful: page enter, row update, modal open, compose send, inbox refresh.
+
+6. Finish audit explainability: score levels and profiling mode.
+Why this matters:
+The audit engine should not only say "unsupported"; it should teach the user why.
+Do this:
+- Add score levels out of 10 with short explanations.
+- Add the Grammarly-style profiling view from SENIOR_ADVICES.TXT.
+- On hover/click, explain risky words, sentence role, evidence status, and template/state reason.
+- Make evidence snippets visually tied to claims.
+- Add "what changed this score" metadata for each verdict where possible.
+
+7. Clean the frontend architecture before it slows feature work.
+Why this matters:
+front/src/App.jsx still owns too much routing, admin, audit, and shell behavior. This makes bugs easier to introduce and harder to isolate.
+Do this:
+- Move AdminPanel out of App.jsx.
+- Move audit workspace/result/detail logic into dedicated pages/components.
+- Use one route map instead of long if/else route rendering.
+- Keep api.js as the only place for fetch details.
+- Remove duplicate local/demo state paths where server-backed state exists.
+- Keep styles grouped by feature or migrate gradually to component-scoped CSS conventions.
+
+8. Make admin dangerous actions safer and clearer.
+Why this matters:
+The admin table clearing feature is powerful. It needs guardrails so demos and real data are not accidentally destroyed.
+Do this:
+- Require typing the table/group name before clearing.
+- Show affected row counts before clearing.
+- Add "clear demo data" presets separate from real production tables.
+- Log admin clear actions with request ID, admin identity, selected tables, and timestamp.
+- Add restore/export option before destructive clears if practical.
+
+9. Make onboarding and demo mode reliable.
+Why this matters:
+A startup product needs a perfect first five minutes.
+Do this:
+- Add a clean first-run path: create account, create project, import sample job, add sample candidates, run audit.
+- Add one-click demo seed data that is safe and repeatable.
+- Add contextual empty states that guide the next action without long explanations.
+- Make sample data visually impressive and realistic.
+
+
+P2 - Product Depth and Differentiation
+--------------------------------------
+
+10. Improve candidate evidence quality and OSINT mode carefully.
+Why this matters:
+External signal checking can become VERDICT's strongest differentiator, but it must be consented, explainable, and not sloppy.
+Do this:
+- Keep investigator mode opt-in.
+- Track which sources were checked, when, and with what confidence.
+- Separate "not found" from "contradicted".
+- Add source cards for GitHub, LinkedIn, portfolio, certificates, language evidence, and public project traces.
+- Never overstate external findings; use cautious language.
+
+11. Add product analytics and operational observability.
+Why this matters:
+You need to know where users fail and which features matter.
+Do this:
+- Track key events: login, project created, candidate added, audit run, invite accepted, message sent, export downloaded.
+- Add lightweight backend metrics for request count, error rate, audit duration, LLM fallback rate, and message send failures.
+- Make logs searchable by request ID, user ID, project ID, and audit ID.
+- Add an admin health panel showing database, LLM, RabbitMQ, and static frontend build version.
+
+12. Improve export/report value.
+Why this matters:
+Exports are what users share with decision-makers.
+Do this:
+- Make PDF reports beautiful and branded.
+- Add candidate comparison export for a project.
+- Add "executive summary" and "claim-by-claim appendix" sections.
+- Include score explanation, evidence status, reviewer notes, and final decision.
+
+13. Build collaboration polish around teams.
+Why this matters:
+Teams are where the product becomes sticky.
+Do this:
+- Add @mentions in notes/messages later.
+- Add notification center or unread activity badge.
+- Add member activity drawer with filters by candidate/action/date.
+- Add "send candidate package" as a first-class compose attachment flow.
+- Add project-level announcements or pinned notes.
+
+
+P3 - Important But After Core Trust
+-----------------------------------
+
+14. Deployment and environment cleanup.
+Why this matters:
+The product should run the same locally, in demo, and in production.
+Do this:
+- Confirm Docker Compose runs backend, database, and frontend assets cleanly.
+- Document required environment variables.
+- Make default admin credentials disabled by default outside local development.
+- Add build version and commit hash to the UI/admin health view.
+- Keep generated static assets out of normal development churn unless intentionally building a release.
+
+15. Performance pass.
+Why this matters:
+Slow screens feel broken, especially with big candidate lists and audit histories.
+Do this:
+- Add pagination/search to projects and candidates if lists can grow.
+- Avoid loading every candidate detail when only summary rows are needed.
+- Memoize heavy frontend computations in audit result and candidate views.
+- Add backend indexes for team membership, project membership, messages, candidate status, and activity logs.
+
+16. Accessibility and keyboard quality.
+Why this matters:
+Professional software should be fast and usable without fighting the UI.
+Do this:
+- Make modals trap focus and close with Escape.
+- Ensure buttons have accessible labels, especially icon buttons.
+- Add keyboard flow for compose, reply, forward, candidate search, and table navigation.
+- Check contrast on risk badges, muted text, and red-on-dark states.
+
+17. Light growth/marketing layer.
+Why this matters:
+Only after the logged-in product feels solid should the public surface sell it harder.
+Do this:
+- Make the home page explain the product in one strong sentence.
+- Add screenshots or generated visuals showing real product screens.
+- Add sample report preview.
+- Add clear CTA: Try demo, Create account, Start candidate audit.
+
+
+Recommended Next Sprint Order
+-----------------------------
+
+Sprint 1:
+1. Route/runtime stability.
+2. Backend permission model for Team/Invite.
+3. Message source-of-truth fixes.
+4. Visual pass on Messages and Team.
+
+Sprint 2:
+1. Persist candidate votes/status/activity.
+2. Candidate Detail visual upgrade.
+3. Audit score levels.
+4. Admin danger-zone guardrails.
+
+Sprint 3:
+1. Split App.jsx into real route/page modules.
+2. Profiling mode.
+3. Demo onboarding.
+4. Reports/export polish.
+
+
+Definition of Done for Important Work
+-------------------------------------
+
+- Works after browser refresh.
+- Works from both owner and invited member accounts.
+- Backend rejects forbidden actions even if frontend is bypassed.
+- Empty/loading/error states are visible and polished.
+- Mobile layout does not overlap.
+- Important actions create an audit/activity/log entry.
+- Feature has at least backend test coverage for the permission/data rule.
+- The UI looks professional enough for a live demo.
