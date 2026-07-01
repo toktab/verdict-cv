@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.blankOrNullString;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -22,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -133,6 +135,23 @@ class AuthAuditAdminFlowTest {
                         .param("format", "word"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", containsString(".doc")));
+    }
+
+    @Test
+    void userCanExtractGenericAuditTextFile() throws Exception {
+        String token = register("extract_user");
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "claim.txt",
+                MediaType.TEXT_PLAIN_VALUE,
+                "Built Java APIs from uploaded text.".getBytes());
+
+        mockMvc.perform(multipart("/api/audit/extract-file")
+                        .file(file)
+                        .header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filename").value("claim.txt"))
+                .andExpect(jsonPath("$.text").value("Built Java APIs from uploaded text."));
     }
 
     @Test

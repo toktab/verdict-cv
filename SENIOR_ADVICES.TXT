@@ -360,9 +360,9 @@ Advice: Distinguish model failure, parser failure, quota failure, timeout, unsup
 Fix notes: Added persisted audit failure type/message fields, exposed them on audit detail, summary, and progress responses, classified common runtime failures into model, parser, quota, timeout, unsupported file, permission, validation, and unknown states, and covered successful NONE states in API tests. Commit: 07c6368.
 
 30. Add file upload support to the generic audit workspace.
-Status: TODO
+Status: FIXED
 Advice: Generic claim/evidence audits should accept PDF, DOCX, TXT, and pasted text.
-Fix notes: Pending.
+Fix notes: Added authenticated generic audit file extraction for PDF, DOCX, and TXT, frontend upload controls for claim and evidence panels that populate the existing pasted-text workflow, TXT extraction API coverage, and rebuilt static assets. Commit: PENDING.
 
 31. Add PDF/DOCX text extraction quality checks.
 Status: TODO

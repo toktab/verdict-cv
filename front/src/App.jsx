@@ -267,6 +267,7 @@ function App() {
     const [detailLoading, setDetailLoading] = useState(false);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [templateLoading, setTemplateLoading] = useState(false);
+    const [uploadingField, setUploadingField] = useState('');
     const [stage, setStage] = useState('');
     const [error, setError] = useState('');
     const [introVisible, setIntroVisible] = useState(true);
@@ -454,6 +455,34 @@ function App() {
         }
     }
 
+    async function uploadAuditFile(field, event) {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) {
+            return;
+        }
+        setError('');
+        if (!userToken) {
+            setError('Sign in before uploading audit files.');
+            return;
+        }
+        setUploadingField(field);
+        try {
+            const extracted = await javaApi.extractAuditFile(file, userToken);
+            const textKey = field === 'claim' ? 'claimText' : 'evidenceText';
+            const titleKey = field === 'claim' ? 'claimTitle' : 'evidenceTitle';
+            setForm((current) => ({
+                ...current,
+                [textKey]: extracted.text || '',
+                [titleKey]: current[titleKey] || extracted.filename || '',
+            }));
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setUploadingField('');
+        }
+    }
+
     async function openAudit(id) {
         track('history_open_audit', 'history', `auditId=${id}`);
         setDetailAuditId(id);
@@ -538,10 +567,20 @@ function App() {
                     <section className="intake">
                         <Panel title={currentAuditMode(form).claimTitle} subtitle={currentAuditMode(form).claimSubtitle}>
                             <Input label="Claim title" value={form.claimTitle} onChange={(claimTitle) => setForm({ ...form, claimTitle })} />
+                            <label className="auditFileButton">
+                                <FileSearch size={16} />
+                                {uploadingField === 'claim' ? 'Reading file...' : 'Upload PDF, DOCX, or TXT'}
+                                <input type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={(event) => uploadAuditFile('claim', event)} disabled={!userToken || uploadingField === 'claim'} />
+                            </label>
                             <Textarea value={form.claimText} onChange={(claimText) => setForm({ ...form, claimText })} />
                         </Panel>
                         <Panel title={currentAuditMode(form).evidenceTitle} subtitle={currentAuditMode(form).evidenceSubtitle}>
                             <Input label="Evidence title" value={form.evidenceTitle} onChange={(evidenceTitle) => setForm({ ...form, evidenceTitle })} />
+                            <label className="auditFileButton">
+                                <FileSearch size={16} />
+                                {uploadingField === 'evidence' ? 'Reading file...' : 'Upload PDF, DOCX, or TXT'}
+                                <input type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={(event) => uploadAuditFile('evidence', event)} disabled={!userToken || uploadingField === 'evidence'} />
+                            </label>
                             <Textarea value={form.evidenceText} onChange={(evidenceText) => setForm({ ...form, evidenceText })} />
                         </Panel>
                     </section>

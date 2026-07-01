@@ -4672,6 +4672,35 @@ mark {
     gap: 18px;
 }
 
+.auditFileButton {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    min-height: 34px;
+    margin: 0 0 10px;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--soft);
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+}
+
+.auditFileButton:hover {
+    border-color: rgba(255, 82, 82, 0.45);
+    color: var(--text);
+}
+
+.auditFileButton input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
 .templatePanel,
 .statePanel {
     border: 1px solid var(--line);

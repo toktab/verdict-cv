@@ -171,6 +171,11 @@ export const javaApi = {
     runAudit(payload, token) {
         return post('/audit/run-async', payload, token);
     },
+    extractAuditFile(file, token) {
+        const formData = new FormData();
+        formData.append('file', file);
+        return multipart('/audit/extract-file', formData, token);
+    },
     getAudit(id, token) {
         return get(`/audit/${id}`, token);
     },

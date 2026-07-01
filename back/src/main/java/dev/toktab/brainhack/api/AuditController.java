@@ -5,6 +5,7 @@ import dev.toktab.brainhack.account.UserTokenService;
 import dev.toktab.brainhack.account.AuthTokenResolver;
 import dev.toktab.brainhack.api.dto.AuditResponse;
 import dev.toktab.brainhack.api.dto.AuditProgressResponse;
+import dev.toktab.brainhack.api.dto.AuditFileTextResponse;
 import dev.toktab.brainhack.api.dto.AuditRunRequest;
 import dev.toktab.brainhack.api.dto.AuditSnapshotResponse;
 import dev.toktab.brainhack.api.dto.AuditSummaryResponse;
@@ -15,6 +16,7 @@ import dev.toktab.brainhack.api.dto.VerdictOverrideRequest;
 import dev.toktab.brainhack.audit.AuditMapper;
 import dev.toktab.brainhack.audit.AuditService;
 import dev.toktab.brainhack.audit.AuditTemplateService;
+import dev.toktab.brainhack.audit.AuditTextExtractionService;
 import dev.toktab.brainhack.audit.CheckStateService;
 import dev.toktab.brainhack.audit.ExportService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,7 +32,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/audit")
@@ -42,8 +46,9 @@ public class AuditController {
     private final AuthTokenResolver tokenResolver;
     private final AuditTemplateService templateService;
     private final CheckStateService checkStateService;
+    private final AuditTextExtractionService textExtractionService;
 
-    public AuditController(AuditService auditService, AuditMapper auditMapper, ExportService exportService, UserTokenService userTokenService, AuthTokenResolver tokenResolver, AuditTemplateService templateService, CheckStateService checkStateService) {
+    public AuditController(AuditService auditService, AuditMapper auditMapper, ExportService exportService, UserTokenService userTokenService, AuthTokenResolver tokenResolver, AuditTemplateService templateService, CheckStateService checkStateService, AuditTextExtractionService textExtractionService) {
         this.auditService = auditService;
         this.auditMapper = auditMapper;
         this.exportService = exportService;
@@ -51,6 +56,7 @@ public class AuditController {
         this.tokenResolver = tokenResolver;
         this.templateService = templateService;
         this.checkStateService = checkStateService;
+        this.textExtractionService = textExtractionService;
     }
 
     @PostMapping("/run")
@@ -75,6 +81,13 @@ public class AuditController {
     public AuditTemplateResponse createTemplate(@Valid @RequestBody AuditTemplateRequest request, @RequestHeader(value = "Authorization", required = false) String authorization, @RequestHeader(value = "X-User-Token", required = false) String token) {
         UserAccount user = userTokenService.requireUser(tokenResolver.userToken(authorization, token, null));
         return templateService.create(user, request);
+    }
+
+    @PostMapping("/extract-file")
+    public AuditFileTextResponse extractFile(@RequestPart("file") MultipartFile file, @RequestHeader(value = "Authorization", required = false) String authorization, @RequestHeader(value = "X-User-Token", required = false) String token) {
+        userTokenService.requireUser(tokenResolver.userToken(authorization, token, null));
+        AuditTextExtractionService.ExtractedText extracted = textExtractionService.extract(file);
+        return new AuditFileTextResponse(extracted.filename(), extracted.contentType(), extracted.text());
     }
 
     @GetMapping("/states")
