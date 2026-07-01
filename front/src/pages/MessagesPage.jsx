@@ -102,6 +102,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
             to: message.from,
             subject: prefixedSubject('Re:', message.subject),
             body: `\n\nOn ${formatMessageDate(message.createdAt)}, ${message.fromName || message.from} wrote:\n${quoteBody(message.body)}`,
+            replyToMessageId: message.serverBacked ? Number(message.id) : null,
         });
     }
 
@@ -109,6 +110,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         openCompose?.({
             subject: prefixedSubject('Fwd:', message.subject),
             body: `\n\n---------- Forwarded message ----------\nFrom: ${message.from} (${message.fromName || 'Unknown'})\nTo: ${message.to}\nDate: ${formatMessageDate(message.createdAt)}\nSubject: ${message.subject}\n\n${message.body}`,
+            forwardedFromMessageId: message.serverBacked ? Number(message.id) : null,
         });
     }
 

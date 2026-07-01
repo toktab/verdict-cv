@@ -12,7 +12,9 @@ public final class MessageDtos {
     public record MessageRequest(
             @NotBlank @Size(max = 160) String to,
             @Size(max = 220) String subject,
-            @NotBlank @Size(max = 20000) String body
+            @NotBlank @Size(max = 20000) String body,
+            @JsonProperty("reply_to_message_id") Long replyToMessageId,
+            @JsonProperty("forwarded_from_message_id") Long forwardedFromMessageId
     ) {
     }
 
@@ -37,6 +39,8 @@ public final class MessageDtos {
             @JsonProperty("project_title") String projectTitle,
             @JsonProperty("read") boolean read,
             boolean starred,
+            @JsonProperty("reply_to_message_id") Long replyToMessageId,
+            @JsonProperty("forwarded_from_message_id") Long forwardedFromMessageId,
             @JsonProperty("created_at") Instant createdAt
     ) {
     }

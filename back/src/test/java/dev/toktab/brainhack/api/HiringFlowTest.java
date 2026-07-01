@@ -440,7 +440,10 @@ class HiringFlowTest {
                 .contains("type=MESSAGE")
                 .contains("subject=Manual message")
                 .contains("body=Hi from owner")
-                .contains("from_username=invite_owner");
+                .contains("from_username=invite_owner")
+                .contains("--- MESSAGE UPDATED ---")
+                .contains("read=true")
+                .contains("starred=true");
     }
 
     @Test

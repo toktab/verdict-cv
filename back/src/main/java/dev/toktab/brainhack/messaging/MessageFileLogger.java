@@ -20,21 +20,29 @@ public class MessageFileLogger {
     }
 
     public synchronized void sent(UserAccount actor, AppMessage message) {
+        write(entry("MESSAGE SENT", actor, message));
+    }
+
+    public synchronized void updated(UserAccount actor, AppMessage message) {
+        write(entry("MESSAGE UPDATED", actor, message));
+    }
+
+    private void write(String entry) {
         try {
             Path parent = logPath.toAbsolutePath().getParent();
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            Files.writeString(logPath, entry(actor, message), StandardCharsets.UTF_8,
+            Files.writeString(logPath, entry, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException exception) {
             throw new UncheckedIOException("Could not write message log", exception);
         }
     }
 
-    private String entry(UserAccount actor, AppMessage message) {
+    private String entry(String event, UserAccount actor, AppMessage message) {
         return """
-                --- MESSAGE SENT ---
+                --- %s ---
                 logged_at=%s
                 message_id=%s
                 type=%s
@@ -50,8 +58,13 @@ public class MessageFileLogger {
                 project_title=%s
                 invite_token=%s
                 invite_status=%s
+                read=%s
+                starred=%s
+                reply_to_message_id=%s
+                forwarded_from_message_id=%s
 
                 """.formatted(
+                event,
                 Instant.now(),
                 value(message.getId()),
                 clean(message.getType()),
@@ -66,7 +79,11 @@ public class MessageFileLogger {
                 value(message.getProjectId()),
                 clean(message.getProjectTitle()),
                 clean(message.getInviteToken()),
-                clean(message.getInviteStatus())
+                clean(message.getInviteStatus()),
+                value(message.isRead()),
+                value(message.isStarred()),
+                value(message.getReplyToMessageId()),
+                value(message.getForwardedFromMessageId())
         );
     }
 

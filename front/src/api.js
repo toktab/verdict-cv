@@ -143,8 +143,14 @@ export async function apiListMessages(token) {
     return rows.map(normaliseMessage);
 }
 
-export async function apiSendMessage({ to, subject, body }, token) {
-    return normaliseMessage(await post('/messages', { to, subject, body }, token));
+export async function apiSendMessage({ to, subject, body, replyToMessageId, forwardedFromMessageId }, token) {
+    return normaliseMessage(await post('/messages', {
+        to,
+        subject,
+        body,
+        reply_to_message_id: replyToMessageId || null,
+        forwarded_from_message_id: forwardedFromMessageId || null,
+    }, token));
 }
 
 export async function apiUpdateMessage(id, payload, token) {
@@ -330,6 +336,8 @@ export function normaliseMessage(raw) {
         },
         read: Boolean(raw.read),
         starred: Boolean(raw.starred),
+        replyToMessageId: raw.reply_to_message_id || raw.replyToMessageId || null,
+        forwardedFromMessageId: raw.forwarded_from_message_id || raw.forwardedFromMessageId || null,
         createdAt: raw.created_at || raw.createdAt || new Date().toISOString(),
         serverBacked: true,
     };

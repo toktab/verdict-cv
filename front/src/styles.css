@@ -3146,6 +3146,11 @@ mark {
     box-shadow: 0 24px 90px rgba(102, 217, 145, 0.18), 0 24px 80px rgba(0, 0, 0, 0.45);
 }
 
+.gmailCompose.failed {
+    border-color: rgba(255, 105, 105, 0.78);
+    box-shadow: 0 24px 90px rgba(255, 59, 59, 0.18), 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
 .composeSendTrack {
     height: 3px;
     margin: 0 -12px;
@@ -3183,6 +3188,23 @@ mark {
 
 .composeSendButton:hover svg {
     transform: translateX(3px) translateY(-2px) rotate(-10deg);
+}
+
+.composeError {
+    border: 1px solid rgba(255, 105, 105, 0.5);
+    border-radius: 8px;
+    color: #ffd5d5;
+    background: rgba(127, 29, 29, 0.28);
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.composeActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
 }
 
 .composeHead {

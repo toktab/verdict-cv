@@ -11,6 +11,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.time.Instant;
 
 @Entity
@@ -69,6 +70,12 @@ public class AppMessage {
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Transient
+    private Long replyToMessageId;
+
+    @Transient
+    private Long forwardedFromMessageId;
+
     public Long getId() { return id; }
     public UserAccount getSender() { return sender; }
     public void setSender(UserAccount sender) { this.sender = sender; }
@@ -98,4 +105,8 @@ public class AppMessage {
     public void setStarred(boolean starred) { this.starred = starred; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Long getReplyToMessageId() { return replyToMessageId; }
+    public void setReplyToMessageId(Long replyToMessageId) { this.replyToMessageId = replyToMessageId; }
+    public Long getForwardedFromMessageId() { return forwardedFromMessageId; }
+    public void setForwardedFromMessageId(Long forwardedFromMessageId) { this.forwardedFromMessageId = forwardedFromMessageId; }
 }

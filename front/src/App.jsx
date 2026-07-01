@@ -277,7 +277,7 @@ function App() {
     const [introVisible, setIntroVisible] = useState(true);
     const [lang, setLangState] = useState(() => localStorage.getItem('verdictLang') || 'ge');
     const [composeOpen, setComposeOpen] = useState(false);
-    const [composeDraft, setComposeDraft] = useState({ to: '', subject: '', body: '' });
+    const [composeDraft, setComposeDraft] = useState({ to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null });
     const [unreadMessages, setUnreadMessages] = useState(0);
 
     function setLang(nextLang) {
@@ -708,10 +708,20 @@ function App() {
 
 function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
     const [composeState, setComposeState] = useState('idle');
+    const [composeError, setComposeError] = useState('');
+
+    useEffect(() => {
+        if (open) {
+            setComposeState('idle');
+            setComposeError('');
+        }
+    }, [open]);
 
     if (!open) {
         return null;
     }
+
+    const canEdit = composeState === 'idle' || composeState === 'failed';
 
     async function sendMessage(event) {
         event.preventDefault();
@@ -719,25 +729,50 @@ function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
             return;
         }
         setComposeState('sending');
+        setComposeError('');
+        const token = localStorage.getItem('verdictUserToken') || '';
         try {
-            await apiSendMessage({
-                to: draft.to.trim(),
-                subject: draft.subject,
-                body: draft.body,
-            }, localStorage.getItem('verdictUserToken') || '');
-            window.dispatchEvent(new Event('verdictMessagesChanged'));
+            if (token) {
+                await apiSendMessage({
+                    to: draft.to.trim(),
+                    subject: draft.subject,
+                    body: draft.body,
+                    replyToMessageId: draft.replyToMessageId,
+                    forwardedFromMessageId: draft.forwardedFromMessageId,
+                }, token);
+                window.dispatchEvent(new Event('verdictMessagesChanged'));
+            } else {
+                saveOfflineMessage();
+            }
         } catch {
-            appendMessage(createMessage({
-                from: user?.email || 'me@verdict.local',
-                fromName: user?.fullName || user?.username || 'Current user',
-                to: draft.to.trim(),
-                subject: draft.subject,
-                body: draft.body,
-            }), user);
+            setComposeState('failed');
+            setComposeError('Server delivery failed. Check the recipient or connection, then retry.');
+            return;
         }
         setComposeState('sent');
         await new Promise((resolve) => setTimeout(resolve, 520));
-        setDraft({ to: '', subject: '', body: '' });
+        setDraft(emptyComposeDraft());
+        setComposeState('idle');
+        setOpen(false);
+    }
+
+    function saveOfflineMessage() {
+        appendMessage(createMessage({
+            from: user?.email || 'me@verdict.local',
+            fromName: user?.fullName || user?.username || 'Current user',
+            to: draft.to.trim(),
+            subject: draft.subject,
+            body: draft.body,
+            replyToMessageId: draft.replyToMessageId,
+            forwardedFromMessageId: draft.forwardedFromMessageId,
+        }), user);
+        window.dispatchEvent(new Event('verdictMessagesChanged'));
+    }
+
+    function saveOfflineAndClose() {
+        saveOfflineMessage();
+        setDraft(emptyComposeDraft());
+        setComposeError('');
         setComposeState('idle');
         setOpen(false);
     }
@@ -745,16 +780,24 @@ function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
     return (
         <form className={`gmailCompose ${composeState}`} onSubmit={sendMessage}>
             <div className="composeHead">
-                <strong>{composeState === 'sent' ? 'Message sent' : composeState === 'sending' ? 'Sending...' : 'New Message'}</strong>
+                <strong>{composeState === 'sent' ? 'Message sent' : composeState === 'sending' ? 'Sending...' : composeState === 'failed' ? 'Delivery failed' : 'New Message'}</strong>
                 <button type="button" disabled={composeState === 'sending'} onClick={() => setOpen(false)}><X size={16} /></button>
             </div>
             <div className="composeSendTrack"><span /></div>
-            <input value={draft.to} disabled={composeState !== 'idle'} onChange={(event) => setDraft({ ...draft, to: event.target.value })} placeholder="Recipients" required />
-            <input value={draft.subject} disabled={composeState !== 'idle'} onChange={(event) => setDraft({ ...draft, subject: event.target.value })} placeholder="Subject" />
-            <textarea value={draft.body} disabled={composeState !== 'idle'} onChange={(event) => setDraft({ ...draft, body: event.target.value })} placeholder="Description" required />
-            <button className="primary composeSendButton" disabled={composeState !== 'idle'} type="submit"><Send size={16} /> {composeState === 'idle' ? 'Send' : composeState === 'sending' ? 'Sending' : 'Sent'}</button>
+            {composeError && <div className="composeError">{composeError}</div>}
+            <input value={draft.to} disabled={!canEdit} onChange={(event) => setDraft({ ...draft, to: event.target.value })} placeholder="Recipients" required />
+            <input value={draft.subject} disabled={!canEdit} onChange={(event) => setDraft({ ...draft, subject: event.target.value })} placeholder="Subject" />
+            <textarea value={draft.body} disabled={!canEdit} onChange={(event) => setDraft({ ...draft, body: event.target.value })} placeholder="Description" required />
+            <div className="composeActions">
+                <button className="primary composeSendButton" disabled={!canEdit} type="submit"><Send size={16} /> {composeState === 'failed' ? 'Retry' : composeState === 'sending' ? 'Sending' : composeState === 'sent' ? 'Sent' : 'Send'}</button>
+                {composeState === 'failed' && <button className="secondary" type="button" onClick={saveOfflineAndClose}>Save offline</button>}
+            </div>
         </form>
     );
+}
+
+function emptyComposeDraft() {
+    return { to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null };
 }
 
 function routeFromPath() {

@@ -26,7 +26,10 @@ public class MessageService {
 
     @Transactional
     public MessageResponse send(UserAccount actor, MessageRequest request) {
-        AppMessage message = messageRepository.save(baseMessage(actor, request.to(), defaulted(request.subject(), "No subject"), request.body()));
+        AppMessage message = baseMessage(actor, request.to(), defaulted(request.subject(), "No subject"), request.body());
+        message.setReplyToMessageId(request.replyToMessageId());
+        message.setForwardedFromMessageId(request.forwardedFromMessageId());
+        message = messageRepository.save(message);
         messageFileLogger.sent(actor, message);
         return toResponse(message);
     }
@@ -46,7 +49,9 @@ public class MessageService {
         if (request.inviteStatus() != null && !request.inviteStatus().isBlank()) {
             message.setInviteStatus(request.inviteStatus().toUpperCase(Locale.ROOT));
         }
-        return toResponse(messageRepository.save(message));
+        AppMessage saved = messageRepository.save(message);
+        messageFileLogger.updated(actor, saved);
+        return toResponse(saved);
     }
 
     @Transactional
@@ -97,6 +102,8 @@ public class MessageService {
                 message.getProjectTitle(),
                 message.isRead(),
                 message.isStarred(),
+                message.getReplyToMessageId(),
+                message.getForwardedFromMessageId(),
                 message.getCreatedAt()
         );
     }
