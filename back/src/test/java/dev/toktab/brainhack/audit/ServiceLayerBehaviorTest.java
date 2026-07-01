@@ -88,6 +88,7 @@ class ServiceLayerBehaviorTest {
         assertThat(cancelled.isCancellationRequested()).isTrue();
         assertThat(cancelled.getProgressStage()).isEqualTo("cancelled");
         assertThat(cancelled.getProgressPercent()).isEqualTo(100);
+        assertThat(cancelled.getFinishedAt()).isNotNull();
         assertThatThrownBy(() -> auditService.cancel(auditId, other))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Audit not found");

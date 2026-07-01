@@ -115,6 +115,11 @@ public class AuditService {
         audit.setAnalyzerVersion(analyzerVersionFor(request.checkStateId()));
         audit.setPromptVersion(promptVersionFor(request.checkStateId()));
         audit.setStatus(AuditStatus.RUNNING);
+        Instant now = Instant.now();
+        audit.setQueuedAt(now);
+        audit.setStartedAt(now);
+        audit.setLastWorkerHeartbeatAt(now);
+        audit.setJobAttempts(1);
         setProgress(audit, "analyzing", 20, "Analyzing claim sentences.");
         audit.setOwner(owner);
         applyTemplate(audit, owner, request.templateId(), request.auditMode());
@@ -133,6 +138,8 @@ public class AuditService {
             }
             countStatuses(audit);
             audit.setStatus(AuditStatus.COMPLETED);
+            audit.setFinishedAt(Instant.now());
+            audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
             setProgress(audit, "completed", 100, "Audit completed.");
             Audit saved = auditRepository.save(audit);
             snapshot(saved);
@@ -143,6 +150,8 @@ public class AuditService {
         } catch (RuntimeException exception) {
             audit.setStatus(AuditStatus.FAILED);
             audit.setProcessingMillis(System.currentTimeMillis() - started);
+            audit.setFinishedAt(Instant.now());
+            audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
             setProgress(audit, "failed", 100, "Audit failed: " + exception.getClass().getSimpleName());
             auditRepository.save(audit);
             rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
@@ -215,6 +224,8 @@ public class AuditService {
         }
         audit.setCancellationRequested(true);
         audit.setStatus(AuditStatus.CANCELLED);
+        audit.setFinishedAt(Instant.now());
+        audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
         setProgress(audit, "cancelled", 100, "Audit cancelled by user.");
         audit.setProcessingMillis(audit.getProcessingMillis());
         Audit saved = auditRepository.save(audit);
@@ -454,6 +465,7 @@ public class AuditService {
         audit.setAnalyzerVersion(analyzerVersionFor(request.checkStateId()));
         audit.setPromptVersion(promptVersionFor(request.checkStateId()));
         audit.setStatus(AuditStatus.RUNNING);
+        audit.setQueuedAt(Instant.now());
         setProgress(audit, "queued", 0, "Queued for analysis.");
         audit.setOwner(owner);
         applyTemplate(audit, owner, request.templateId(), request.auditMode());
@@ -496,6 +508,9 @@ public class AuditService {
             return;
         }
         try {
+            audit.setJobAttempts(audit.getJobAttempts() + 1);
+            audit.setStartedAt(Instant.now());
+            audit.setLastWorkerHeartbeatAt(audit.getStartedAt());
             List<String> sentences = sentenceSplitter.split(audit.getClaimText());
             saveProgress(audit, "analyzing", 20, "Analyzing claim sentences.");
             AuditAnalysisResult analysis = analyze(audit, sentences, audit.getEvidenceText());
@@ -516,6 +531,8 @@ public class AuditService {
             countStatuses(audit);
             setProgress(audit, "snapshotting", 90, "Saving audit snapshot.");
             audit.setStatus(AuditStatus.COMPLETED);
+            audit.setFinishedAt(Instant.now());
+            audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
             setProgress(audit, "completed", 100, "Audit completed.");
             Audit saved = auditRepository.save(audit);
             snapshot(saved);
@@ -524,6 +541,8 @@ public class AuditService {
         } catch (RuntimeException exception) {
             audit.setStatus(AuditStatus.FAILED);
             audit.setProcessingMillis(System.currentTimeMillis() - started);
+            audit.setFinishedAt(Instant.now());
+            audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
             setProgress(audit, "failed", 100, "Audit failed: " + exception.getClass().getSimpleName());
             auditRepository.save(audit);
             rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
@@ -544,6 +563,8 @@ public class AuditService {
     private void markCancelled(Audit audit) {
         audit.setCancellationRequested(true);
         audit.setStatus(AuditStatus.CANCELLED);
+        audit.setFinishedAt(Instant.now());
+        audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
         setProgress(audit, "cancelled", 100, "Audit cancelled by user.");
         auditRepository.save(audit);
         rabbitEventPublisher.publish("audit.cancelled", Map.of("auditId", audit.getId()));
@@ -642,6 +663,7 @@ public class AuditService {
 
     private void saveProgress(Audit audit, String stage, int percent, String message) {
         setProgress(audit, stage, percent, message);
+        audit.setLastWorkerHeartbeatAt(Instant.now());
         auditRepository.saveAndFlush(audit);
     }
 

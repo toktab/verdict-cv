@@ -111,6 +111,17 @@ public class Audit {
     @Column(nullable = false)
     private boolean cancellationRequested;
 
+    @Column(nullable = false)
+    private int jobAttempts;
+
+    private Instant queuedAt;
+
+    private Instant startedAt;
+
+    private Instant finishedAt;
+
+    private Instant lastWorkerHeartbeatAt;
+
     @Column(length = 80)
     private String templateId;
 
@@ -354,6 +365,46 @@ public class Audit {
 
     public void setCancellationRequested(boolean cancellationRequested) {
         this.cancellationRequested = cancellationRequested;
+    }
+
+    public int getJobAttempts() {
+        return jobAttempts;
+    }
+
+    public void setJobAttempts(int jobAttempts) {
+        this.jobAttempts = Math.max(jobAttempts, 0);
+    }
+
+    public Instant getQueuedAt() {
+        return queuedAt;
+    }
+
+    public void setQueuedAt(Instant queuedAt) {
+        this.queuedAt = queuedAt;
+    }
+
+    public Instant getStartedAt() {
+        return startedAt;
+    }
+
+    public void setStartedAt(Instant startedAt) {
+        this.startedAt = startedAt;
+    }
+
+    public Instant getFinishedAt() {
+        return finishedAt;
+    }
+
+    public void setFinishedAt(Instant finishedAt) {
+        this.finishedAt = finishedAt;
+    }
+
+    public Instant getLastWorkerHeartbeatAt() {
+        return lastWorkerHeartbeatAt;
+    }
+
+    public void setLastWorkerHeartbeatAt(Instant lastWorkerHeartbeatAt) {
+        this.lastWorkerHeartbeatAt = lastWorkerHeartbeatAt;
     }
 
     public String getTemplateId() {

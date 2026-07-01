@@ -11,6 +11,11 @@ public record AuditProgressResponse(
         String message,
         long processingMillis,
         String engine,
+        int jobAttempts,
+        Instant queuedAt,
+        Instant startedAt,
+        Instant finishedAt,
+        Instant lastWorkerHeartbeatAt,
         Instant createdAt
 ) {
 }

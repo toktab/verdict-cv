@@ -88,6 +88,11 @@ public class AuditMapper {
                 audit.getProgressMessage(),
                 audit.getProcessingMillis(),
                 audit.getEngine(),
+                audit.getJobAttempts(),
+                audit.getQueuedAt(),
+                audit.getStartedAt(),
+                audit.getFinishedAt(),
+                audit.getLastWorkerHeartbeatAt(),
                 audit.getCreatedAt()
         );
     }
