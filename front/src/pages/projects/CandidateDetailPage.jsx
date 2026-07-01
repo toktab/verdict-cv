@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, History, MessageSquarePlus, Radar, RefreshCcw, ScanText, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Activity, ArrowRight, History, MessageSquarePlus, Radar, RefreshCcw, ScanText, ShieldCheck, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { apiCreateCandidateNote, apiGetCandidateWorkflow, apiListCandidateNotes, apiReanalyzeCandidate, apiUpdateCandidateStatus, apiVoteCandidate } from '../../api';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
@@ -12,6 +12,8 @@ const analysisStates = [
     { id: 'person', name: 'Person_AI State', shortName: 'Person_AI', description: 'Reviewer-style AI judgment for credibility and polish.' },
     { id: 'strict-war-ai', name: 'WAR_AI State', shortName: 'WAR_AI', description: 'Deep AI-assisted verification with OSINT-ready evidence.' },
 ];
+
+const pipelineSteps = ['Unreviewed', 'OnCheck', 'OnInterview', 'Hired', 'Closed'];
 
 export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false, onProjectsChange }) {
     const { t } = useLanguage();
@@ -123,6 +125,10 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const projectPermissions = activeProject?.myPermissions || [];
     const canVote = hasProjectPermission(projectRole, projectPermissions, 'canVote');
     const canAddNote = hasProjectPermission(projectRole, projectPermissions, 'canAddNote');
+    const activePipelineIndex = Math.max(0, pipelineSteps.indexOf(pipelineStatus));
+    const activityCount = workflow?.activity?.length || 0;
+    const workflowTrustLabel = userToken ? 'Server saved workflow' : 'Demo browser workflow';
+    const decisionVoteCount = voteStats.totalVotes ?? (voteStats.attribution || []).filter((line) => /upvote|downvote/i.test(line)).length ?? 0;
 
     function selectAnalysisState(stateId) {
         setActiveStateId(stateId);
@@ -327,6 +333,30 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         <span>Avg {voteStats.average}/5 / {voteStats.downvotes} downvotes / {voteStats.stars} stars</span>
                     </div>
                     {workflowMessage && <div className="inlineNotice">{workflowMessage}</div>}
+                    <div className="workflowTrustStrip">
+                        <span><ShieldCheck size={16} /> {workflowTrustLabel}</span>
+                        <span>{decisionVoteCount} vote{decisionVoteCount === 1 ? '' : 's'}</span>
+                        <span>{activityCount} workflow event{activityCount === 1 ? '' : 's'}</span>
+                        <span>{projectRole}</span>
+                    </div>
+                    <div className="pipelineTimeline" aria-label="Candidate status timeline">
+                        {pipelineSteps.map((status, index) => {
+                            const state = index < activePipelineIndex ? 'done' : index === activePipelineIndex ? 'active' : 'pending';
+                            return (
+                                <button
+                                    className={state}
+                                    disabled={!canSetStatus(projectRole, projectPermissions, status)}
+                                    key={status}
+                                    onClick={() => changePipelineStatus(status)}
+                                    title={canSetStatus(projectRole, projectPermissions, status) ? `Move candidate to ${status}` : `Your role cannot set ${status}`}
+                                    type="button"
+                                >
+                                    <span>{index + 1}</span>
+                                    <strong>{status}</strong>
+                                </button>
+                            );
+                        })}
+                    </div>
                     <div className="candidateVotingGrid">
                         <article>
                             <strong>Reviewer vote</strong>
@@ -347,7 +377,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                             <label>
                                 Candidate status
                                 <select value={pipelineStatus} onChange={(event) => changePipelineStatus(event.target.value)}>
-                                    {['Unreviewed', 'OnCheck', 'OnInterview', 'Hired', 'Closed'].map((status) => <option key={status}>{status}</option>)}
+                                    {pipelineSteps.map((status) => <option disabled={!canSetStatus(projectRole, projectPermissions, status)} key={status}>{status}</option>)}
                                 </select>
                             </label>
                             <small>Your role: {projectRole}. Voter+: vote. Reviewer+: add notes. Screener+: OnCheck. Coordinator+: interview, hire, close.</small>
@@ -814,11 +844,13 @@ function scoreOptions() {
 
 function voteSummary(row = {}) {
     const upvotes = Object.values(row.upvotes || {});
+    const downvotes = Object.keys(row.downvotes || {}).length;
     const average = upvotes.length ? (upvotes.reduce((sum, vote) => sum + Number(vote.score || 0), 0) / upvotes.length).toFixed(1) : '0.0';
     return {
         average,
-        downvotes: Object.keys(row.downvotes || {}).length,
+        downvotes,
         stars: Object.keys(row.stars || {}).length,
+        totalVotes: upvotes.length + downvotes,
     };
 }
 
