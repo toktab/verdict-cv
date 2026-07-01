@@ -41,6 +41,7 @@ public class AuditService {
     private final ScoringService scoringService;
     private final FingerprintService fingerprintService;
     private final RabbitEventPublisher rabbitEventPublisher;
+    private final AuditJobDispatcher auditJobDispatcher;
     private final AuditLogService logService;
     private final TaskExecutor auditTaskExecutor;
     private final AuditTemplateService templateService;
@@ -61,6 +62,7 @@ public class AuditService {
             ScoringService scoringService,
             FingerprintService fingerprintService,
             RabbitEventPublisher rabbitEventPublisher,
+            AuditJobDispatcher auditJobDispatcher,
             AuditLogService logService,
             @Qualifier("auditTaskExecutor")
             TaskExecutor auditTaskExecutor,
@@ -79,6 +81,7 @@ public class AuditService {
         this.scoringService = scoringService;
         this.fingerprintService = fingerprintService;
         this.rabbitEventPublisher = rabbitEventPublisher;
+        this.auditJobDispatcher = auditJobDispatcher;
         this.logService = logService;
         this.auditTaskExecutor = auditTaskExecutor;
         this.templateService = templateService;
@@ -161,7 +164,7 @@ public class AuditService {
 
     public Audit startAsync(AuditRunRequest request, UserAccount owner) {
         Audit audit = createRunningAudit(request, owner);
-        auditTaskExecutor.execute(() -> completeAsync(audit.getId()));
+        dispatchAuditJob(audit.getId());
         return audit;
     }
 
@@ -169,7 +172,7 @@ public class AuditService {
     public void recoverRunningAudits() {
         List<Audit> running = auditRepository.findByStatusAndDeletedAtIsNull(AuditStatus.RUNNING);
         for (Audit audit : running) {
-            auditTaskExecutor.execute(() -> completeAsync(audit.getId()));
+            dispatchAuditJob(audit.getId());
         }
         if (!running.isEmpty()) {
             logService.recordSystem("AUDIT_ASYNC_RECOVERY", "requeued=" + running.size());
@@ -547,6 +550,16 @@ public class AuditService {
             auditRepository.save(audit);
             rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
             logService.recordSystem("AUDIT_ASYNC_FAILED", "auditId=" + audit.getId() + "; error=" + exception.getClass().getSimpleName());
+        }
+    }
+
+    public void completeQueued(Long auditId) {
+        completeAsync(auditId);
+    }
+
+    private void dispatchAuditJob(Long auditId) {
+        if (!auditJobDispatcher.dispatch(auditId)) {
+            auditTaskExecutor.execute(() -> completeAsync(auditId));
         }
     }
 

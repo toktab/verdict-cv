@@ -350,9 +350,9 @@ Advice: Jobs should survive app restarts and worker crashes.
 Fix notes: Added durable audit job metadata with queued/started/finished timestamps, worker heartbeat, and attempt count, exposed it through the progress endpoint, and stamped the metadata through sync, async, recovery, completion, failure, and cancellation paths. Commit: 06c78d2.
 
 28. Move audit processing fully onto RabbitMQ.
-Status: TODO
+Status: FIXED
 Advice: The RabbitMQ dependency already exists. Use it for job dispatch once the synchronous path is stable.
-Fix notes: Pending.
+Fix notes: Added a RabbitMQ audit job queue/exchange/binding, Rabbit-backed audit job dispatcher, Rabbit listener for queued audit IDs, async start/recovery dispatch through Rabbit when enabled, and executor fallback when Rabbit is disabled or unavailable. Commit: PENDING.
 
 29. Add better failure states.
 Status: TODO
