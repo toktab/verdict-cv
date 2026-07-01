@@ -347,7 +347,7 @@ Fix notes: Added durable cancellation_requested tracking, CANCELLED audit status
 27. Add durable background job persistence.
 Status: FIXED
 Advice: Jobs should survive app restarts and worker crashes.
-Fix notes: Added durable audit job metadata with queued/started/finished timestamps, worker heartbeat, and attempt count, exposed it through the progress endpoint, and stamped the metadata through sync, async, recovery, completion, failure, and cancellation paths. Commit: PENDING.
+Fix notes: Added durable audit job metadata with queued/started/finished timestamps, worker heartbeat, and attempt count, exposed it through the progress endpoint, and stamped the metadata through sync, async, recovery, completion, failure, and cancellation paths. Commit: 06c78d2.
 
 28. Move audit processing fully onto RabbitMQ.
 Status: TODO
