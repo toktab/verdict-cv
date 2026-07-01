@@ -3,6 +3,8 @@ package dev.toktab.brainhack.audit;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -30,7 +32,8 @@ public class AuditTextExtractionService {
             } else {
                 throw new IllegalArgumentException("Unsupported file format. Upload PDF, DOCX, or TXT.");
             }
-            return new ExtractedText(filename, file.getContentType(), text.trim());
+            String cleaned = text.trim();
+            return new ExtractedText(filename, file.getContentType(), cleaned, warnings(cleaned, file.getSize()));
         } catch (IOException exception) {
             throw new IllegalArgumentException("Could not read audit file.");
         }
@@ -50,6 +53,33 @@ public class AuditTextExtractionService {
         }
     }
 
-    public record ExtractedText(String filename, String contentType, String text) {
+    private List<String> warnings(String text, long size) {
+        List<String> warnings = new ArrayList<>();
+        if (text.isBlank()) {
+            warnings.add("No readable text was extracted. The file may be scanned, image-only, or protected.");
+            return warnings;
+        }
+        if (text.length() < 80) {
+            warnings.add("Extraction returned very little text. Confirm the document content before auditing.");
+        }
+        if (size > 0 && text.length() > 0 && size > 250_000 && text.length() < 500) {
+            warnings.add("Extraction looks truncated for the uploaded file size.");
+        }
+        long printable = text.chars().filter(ch -> ch == '\n' || ch == '\r' || ch == '\t' || (ch >= 32 && ch < 127)).count();
+        if (printable < text.length() * 0.75) {
+            warnings.add("Extraction may be garbled. Review unusual characters before running the audit.");
+        }
+        long metadataLines = text.lines()
+                .map(String::trim)
+                .filter(line -> line.matches("(?i)^(page \\d+|confidential|copyright|header|footer|table of contents|\\d+)$"))
+                .count();
+        long totalLines = Math.max(1, text.lines().count());
+        if (metadataLines > 0 && metadataLines >= totalLines / 2) {
+            warnings.add("Extraction appears mostly metadata, headers, footers, or page markers.");
+        }
+        return warnings;
+    }
+
+    public record ExtractedText(String filename, String contentType, String text, List<String> warnings) {
     }
 }

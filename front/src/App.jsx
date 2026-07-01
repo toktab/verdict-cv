@@ -476,6 +476,9 @@ function App() {
                 [textKey]: extracted.text || '',
                 [titleKey]: current[titleKey] || extracted.filename || '',
             }));
+            if (extracted.warnings?.length) {
+                setError(extracted.warnings.join(' '));
+            }
         } catch (err) {
             setError(err.message);
         } finally {

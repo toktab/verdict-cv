@@ -87,7 +87,7 @@ public class AuditController {
     public AuditFileTextResponse extractFile(@RequestPart("file") MultipartFile file, @RequestHeader(value = "Authorization", required = false) String authorization, @RequestHeader(value = "X-User-Token", required = false) String token) {
         userTokenService.requireUser(tokenResolver.userToken(authorization, token, null));
         AuditTextExtractionService.ExtractedText extracted = textExtractionService.extract(file);
-        return new AuditFileTextResponse(extracted.filename(), extracted.contentType(), extracted.text());
+        return new AuditFileTextResponse(extracted.filename(), extracted.contentType(), extracted.text(), extracted.warnings());
     }
 
     @GetMapping("/states")
