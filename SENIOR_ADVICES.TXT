@@ -362,7 +362,7 @@ Fix notes: Added persisted audit failure type/message fields, exposed them on au
 30. Add file upload support to the generic audit workspace.
 Status: FIXED
 Advice: Generic claim/evidence audits should accept PDF, DOCX, TXT, and pasted text.
-Fix notes: Added authenticated generic audit file extraction for PDF, DOCX, and TXT, frontend upload controls for claim and evidence panels that populate the existing pasted-text workflow, TXT extraction API coverage, and rebuilt static assets. Commit: PENDING.
+Fix notes: Added authenticated generic audit file extraction for PDF, DOCX, and TXT, frontend upload controls for claim and evidence panels that populate the existing pasted-text workflow, TXT extraction API coverage, and rebuilt static assets. Commit: db1f1bc.
 
 31. Add PDF/DOCX text extraction quality checks.
 Status: TODO
