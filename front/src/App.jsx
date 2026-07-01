@@ -42,6 +42,24 @@ const demoCase = {
 
 const demoCases = [
     demoCase,
+    {
+        id: 'cv-junior-java-demo',
+        name: 'Junior Java applicant',
+        auditMode: 'cv',
+        claimTitle: 'Junior Java backend applicant',
+        evidenceTitle: 'Junior Java backend role evidence',
+        claimText: 'Junior Java backend developer with Spring Boot, REST API, SQL, JWT authentication, and testing experience. Built a student management API, documented endpoints in Postman, and wrote JUnit tests. Familiar with Docker and CI/CD basics. Fast learner with strong communication skills.',
+        evidenceText: 'The role asks for Java, Spring Boot, SQL, REST APIs, authentication basics, JUnit, Git, and clear documentation. Candidate GitHub shows a student management API using Spring Boot, PostgreSQL, JWT login, and 18 JUnit tests. README includes setup steps and Postman examples. No Dockerfile or CI pipeline was found.',
+    },
+    {
+        id: 'cv-leadership-risk-demo',
+        name: 'Leadership-risk applicant',
+        auditMode: 'cv',
+        claimTitle: 'Backend lead applicant',
+        evidenceTitle: 'Backend lead role evidence',
+        claimText: 'Senior backend lead who owned production architecture, led eight engineers, optimized platform performance by 300%, and delivered world-class authentication infrastructure. Expert in Java, cloud systems, observability, and security.',
+        evidenceText: 'The role requires senior backend leadership, production architecture, incident ownership, cloud deployment, observability, and security reviews. Candidate portfolio includes two Java services and a small authentication demo. LinkedIn lists backend developer, not lead. No team-size evidence, production metrics, incident documents, cloud deployment proof, or observability dashboards were supplied.',
+    },
 ];
 
 const demoTemplates = [
@@ -453,14 +471,24 @@ function App() {
         }
     }
 
-    function confirmLoadDemo() {
-        const selectedDemo = demoCases.find((item) => item.id === selectedDemoId) || demoCase;
+    function applyDemoCase(selectedDemo) {
         setForm({
             ...selectedDemo,
             templateId: templates.find((template) => template.mode === selectedDemo.auditMode)?.id || '',
             checkStateId: states[0]?.id || '',
         });
         setAudit(null);
+    }
+
+    function loadDemoNow() {
+        const selectedDemo = demoCases.find((item) => item.id === selectedDemoId) || demoCase;
+        applyDemoCase(selectedDemo);
+        track('load_demo_case_direct', 'first_run', selectedDemo.id);
+    }
+
+    function confirmLoadDemo() {
+        const selectedDemo = demoCases.find((item) => item.id === selectedDemoId) || demoCase;
+        applyDemoCase(selectedDemo);
         setDemoConfirmOpen(false);
         track('load_demo_case_confirmed', 'commandbar');
     }
@@ -610,6 +638,15 @@ function App() {
                             <Metric label="Last activity" value={history[0]?.createdAt ? new Date(history[0].createdAt).toLocaleDateString() : 'None'} />
                         </section>
                     )}
+                    <FirstRunGuide
+                        form={form}
+                        hasAudits={history.length > 0}
+                        onLoadDemo={loadDemoNow}
+                        setRoute={setRoute}
+                        signedIn={Boolean(userToken)}
+                        states={states}
+                        templates={templates}
+                    />
                     <section className="intake">
                         <Panel title={currentAuditMode(form).claimTitle} subtitle={currentAuditMode(form).claimSubtitle}>
                             <Input label="Claim title" value={form.claimTitle} onChange={(claimTitle) => setForm({ ...form, claimTitle })} />
@@ -1037,6 +1074,42 @@ function DemoConfirmModal({ countdown, onCancel, onConfirm }) {
                 </div>
             </section>
         </div>
+    );
+}
+
+function FirstRunGuide({ form, hasAudits, onLoadDemo, setRoute, signedIn, states, templates }) {
+    if (hasAudits) {
+        return null;
+    }
+    const sampleLoaded = Boolean(form.claimText?.trim() && form.evidenceText?.trim());
+    const templateReady = Boolean(form.templateId || templates.length);
+    const stateReady = Boolean(form.checkStateId || states.length);
+    const checks = [
+        { label: signedIn ? 'Signed in' : 'Sign in or create account', done: signedIn },
+        { label: sampleLoaded ? 'Sample evidence loaded' : 'Load a realistic sample', done: sampleLoaded },
+        { label: templateReady ? 'Template ready' : 'Template library loading', done: templateReady },
+        { label: stateReady ? 'Audit state ready' : 'Audit states loading', done: stateReady },
+    ];
+    return (
+        <section className="firstRunGuide">
+            <div>
+                <span className="eyebrow">First run</span>
+                <h2>Get to a trustable audit in under a minute</h2>
+                <p>Use a seeded CV and evidence pack, review the template/state, then run the audit from the command bar.</p>
+            </div>
+            <div className="firstRunChecks">
+                {checks.map((check) => (
+                    <span className={check.done ? 'done' : ''} key={check.label}>
+                        <CheckCircle2 size={15} /> {check.label}
+                    </span>
+                ))}
+            </div>
+            <div className="firstRunActions">
+                {!signedIn && <button className="primary" onClick={() => navigateTo(setRoute, 'login')}>Sign in</button>}
+                {!signedIn && <button className="secondary" onClick={() => navigateTo(setRoute, 'register')}>Create account</button>}
+                <button className={sampleLoaded ? 'secondary' : 'primary'} onClick={onLoadDemo} type="button">Load sample CV</button>
+            </div>
+        </section>
     );
 }
 

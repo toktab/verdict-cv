@@ -5311,6 +5311,65 @@ select {
     align-items: center;
 }
 
+.firstRunGuide {
+    border: 1px solid rgba(102, 217, 145, 0.24);
+    border-radius: 8px;
+    background:
+            linear-gradient(180deg, rgba(102, 217, 145, 0.08), rgba(255, 255, 255, 0.025)),
+            rgba(8, 10, 12, 0.9);
+    padding: 14px;
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) minmax(260px, 0.9fr) auto;
+    gap: 14px;
+    align-items: center;
+}
+
+.firstRunGuide h2,
+.firstRunGuide p {
+    margin: 4px 0 0;
+}
+
+.firstRunGuide p {
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.firstRunChecks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.firstRunChecks span {
+    min-height: 34px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.18);
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 9px;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.firstRunChecks span.done {
+    border-color: rgba(102, 217, 145, 0.32);
+    color: #c8f7dc;
+}
+
+.firstRunChecks svg {
+    flex: 0 0 auto;
+}
+
+.firstRunActions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
 .metric {
     min-width: 150px;
     min-height: 40px;
@@ -6410,6 +6469,8 @@ select {
     .tableClearGrid,
     .tableClearSummary,
     .tableClearConfirm,
+    .firstRunGuide,
+    .firstRunChecks,
     .dashboardStats,
     .dashboardGrid,
     .jobListingGrid {
