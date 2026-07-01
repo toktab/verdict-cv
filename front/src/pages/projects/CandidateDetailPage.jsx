@@ -772,9 +772,9 @@ const ROLE_PERMISSIONS = {
     Voter: ['canView', 'canVote'],
     Reviewer: ['canView', 'canVote', 'canAddNote'],
     Screener: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck'],
-    Coordinator: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canViewActivityLog'],
-    Admin: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canKickMembers', 'canPromoteMembers', 'canDemoteMembers', 'canChangePermissions', 'canMessage', 'canViewActivityLog'],
-    'Head Admin': ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canKickMembers', 'canPromoteMembers', 'canDemoteMembers', 'canChangePermissions', 'canMessage', 'canViewActivityLog', 'protectedAccount'],
+    Coordinator: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canInvite', 'canTeamManage', 'canViewActivityLog'],
+    Admin: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canInvite', 'canTeamManage', 'canKickMembers', 'canPromoteMembers', 'canDemoteMembers', 'canChangePermissions', 'canMessage', 'canViewActivityLog'],
+    'Head Admin': ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canInvite', 'canTeamManage', 'canKickMembers', 'canPromoteMembers', 'canDemoteMembers', 'canChangePermissions', 'canMessage', 'canViewActivityLog', 'protectedAccount'],
 };
 
 function hasPermission(role, permission) {

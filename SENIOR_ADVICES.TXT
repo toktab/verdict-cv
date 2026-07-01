@@ -367,7 +367,7 @@ Fix notes: Added authenticated generic audit file extraction for PDF, DOCX, and 
 31. Add PDF/DOCX text extraction quality checks.
 Status: FIXED
 Advice: Warn users when extraction looks empty, garbled, truncated, or mostly metadata.
-Fix notes: Added extraction warnings for empty, short, likely truncated, garbled, and metadata-heavy file text, returned warnings from the extraction API, surfaced warnings in the audit upload UI, updated TXT extraction coverage, and rebuilt static assets. Commit: PENDING.
+Fix notes: Added extraction warnings for empty, short, likely truncated, garbled, and metadata-heavy file text, returned warnings from the extraction API, surfaced warnings in the audit upload UI, updated TXT extraction coverage, and rebuilt static assets. Commit: 841ad12.
 
 32. Add evidence highlighting.
 Status: TODO

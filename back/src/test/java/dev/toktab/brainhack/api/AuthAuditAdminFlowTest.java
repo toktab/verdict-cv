@@ -213,6 +213,34 @@ class AuthAuditAdminFlowTest {
     }
 
     @Test
+    void adminCanSelectAndClearAllowedTableGroups() throws Exception {
+        String adminToken = adminToken();
+
+        mockMvc.perform(get("/api/admin/table-clear-targets").header("X-Admin-Token", adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].key").value("messages"));
+
+        mockMvc.perform(patch("/api/admin/settings")
+                        .header("X-Admin-Token", adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"requireEmailVerification\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requireEmailVerification").value(true));
+
+        mockMvc.perform(post("/api/admin/clear-tables")
+                        .header("X-Admin-Token", adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targets\":[\"settings\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].key").value("settings"))
+                .andExpect(jsonPath("$[0].deletedRows").value(1));
+
+        mockMvc.perform(get("/api/admin/settings").header("X-Admin-Token", adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requireEmailVerification").value(false));
+    }
+
+    @Test
     void userCanLoadDefaultsAndCreatePrivateAuditTemplate() throws Exception {
         String token = register("template_user");
 

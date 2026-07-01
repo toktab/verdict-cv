@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Activity, ArrowRight, CheckCircle2, ClipboardCheck, FileSearch, ShieldCheck, UserPlus, Users } from 'lucide-react';
-import { apiAcceptProjectInvite, apiCreateProjectInvite, apiListProjectInvites } from '../../api';
+import { apiAcceptProjectInvite, apiCreateProjectInvite, apiListProjectInvites, apiListProjectMembers } from '../../api';
 import { useLanguage } from '../../i18n';
 import { CandidateTable } from './components/CandidateTable';
 import { ProjectScoreStrip } from './components/ProjectScoreStrip';
@@ -11,6 +11,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
     const [invites, setInvites] = useState([]);
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteToken, setInviteToken] = useState('');
+    const [members, setMembers] = useState([]);
     const [teamMessage, setTeamMessage] = useState('');
     const [teamBusy, setTeamBusy] = useState(false);
     const project = findProjectFromPath(projects) || projects[0];
@@ -23,6 +24,13 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
             })
             .catch(() => {
                 if (!cancelled) setInvites([]);
+            });
+        apiListProjectMembers(project.id, userToken)
+            .then((rows) => {
+                if (!cancelled) setMembers(rows || []);
+            })
+            .catch(() => {
+                if (!cancelled) setMembers([]);
             });
         return () => {
             cancelled = true;
@@ -83,6 +91,10 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
     const funnel = projectFunnel(project.candidates);
     const risks = projectRiskClusters(project.candidates, t);
     const coverage = projectCoverage(project);
+    const myMember = members.find((member) => sameIdentity(member.email, user?.email) || sameIdentity(member.email, user?.username));
+    const myPermissions = permissionsForProjectRole(myMember?.role || (project.ownerId === user?.id ? 'Head Admin' : 'Viewer'));
+    const canTeamManage = myPermissions.includes('canTeamManage') || myPermissions.includes('protectedAccount');
+    const canInvite = myPermissions.includes('canInvite') || myPermissions.includes('protectedAccount');
     const reviewSteps = [
         ['01', t('jobDescription'), t('jobDescriptionFixed')],
         ['02', t('addCvs'), t('addCandidateText')],
@@ -106,7 +118,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                     </div>
                     <div className="detailHeroActions">
                         <button className="secondary compactHeroButton" onClick={() => navigateTo(setRoute, 'projects')}><ArrowRight size={16} /> {t('allProjects')}</button>
-                        <button className="secondary compactHeroButton" onClick={() => navigateTo(setRoute, 'projectTeam', project.id)}><Users size={18} /> Team</button>
+                        <button className="secondary compactHeroButton" onClick={() => navigateTo(setRoute, 'projectTeam', project.id)}><Users size={18} /> {canTeamManage ? 'Team' : 'Members'}</button>
                         <button className="primary compactHeroButton" onClick={() => navigateTo(setRoute, 'addCandidate', project.id)}><UserPlus size={18} /> {t('addCandidate')}</button>
                     </div>
                 </section>
@@ -179,7 +191,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                         <div className="healthLine"><span>{t('needsHumanReview')}</span><strong>{project.candidates.filter((candidate) => candidate.state === 'Needs review').length}</strong></div>
                     </div>
                 </section>
-                <section className="teamInvitePanel">
+                {canInvite && <section className="teamInvitePanel">
                     <div className="tableToolbar">
                         <div>
                             <span className="eyebrow">Team</span>
@@ -216,7 +228,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                         ))}
                         {!invites.length && <p className="mutedPanelText">No project invites have been created yet.</p>}
                     </div>
-                </section>
+                </section>}
                 <section className="jobListingGrid">
                     <article className="jobListingPanel jobListingPanelWide">
                         <h2><FileSearch size={18} /> {t('jobDescription')}</h2>
@@ -324,4 +336,15 @@ function requirementClaim(candidate, requirement) {
 
 function normalizeClaim(value = '') {
     return String(value).toLowerCase().replace(/[^a-z0-9+#. ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function sameIdentity(left = '', right = '') {
+    return String(left || '').trim().toLowerCase() === String(right || '').trim().toLowerCase();
+}
+
+function permissionsForProjectRole(role = '') {
+    const normalized = String(role).toLowerCase();
+    if (normalized.includes('head admin')) return ['canView', 'canInvite', 'canTeamManage', 'protectedAccount'];
+    if (normalized.includes('admin') || normalized.includes('coordinator')) return ['canView', 'canInvite', 'canTeamManage'];
+    return ['canView'];
 }

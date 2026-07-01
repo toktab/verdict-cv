@@ -2732,6 +2732,7 @@ mark {
     background: #ef4444;
     color: white;
     font-size: 11px;
+    animation: badgePop 0.42s cubic-bezier(0.2, 0.9, 0.2, 1.25);
 }
 
 .messagesPage,
@@ -2741,10 +2742,39 @@ mark {
     padding: 24px 0 60px;
 }
 
+.errorBoundaryPage {
+    min-height: 100vh;
+    width: min(920px, calc(100vw - 36px));
+    margin: 0 auto;
+    display: grid;
+    place-items: center;
+    padding: 48px 0;
+}
+
+.errorBoundaryPage section {
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)), var(--panel);
+    padding: 28px;
+    display: grid;
+    gap: 14px;
+}
+
+.errorBoundaryPage h1,
+.errorBoundaryPage p {
+    margin: 0;
+}
+
+.errorBoundaryPage p {
+    color: var(--soft);
+    line-height: 1.6;
+}
+
 .messagesPage {
     display: grid;
     grid-template-columns: 220px minmax(320px, 1fr);
     gap: 14px;
+    animation: inboxPageIn 0.42s ease both;
 }
 
 .messagesSidebar,
@@ -2762,11 +2792,17 @@ mark {
     display: grid;
     align-content: start;
     gap: 10px;
+    animation: panelSlideUp 0.34s ease both;
+}
+
+.messageListPanel {
+    animation: panelSlideUp 0.42s ease 0.05s both;
 }
 
 .messagesSidebar button.active {
     border-color: rgba(255, 99, 99, 0.55);
     color: var(--text);
+    box-shadow: inset 3px 0 0 rgba(255, 99, 99, 0.85);
 }
 
 .messageRows {
@@ -2785,6 +2821,21 @@ mark {
     align-items: center;
     padding: 10px;
     text-align: left;
+    animation: messageRowIn 0.32s ease both;
+    transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.messageRows button:nth-child(2) { animation-delay: 0.035s; }
+.messageRows button:nth-child(3) { animation-delay: 0.07s; }
+.messageRows button:nth-child(4) { animation-delay: 0.105s; }
+.messageRows button:nth-child(5) { animation-delay: 0.14s; }
+.messageRows button:nth-child(n+6) { animation-delay: 0.175s; }
+
+.messageRows button:hover {
+    transform: translateX(4px);
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
 }
 
 .messageRows button.active {
@@ -2795,6 +2846,10 @@ mark {
 .messageRows button.unread {
     border-color: rgba(102, 217, 145, 0.25);
     background: rgba(102, 217, 145, 0.07);
+}
+
+.messageRows button.fresh {
+    animation: messageRowIn 0.32s ease both, freshMessagePulse 1.45s ease both;
 }
 
 .messageRows button.unread strong,
@@ -2813,6 +2868,15 @@ mark {
 .messageRows svg.filled {
     fill: #facc15;
     color: #facc15;
+    animation: starPop 0.28s cubic-bezier(0.2, 0.9, 0.2, 1.25);
+}
+
+.messageRows svg {
+    transition: transform 0.16s ease, color 0.16s ease, fill 0.16s ease;
+}
+
+.messageRows svg:hover {
+    transform: scale(1.18) rotate(-8deg);
 }
 
 .messageStatus {
@@ -2836,6 +2900,13 @@ mark {
     font-size: 12px;
     font-weight: 800;
     white-space: nowrap;
+    transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+}
+
+.messageMarkButton:hover {
+    transform: translateY(-1px);
+    border-color: rgba(102, 217, 145, 0.48);
+    background: rgba(102, 217, 145, 0.1);
 }
 
 .messageReadPane {
@@ -2848,31 +2919,57 @@ mark {
     position: fixed;
     inset: 0;
     z-index: 70;
-    display: grid;
-    place-items: center;
-    padding: 22px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: stretch;
+    padding: 18px;
     background: rgba(0, 0, 0, 0.48);
     backdrop-filter: blur(10px);
+    animation: modalBackdropIn 0.22s ease both;
 }
 
 .messageModal {
-    width: min(820px, calc(100vw - 36px));
-    max-height: min(720px, calc(100vh - 44px));
-    overflow: auto;
+    width: min(720px, calc(100vw - 36px));
+    height: calc(100vh - 36px);
+    overflow: hidden;
     border: 1px solid var(--line-strong);
     border-radius: 8px;
-    padding: 20px;
+    padding: 0;
     background:
-            radial-gradient(circle at 0 0, rgba(255, 59, 59, 0.12), transparent 18rem),
+            radial-gradient(circle at 0 0, rgba(255, 59, 59, 0.16), transparent 18rem),
+            radial-gradient(circle at 100% 18%, rgba(102, 217, 145, 0.08), transparent 16rem),
             #0f1117;
     box-shadow: 0 26px 90px rgba(0, 0, 0, 0.62);
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    animation: mailReaderIn 0.34s cubic-bezier(0.2, 0.85, 0.25, 1) both;
 }
 
 .messageModalHead {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 14px;
     align-items: start;
+    padding: 18px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.messageCloseButton {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border-radius: 8px;
+    border-color: rgba(255, 99, 99, 0.7);
+    background: rgba(255, 59, 59, 0.16);
+    color: #fff;
+    transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+}
+
+.messageCloseButton:hover {
+    transform: scale(1.05) rotate(3deg);
+    background: rgba(255, 59, 59, 0.28);
+    border-color: rgba(255, 145, 145, 0.95);
 }
 
 .messageModalHead h2 {
@@ -2881,11 +2978,63 @@ mark {
     line-height: 1.04;
 }
 
+.messageModalToolbar,
+.messageModalActions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.16);
+}
+
+.messageModalScroll {
+    overflow-y: auto;
+    padding: 18px;
+    display: grid;
+    align-content: start;
+    gap: 14px;
+}
+
+.messagePeopleCard {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.messagePeopleCard div,
+.messageBodyCard,
+.messageInfoCard {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.045);
+    padding: 14px;
+    animation: detailCardIn 0.32s ease both;
+}
+
+.messagePeopleCard div:nth-child(2),
+.messageBodyCard,
+.messageInfoCard {
+    animation-delay: 0.04s;
+}
+
+.messagePeopleCard span,
+.messagePeopleCard small,
+.messageInfoCard span {
+    display: block;
+    color: var(--muted);
+}
+
+.messagePeopleCard strong {
+    display: block;
+    margin: 4px 0;
+    font-size: 18px;
+}
+
 .messageMetaGrid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
-    margin: 18px 0;
 }
 
 .messageMetaGrid span {
@@ -2896,10 +3045,21 @@ mark {
     background: rgba(255, 255, 255, 0.035);
 }
 
-.messageModal p {
+.messageBodyCard p {
     white-space: pre-wrap;
     color: var(--soft);
     line-height: 1.65;
+    margin: 10px 0 0;
+    font-size: 16px;
+}
+
+.messageInfoCard {
+    display: grid;
+    gap: 7px;
+}
+
+.messageInfoCard strong {
+    color: var(--text);
 }
 
 .inviteDecisionBox {
@@ -2927,10 +3087,9 @@ mark {
 }
 
 .messageModalActions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 18px;
+    border-top: 1px solid var(--line);
+    border-bottom: 0;
+    justify-content: flex-end;
 }
 
 .gmailCompose {
@@ -2946,6 +3105,57 @@ mark {
     padding: 0 12px 12px;
     display: grid;
     gap: 10px;
+    transform-origin: bottom right;
+    animation: composeDockIn 0.28s cubic-bezier(0.2, 0.9, 0.2, 1.08) both;
+    overflow: hidden;
+}
+
+.gmailCompose.sending {
+    animation: composeSendingPulse 1.1s ease-in-out infinite;
+}
+
+.gmailCompose.sent {
+    border-color: rgba(102, 217, 145, 0.72);
+    box-shadow: 0 24px 90px rgba(102, 217, 145, 0.18), 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.composeSendTrack {
+    height: 3px;
+    margin: 0 -12px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.composeSendTrack span {
+    display: block;
+    height: 100%;
+    width: 38%;
+    background: linear-gradient(90deg, transparent, rgba(255, 99, 99, 0.95), rgba(102, 217, 145, 0.95), transparent);
+    transform: translateX(-120%);
+}
+
+.gmailCompose.sending .composeSendTrack span {
+    animation: composeTrackSweep 0.95s ease-in-out infinite;
+}
+
+.gmailCompose.sent .composeSendTrack span {
+    width: 100%;
+    transform: translateX(0);
+    background: var(--green);
+    animation: none;
+}
+
+.composeSendButton {
+    position: relative;
+    overflow: hidden;
+}
+
+.composeSendButton svg {
+    transition: transform 0.2s ease;
+}
+
+.composeSendButton:hover svg {
+    transform: translateX(3px) translateY(-2px) rotate(-10deg);
 }
 
 .composeHead {
@@ -3080,6 +3290,26 @@ mark {
     background: rgba(240, 184, 90, 0.12);
     font-size: 12px;
     font-weight: 850;
+}
+
+.memberStatusPill {
+    min-height: 34px;
+    border: 1px solid rgba(102, 217, 145, 0.36);
+    border-radius: 999px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #d7ffe4;
+    background: rgba(102, 217, 145, 0.1);
+    font-size: 12px;
+    font-weight: 850;
+}
+
+.memberStatusPill.pending {
+    border-color: rgba(240, 184, 90, 0.4);
+    color: #ffe4b5;
+    background: rgba(240, 184, 90, 0.1);
 }
 
 .candidateSendBackdrop {
@@ -5024,6 +5254,145 @@ select {
     to   { opacity: 1; }
 }
 
+@keyframes inboxPageIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+        filter: blur(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+}
+
+@keyframes panelSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes messageRowIn {
+    from {
+        opacity: 0;
+        transform: translateX(-12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes freshMessagePulse {
+    0% {
+        box-shadow: 0 0 0 rgba(102, 217, 145, 0);
+        border-color: rgba(102, 217, 145, 0.18);
+    }
+    35% {
+        box-shadow: 0 0 0 5px rgba(102, 217, 145, 0.14), 0 18px 34px rgba(102, 217, 145, 0.12);
+        border-color: rgba(102, 217, 145, 0.72);
+        background: rgba(102, 217, 145, 0.12);
+    }
+    100% {
+        box-shadow: 0 0 0 rgba(102, 217, 145, 0);
+    }
+}
+
+@keyframes modalBackdropIn {
+    from {
+        opacity: 0;
+        backdrop-filter: blur(0);
+    }
+    to {
+        opacity: 1;
+        backdrop-filter: blur(10px);
+    }
+}
+
+@keyframes mailReaderIn {
+    from {
+        opacity: 0;
+        transform: translateX(36px) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes composeDockIn {
+    from {
+        opacity: 0;
+        transform: translateY(34px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes composeTrackSweep {
+    from {
+        transform: translateX(-120%);
+    }
+    to {
+        transform: translateX(280%);
+    }
+}
+
+@keyframes composeSendingPulse {
+    0%,
+    100% {
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+    }
+    50% {
+        box-shadow: 0 24px 96px rgba(255, 59, 59, 0.16), 0 24px 80px rgba(0, 0, 0, 0.45);
+    }
+}
+
+@keyframes starPop {
+    0% {
+        transform: scale(0.7) rotate(-18deg);
+    }
+    80% {
+        transform: scale(1.22) rotate(5deg);
+    }
+    100% {
+        transform: scale(1) rotate(0);
+    }
+}
+
+@keyframes detailCardIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes badgePop {
+    0% {
+        transform: scale(0.45);
+        opacity: 0;
+    }
+    70% {
+        transform: scale(1.14);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
 @keyframes menuPanelReveal {
     from {
         opacity: 0;
@@ -5359,6 +5728,24 @@ select {
     padding: 16px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.001ms !important;
+    }
+}
+
+.adminDangerZone {
+    border-color: rgba(255, 105, 105, 0.5);
+    background:
+            radial-gradient(circle at 0 0, rgba(239, 68, 68, 0.12), transparent 20rem),
+            rgba(255, 255, 255, 0.045);
+}
+
 .adminWide {
     grid-column: 1 / -1;
 }
@@ -5420,6 +5807,42 @@ select {
 
 .userEditor .field {
     padding: 0;
+}
+
+.tableClearGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.tableClearOption {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.18);
+    padding: 12px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 8px;
+    align-items: center;
+}
+
+.tableClearOption span {
+    color: var(--text);
+    font-weight: 800;
+}
+
+.tableClearOption small {
+    grid-column: 2;
+    color: var(--muted);
+}
+
+.tableClearConfirm {
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) auto;
+    gap: 12px;
+    align-items: end;
+    margin-top: 14px;
 }
 
 .userRows {

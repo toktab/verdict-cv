@@ -117,6 +117,17 @@ public class HiringDtos {
     ) {
     }
 
+    public record ProjectMemberResponse(
+            Long id,
+            String name,
+            String email,
+            String role,
+            String status,
+            String source,
+            @JsonProperty("protected_member") boolean protectedMember
+    ) {
+    }
+
     public record NoteRequest(
             @Size(max = 40) String type,
             @Size(max = 80) String decision,

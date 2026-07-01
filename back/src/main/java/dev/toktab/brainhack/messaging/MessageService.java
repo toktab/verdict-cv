@@ -12,9 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class MessageService {
     private final AppMessageRepository messageRepository;
+    private final MessageFileLogger messageFileLogger;
 
-    public MessageService(AppMessageRepository messageRepository) {
+    public MessageService(AppMessageRepository messageRepository, MessageFileLogger messageFileLogger) {
         this.messageRepository = messageRepository;
+        this.messageFileLogger = messageFileLogger;
     }
 
     @Transactional(readOnly = true)
@@ -24,7 +26,9 @@ public class MessageService {
 
     @Transactional
     public MessageResponse send(UserAccount actor, MessageRequest request) {
-        return toResponse(messageRepository.save(baseMessage(actor, request.to(), defaulted(request.subject(), "No subject"), request.body())));
+        AppMessage message = messageRepository.save(baseMessage(actor, request.to(), defaulted(request.subject(), "No subject"), request.body()));
+        messageFileLogger.sent(actor, message);
+        return toResponse(message);
     }
 
     @Transactional
@@ -58,7 +62,9 @@ public class MessageService {
         message.setInviteStatus("PENDING");
         message.setProjectId(projectId);
         message.setProjectTitle(projectTitle);
-        return messageRepository.save(message);
+        AppMessage saved = messageRepository.save(message);
+        messageFileLogger.sent(actor, saved);
+        return saved;
     }
 
     private AppMessage baseMessage(UserAccount actor, String to, String subject, String body) {

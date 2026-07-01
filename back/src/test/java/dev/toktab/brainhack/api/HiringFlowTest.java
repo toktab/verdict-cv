@@ -10,12 +10,15 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -293,6 +296,8 @@ class HiringFlowTest {
 
     @Test
     void projectInvitesGrantTeamAccessAndReviewerNotesKeepDecisionHistory() throws Exception {
+        Path messageLog = Path.of("target/test-message-log.txt");
+        Files.deleteIfExists(messageLog);
         String ownerToken = register("invite_owner");
         String reviewerEmail = "reviewer_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10) + "@example.com";
         String reviewerToken = registerWithEmail("invite_reviewer", reviewerEmail);
@@ -324,6 +329,16 @@ class HiringFlowTest {
                         .param("token", inviteToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACCEPTED"));
+
+        mockMvc.perform(get("/api/projects").header("X-User-Token", reviewerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value((int) projectId))
+                .andExpect(jsonPath("$[0].title").value("Shared Role"));
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/members").header("X-User-Token", ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.email == '" + reviewerEmail + "')]").exists())
+                .andExpect(jsonPath("$[?(@.email == '" + reviewerEmail + "')].status").value(hasItem("ACTIVE")));
 
         MvcResult candidate = mockMvc.perform(post("/api/projects/" + projectId + "/candidates")
                         .header("X-User-Token", reviewerToken)
@@ -373,7 +388,42 @@ class HiringFlowTest {
         mockMvc.perform(get("/api/messages").header("X-User-Token", reviewerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].subject").value("Manual message"))
-                .andExpect(jsonPath("$[0].body").value("Hi from owner"));
+                .andExpect(jsonPath("$[0].body").value("Hi from owner"))
+                .andExpect(jsonPath("$[0].read").value(false))
+                .andExpect(jsonPath("$[0].starred").value(false));
+
+        long messageId = objectMapper.readTree(mockMvc.perform(get("/api/messages").header("X-User-Token", reviewerToken))
+                        .andReturn().getResponse().getContentAsString()).get(0).get("id").asLong();
+
+        mockMvc.perform(patch("/api/messages/" + messageId)
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "read":true,
+                                  "starred":true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.read").value(true))
+                .andExpect(jsonPath("$.starred").value(true));
+
+        mockMvc.perform(get("/api/messages").header("X-User-Token", reviewerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].read").value(true))
+                .andExpect(jsonPath("$[0].starred").value(true));
+
+        String log = Files.readString(messageLog);
+        org.assertj.core.api.Assertions.assertThat(log)
+                .contains("type=PROJECT_INVITE")
+                .contains("to_email=" + reviewerEmail)
+                .contains("subject=Invitation to Shared Role")
+                .contains("project_title=Shared Role")
+                .contains("invite_status=PENDING")
+                .contains("type=MESSAGE")
+                .contains("subject=Manual message")
+                .contains("body=Hi from owner")
+                .contains("from_username=invite_owner");
     }
 
     @Test

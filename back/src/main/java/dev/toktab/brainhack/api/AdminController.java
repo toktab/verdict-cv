@@ -1,6 +1,8 @@
 package dev.toktab.brainhack.api;
 
 import dev.toktab.brainhack.admin.AdminSessionService;
+import dev.toktab.brainhack.admin.AdminTableMaintenanceService;
+import dev.toktab.brainhack.admin.AdminTableMaintenanceService.TableClearResult;
 import dev.toktab.brainhack.account.AccountSettingsService;
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.account.UserAccountService;
@@ -51,6 +53,7 @@ public class AdminController {
     private final UserAccountService userAccountService;
     private final UserMapper userMapper;
     private final AccountSettingsService accountSettingsService;
+    private final AdminTableMaintenanceService tableMaintenanceService;
 
     public AdminController(
             AdminSessionService adminSessionService,
@@ -61,7 +64,8 @@ public class AdminController {
             AuditLogService logService,
             UserAccountService userAccountService,
             UserMapper userMapper,
-            AccountSettingsService accountSettingsService) {
+            AccountSettingsService accountSettingsService,
+            AdminTableMaintenanceService tableMaintenanceService) {
         this.adminSessionService = adminSessionService;
         this.auditService = auditService;
         this.auditMapper = auditMapper;
@@ -71,6 +75,7 @@ public class AdminController {
         this.userAccountService = userAccountService;
         this.userMapper = userMapper;
         this.accountSettingsService = accountSettingsService;
+        this.tableMaintenanceService = tableMaintenanceService;
     }
 
     @PostMapping("/login")
@@ -193,6 +198,18 @@ public class AdminController {
         logRepository.save(log);
     }
 
+    @GetMapping("/table-clear-targets")
+    public List<TableClearResult> tableClearTargets() {
+        return tableMaintenanceService.targets();
+    }
+
+    @PostMapping("/clear-tables")
+    public List<TableClearResult> clearTables(@RequestBody ClearTablesRequest request) {
+        List<TableClearResult> results = tableMaintenanceService.clear(request.targets());
+        logService.recordSystem("ADMIN_CLEAR_TABLES", "targets=" + request.targets());
+        return results;
+    }
+
     private int safeOffset(int offset) {
         return Math.max(offset, 0);
     }
@@ -201,4 +218,7 @@ public class AdminController {
         return Math.min(Math.max(limit, 1), 100);
     }
 
+}
+
+record ClearTablesRequest(List<String> targets) {
 }

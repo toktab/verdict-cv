@@ -12,8 +12,9 @@ import { ProjectTeamPage } from './pages/projects/ProjectTeamPage';
 import { ProjectsPage } from './pages/projects/ProjectsPage';
 import { SignalTracePage } from './pages/projects/SignalTracePage';
 import { LanguageContext, translate, useLanguage } from './i18n';
-import { apiLogin, apiRegister, apiMe, apiLogout, apiListProjects, apiSendMessage, javaApi, normaliseProject, normaliseUser } from './api';
-import { appendMessage, createMessage } from './messageStore';
+import { apiLogin, apiRegister, apiMe, apiLogout, apiListMessages, apiListProjects, apiSendMessage, javaApi, normaliseProject, normaliseUser } from './api';
+import { appendMessage, createMessage, messageBelongsTo, readMessages } from './messageStore';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './styles.css';
 
 const auditModes = {
@@ -87,6 +88,8 @@ const api = {
     adminLogs: async (token, offset, limit, search) => javaApi.adminLogs(token, offset, limit, search),
     adminUsers: async (token, offset, limit, search) => javaApi.adminUsers(token, offset, limit, search),
     adminSettings: async (token) => javaApi.adminSettings(token),
+    adminTableClearTargets: async (token) => javaApi.adminTableClearTargets(token),
+    clearAdminTables: async (token, targets) => javaApi.clearAdminTables(token, targets),
     updateAdminSettings: async (token, settings) => javaApi.updateAdminSettings(token, settings),
     adminAudit: async (token, id) => javaApi.adminAudit(token, id),
     deleteAudit: async (token, id) => javaApi.deleteAudit(token, id),
@@ -274,6 +277,7 @@ function App() {
     const [lang, setLangState] = useState(() => localStorage.getItem('verdictLang') || 'ge');
     const [composeOpen, setComposeOpen] = useState(false);
     const [composeDraft, setComposeDraft] = useState({ to: '', subject: '', body: '' });
+    const [unreadMessages, setUnreadMessages] = useState(0);
 
     function setLang(nextLang) {
         localStorage.setItem('verdictLang', nextLang);
@@ -327,6 +331,32 @@ function App() {
         loadStates();
         loadProjects();
     }, [userToken]);
+
+    useEffect(() => {
+        let cancelled = false;
+        async function refreshUnreadMessages() {
+            if (!user) {
+                setUnreadMessages(0);
+                return;
+            }
+            try {
+                const rows = userToken ? await apiListMessages(userToken) : readMessages(user);
+                if (!cancelled) {
+                    setUnreadMessages(rows.filter((message) => !message.read && messageBelongsTo(message, user, 'to')).length);
+                }
+            } catch {
+                if (!cancelled) {
+                    setUnreadMessages(readMessages(user).filter((message) => !message.read && messageBelongsTo(message, user, 'to')).length);
+                }
+            }
+        }
+        refreshUnreadMessages();
+        window.addEventListener('verdictMessagesChanged', refreshUnreadMessages);
+        return () => {
+            cancelled = true;
+            window.removeEventListener('verdictMessagesChanged', refreshUnreadMessages);
+        };
+    }, [user, userToken]);
 
     useEffect(() => {
         if (!demoConfirmOpen) {
@@ -513,46 +543,48 @@ function App() {
         );
     }
 
+    const AppHeader = (props) => <Header {...props} unreadMessages={unreadMessages} />;
+
     let content;
     if (route === 'admin') {
         content = <AdminPanel setRoute={setRoute} />;
     } else if (route === 'dashboard') {
         content = <DashboardPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} templates={templates} historyLoading={historyLoading} openAudit={openAudit} />;
     } else if (route === 'projects') {
-        content = <ProjectsPage Header={Header} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} onProjectsChange={loadProjects} />;
+        content = <ProjectsPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} onProjectsChange={loadProjects} />;
     } else if (route === 'newProject') {
-        content = <NewJobPage Header={Header} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} onProjectsChange={loadProjects} />;
+        content = <NewJobPage Header={AppHeader} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} onProjectsChange={loadProjects} />;
     } else if (route === 'projectDetail') {
-        content = <ProjectDetailPage Header={Header} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
+        content = <ProjectDetailPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
     } else if (route === 'projectTeam') {
-        content = <ProjectTeamPage Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} openCompose={openCompose} />;
+        content = <ProjectTeamPage Header={AppHeader} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} openCompose={openCompose} />;
     } else if (route === 'addCandidate') {
-        content = <AddCandidatePage Header={Header} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} onProjectsChange={loadProjects} />;
+        content = <AddCandidatePage Header={AppHeader} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} onProjectsChange={loadProjects} />;
     } else if (route === 'candidateDetail') {
-        content = <CandidateDetailPage Header={Header} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} onProjectsChange={loadProjects} />;
+        content = <CandidateDetailPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} onProjectsChange={loadProjects} />;
     } else if (route === 'candidateProfile') {
-        content = <CandidateProfilePage Header={Header} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
+        content = <CandidateProfilePage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
     } else if (route === 'signalTrace') {
-        content = <SignalTracePage Header={Header} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
+        content = <SignalTracePage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} />;
     } else if (route === 'auditDetail') {
         content = <AuditDetailPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} />;
     } else if (route === 'auditProfile') {
         content = <ProfilingModePage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} />;
     } else if (route === 'profile') {
-        content = <ProfilePage Header={Header} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
+        content = <ProfilePage Header={AppHeader} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
     } else if (route === 'messages') {
-        content = <MessagesPage Header={Header} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} openCompose={openCompose} />;
+        content = <MessagesPage Header={AppHeader} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} openCompose={openCompose} onProjectsChange={loadProjects} />;
     } else if (route === 'login') {
         content = <AuthPage mode="login" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
     } else if (route === 'register') {
         content = <AuthPage mode="register" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
     } else if (route === 'home') {
-        content = <HomePage Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
+        content = <HomePage Header={AppHeader} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
     } else {
         content = (
             <div className="shell">
                 <div className="pageGlow contentFadeIn" />
-                <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
+                <AppHeader setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
                 <main className="workspace contentFadeIn">
                     {!userToken && (
                         <div className="error">Sign in or create an organizer account before running private candidate audits.</div>
@@ -636,7 +668,9 @@ function App() {
 
     return (
         <LanguageContext.Provider value={{ lang, setLang, t }}>
-            {content}
+            <ErrorBoundary key={route}>
+                {content}
+            </ErrorBoundary>
             <GlobalCompose
                 draft={composeDraft}
                 open={composeOpen}
@@ -649,39 +683,52 @@ function App() {
 }
 
 function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
+    const [composeState, setComposeState] = useState('idle');
+
     if (!open) {
         return null;
     }
 
-    function sendMessage(event) {
+    async function sendMessage(event) {
         event.preventDefault();
-        apiSendMessage({
-            to: draft.to.trim(),
-            subject: draft.subject,
-            body: draft.body,
-        }, localStorage.getItem('verdictUserToken') || '')
-            .then(() => window.dispatchEvent(new Event('verdictMessagesChanged')))
-            .catch(() => appendMessage(createMessage({
-            from: user?.email || 'me@verdict.local',
-            fromName: user?.fullName || user?.username || 'Current user',
-            to: draft.to.trim(),
-            subject: draft.subject,
-            body: draft.body,
-        }), user));
+        if (composeState === 'sending') {
+            return;
+        }
+        setComposeState('sending');
+        try {
+            await apiSendMessage({
+                to: draft.to.trim(),
+                subject: draft.subject,
+                body: draft.body,
+            }, localStorage.getItem('verdictUserToken') || '');
+            window.dispatchEvent(new Event('verdictMessagesChanged'));
+        } catch {
+            appendMessage(createMessage({
+                from: user?.email || 'me@verdict.local',
+                fromName: user?.fullName || user?.username || 'Current user',
+                to: draft.to.trim(),
+                subject: draft.subject,
+                body: draft.body,
+            }), user);
+        }
+        setComposeState('sent');
+        await new Promise((resolve) => setTimeout(resolve, 520));
         setDraft({ to: '', subject: '', body: '' });
+        setComposeState('idle');
         setOpen(false);
     }
 
     return (
-        <form className="gmailCompose" onSubmit={sendMessage}>
+        <form className={`gmailCompose ${composeState}`} onSubmit={sendMessage}>
             <div className="composeHead">
-                <strong>New Message</strong>
-                <button type="button" onClick={() => setOpen(false)}><X size={16} /></button>
+                <strong>{composeState === 'sent' ? 'Message sent' : composeState === 'sending' ? 'Sending...' : 'New Message'}</strong>
+                <button type="button" disabled={composeState === 'sending'} onClick={() => setOpen(false)}><X size={16} /></button>
             </div>
-            <input value={draft.to} onChange={(event) => setDraft({ ...draft, to: event.target.value })} placeholder="Recipients" required />
-            <input value={draft.subject} onChange={(event) => setDraft({ ...draft, subject: event.target.value })} placeholder="Subject" />
-            <textarea value={draft.body} onChange={(event) => setDraft({ ...draft, body: event.target.value })} placeholder="Description" required />
-            <button className="primary" type="submit"><Send size={16} /> Send</button>
+            <div className="composeSendTrack"><span /></div>
+            <input value={draft.to} disabled={composeState !== 'idle'} onChange={(event) => setDraft({ ...draft, to: event.target.value })} placeholder="Recipients" required />
+            <input value={draft.subject} disabled={composeState !== 'idle'} onChange={(event) => setDraft({ ...draft, subject: event.target.value })} placeholder="Subject" />
+            <textarea value={draft.body} disabled={composeState !== 'idle'} onChange={(event) => setDraft({ ...draft, body: event.target.value })} placeholder="Description" required />
+            <button className="primary composeSendButton" disabled={composeState !== 'idle'} type="submit"><Send size={16} /> {composeState === 'idle' ? 'Send' : composeState === 'sending' ? 'Sending' : 'Sent'}</button>
         </form>
     );
 }
@@ -723,7 +770,7 @@ function scrollToPageTop() {
     });
 }
 
-function Header({ setRoute, user, userToken, setUser, setUserToken }) {
+function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessages = 0 }) {
     const { lang, setLang, t } = useLanguage();
     const [accountOpen, setAccountOpen] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -775,7 +822,12 @@ function Header({ setRoute, user, userToken, setUser, setUserToken }) {
                 <button onClick={() => navigate('home')}>{t('home')}</button>
                 {user && <button className="quiet" onClick={() => navigate('dashboard')}><Gauge size={16} /> {t('dashboard')}</button>}
                 <button className="quiet" onClick={() => navigate('projects')}><LayoutDashboard size={16} /> {t('projects')}</button>
-                {user && <button className="quiet mailNavButton" onClick={() => navigate('messages')}><Mail size={16} /> Messages <b>1</b></button>}
+                {user && (
+                    <button className="quiet mailNavButton" onClick={() => navigate('messages')}>
+                        <Mail size={16} /> Messages
+                        {unreadMessages > 0 && <b aria-label={`${unreadMessages} unread messages`}>{unreadMessages > 99 ? '99+' : unreadMessages}</b>}
+                    </button>
+                )}
                 <button className="quiet" onClick={() => navigate('projects')}><FileSearch size={16} /> {t('audits')}</button>
                 {user ? (
                     <div className="accountMenu">
@@ -2362,6 +2414,10 @@ function AdminPanel({ setRoute }) {
     const [logs, setLogs] = useState([]);
     const [users, setUsers] = useState([]);
     const [settings, setSettings] = useState({ requireEmailVerification: false });
+    const [tableClearTargets, setTableClearTargets] = useState([]);
+    const [selectedClearTargets, setSelectedClearTargets] = useState([]);
+    const [clearConfirmText, setClearConfirmText] = useState('');
+    const [clearResults, setClearResults] = useState([]);
     const [userSearch, setUserSearch] = useState('');
     const [auditSearch, setAuditSearch] = useState('');
     const [logSearch, setLogSearch] = useState('');
@@ -2391,16 +2447,18 @@ function AdminPanel({ setRoute }) {
         track('admin_refresh', 'admin_panel');
         setAdminLoading(true);
         try {
-            const [auditRows, logRows, userRows, settingRows] = await Promise.all([
+            const [auditRows, logRows, userRows, settingRows, clearTargetRows] = await Promise.all([
                 api.adminAudits(token, auditOffset, pageSize, auditSearch),
                 api.adminLogs(token, logOffset, pageSize, logSearch),
                 api.adminUsers(token, userOffset, pageSize, userSearch),
                 api.adminSettings(token),
+                api.adminTableClearTargets(token),
             ]);
             setAudits(auditRows);
             setLogs(logRows);
             setUsers(userRows);
             setSettings(settingRows);
+            setTableClearTargets(clearTargetRows);
         } finally {
             setAdminLoading(false);
         }
@@ -2486,6 +2544,39 @@ function AdminPanel({ setRoute }) {
         setSettings(await api.updateAdminSettings(token, { requireEmailVerification: next }));
     }
 
+    function toggleClearTarget(key) {
+        setSelectedClearTargets((current) => current.includes(key)
+            ? current.filter((item) => item !== key)
+            : [...current, key]);
+        setClearResults([]);
+    }
+
+    async function clearSelectedTables() {
+        if (clearConfirmText !== 'CLEAR') {
+            setError('Type CLEAR before clearing selected tables.');
+            return;
+        }
+        if (!selectedClearTargets.length) {
+            setError('Select at least one table group to clear.');
+            return;
+        }
+        const labels = tableClearTargets
+            .filter((target) => selectedClearTargets.includes(target.key))
+            .map((target) => target.label)
+            .join(', ');
+        if (!window.confirm(`Clear all data for: ${labels}? This cannot be undone.`)) {
+            return;
+        }
+        track('admin_clear_tables', 'admin_panel', selectedClearTargets.join(','));
+        setError('');
+        const results = await api.clearAdminTables(token, selectedClearTargets);
+        setClearResults(results);
+        setSelectedClearTargets([]);
+        setClearConfirmText('');
+        setSelectedAudit(null);
+        await loadAdmin();
+    }
+
     async function openAuditEditor(audit) {
         track('admin_open_audit_editor', 'admin_panel', `auditId=${audit.id}`);
         const fullAudit = await api.adminAudit(token, audit.id);
@@ -2545,6 +2636,38 @@ function AdminPanel({ setRoute }) {
             <Header setRoute={setRoute} />
             <main className="adminGrid contentFadeIn">
                 {error && <div className="error">{error}</div>}
+                <section className="adminSection adminWide adminDangerZone">
+                    <h2><Trash2 size={18} /> Clear tables</h2>
+                    <p className="mutedPanelText">Select table groups to empty. This permanently deletes every row in those groups and handles related child tables in the right order.</p>
+                    <div className="tableClearGrid">
+                        {tableClearTargets.map((target) => (
+                            <label key={target.key} className="tableClearOption">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedClearTargets.includes(target.key)}
+                                    onChange={() => toggleClearTarget(target.key)}
+                                />
+                                <span>{target.label}</span>
+                                <small>{target.key}</small>
+                            </label>
+                        ))}
+                    </div>
+                    <div className="tableClearConfirm">
+                        <Input label="Type CLEAR to confirm" value={clearConfirmText} onChange={setClearConfirmText} />
+                        <button
+                            className="destructive"
+                            disabled={!selectedClearTargets.length || clearConfirmText !== 'CLEAR'}
+                            onClick={clearSelectedTables}
+                        >
+                            <Trash2 size={16} /> Clear selected tables
+                        </button>
+                    </div>
+                    {clearResults.length > 0 && (
+                        <div className="inlineNotice">
+                            Cleared {clearResults.map((result) => `${result.label}: ${result.deletedRows}`).join(' / ')}
+                        </div>
+                    )}
+                </section>
                 <section className="adminSection adminWide">
                     <h2><UserPlus size={18} /> Users</h2>
                     <label className="toggleRow">

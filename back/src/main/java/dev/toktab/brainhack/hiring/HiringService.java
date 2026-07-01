@@ -11,6 +11,7 @@ import dev.toktab.brainhack.hiring.HiringDtos.NoteResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintRunRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintRunResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintSourceResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.ProjectMemberResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectResponse;
 import dev.toktab.brainhack.messaging.MessageService;
@@ -255,6 +256,57 @@ public class HiringService {
         HiringProject project = projectEntity(actor, projectId);
         requireProjectOwner(actor, project);
         return inviteRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream().map(mapper::invite).toList();
+    }
+
+    @Transactional
+    public List<ProjectMemberResponse> members(UserAccount actor, Long projectId) {
+        HiringProject project = projectEntity(actor, projectId);
+        List<ProjectMemberResponse> rows = new ArrayList<>();
+        UserAccount owner = project.getOwner();
+        rows.add(new ProjectMemberResponse(
+                owner.getId(),
+                displayName(owner),
+                owner.getEmail(),
+                "Head Admin",
+                "ACTIVE",
+                "OWNER",
+                true
+        ));
+        if (project.getOrganization() != null) {
+            for (TeamMembership membership : membershipRepository.findByOrganizationId(project.getOrganization().getId())) {
+                UserAccount member = membership.getUser();
+                if (member.getId().equals(owner.getId())) {
+                    continue;
+                }
+                rows.add(new ProjectMemberResponse(
+                        member.getId(),
+                        displayName(member),
+                        member.getEmail(),
+                        displayRole(membership.getRole()),
+                        "ACTIVE",
+                        "MEMBERSHIP",
+                        false
+                ));
+            }
+        }
+        Set<String> knownEmails = new HashSet<>();
+        rows.forEach(row -> knownEmails.add(row.email().toLowerCase(Locale.ROOT)));
+        for (ProjectInvite invite : inviteRepository.findByProjectIdOrderByCreatedAtDesc(projectId)) {
+            String email = invite.getInvitedEmail().toLowerCase(Locale.ROOT);
+            if (knownEmails.contains(email)) {
+                continue;
+            }
+            rows.add(new ProjectMemberResponse(
+                    invite.getId(),
+                    invite.getInvitedEmail().split("@")[0],
+                    invite.getInvitedEmail(),
+                    displayRole(invite.getRole()),
+                    invite.getStatus(),
+                    "INVITE",
+                    false
+            ));
+        }
+        return rows;
     }
 
     @Transactional
@@ -742,6 +794,29 @@ public class HiringService {
         if (!project.getOwner().getId().equals(actor.getId())) {
             throw new IllegalArgumentException("Project owner permissions required");
         }
+    }
+
+    private String displayName(UserAccount account) {
+        return account.getFullName() == null || account.getFullName().isBlank() ? account.getUsername() : account.getFullName();
+    }
+
+    private String displayRole(String role) {
+        String normalized = defaulted(role, "Reviewer").replace('_', ' ').replace('-', ' ').toLowerCase(Locale.ROOT);
+        if (normalized.contains("organization admin")) {
+            return "Head Admin";
+        }
+        if (normalized.contains("reviewer")) {
+            return "Reviewer";
+        }
+        if (normalized.contains("coordinator")) {
+            return "Coordinator";
+        }
+        if (normalized.contains("admin")) {
+            return "Admin";
+        }
+        return normalized.isBlank()
+                ? "Reviewer"
+                : normalized.substring(0, 1).toUpperCase(Locale.ROOT) + normalized.substring(1);
     }
 
     private String randomToken() {

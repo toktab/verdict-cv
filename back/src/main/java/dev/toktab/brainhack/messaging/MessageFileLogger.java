@@ -1,0 +1,83 @@
+package dev.toktab.brainhack.messaging;
+
+import dev.toktab.brainhack.account.UserAccount;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.time.Instant;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+@Component
+public class MessageFileLogger {
+    private final Path logPath;
+
+    public MessageFileLogger(@Value("${verdict.messages.log-file:logs/messages.txt}") String logFile) {
+        this.logPath = Path.of(logFile);
+    }
+
+    public synchronized void sent(UserAccount actor, AppMessage message) {
+        try {
+            Path parent = logPath.toAbsolutePath().getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.writeString(logPath, entry(actor, message), StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException exception) {
+            throw new UncheckedIOException("Could not write message log", exception);
+        }
+    }
+
+    private String entry(UserAccount actor, AppMessage message) {
+        return """
+                --- MESSAGE SENT ---
+                logged_at=%s
+                message_id=%s
+                type=%s
+                sent_at=%s
+                from_user_id=%s
+                from_username=%s
+                from_email=%s
+                from_name=%s
+                to_email=%s
+                subject=%s
+                body=%s
+                project_id=%s
+                project_title=%s
+                invite_token=%s
+                invite_status=%s
+
+                """.formatted(
+                Instant.now(),
+                value(message.getId()),
+                clean(message.getType()),
+                value(message.getCreatedAt()),
+                value(actor.getId()),
+                clean(actor.getUsername()),
+                clean(message.getSenderEmail()),
+                clean(message.getSenderName()),
+                clean(message.getRecipientEmail()),
+                clean(message.getSubject()),
+                clean(message.getBody()),
+                value(message.getProjectId()),
+                clean(message.getProjectTitle()),
+                clean(message.getInviteToken()),
+                clean(message.getInviteStatus())
+        );
+    }
+
+    private String clean(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        return value.replace("\r", "\\r").replace("\n", "\\n");
+    }
+
+    private String value(Object value) {
+        return value == null ? "" : clean(String.valueOf(value));
+    }
+}

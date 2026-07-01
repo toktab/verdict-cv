@@ -12,6 +12,7 @@ import dev.toktab.brainhack.hiring.HiringDtos.NoteRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.NoteResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintRunRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintRunResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.ProjectMemberResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectResponse;
 import dev.toktab.brainhack.hiring.HiringService;
@@ -131,6 +132,13 @@ public class HiringController {
                                         @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
                                         @PathVariable Long projectId) {
         return hiringService.invites(owner(authorization, legacyToken), projectId);
+    }
+
+    @GetMapping("/{projectId}/members")
+    public List<ProjectMemberResponse> members(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                               @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                               @PathVariable Long projectId) {
+        return hiringService.members(owner(authorization, legacyToken), projectId);
     }
 
     @PostMapping("/{projectId}/invites")

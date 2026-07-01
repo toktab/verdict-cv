@@ -40,6 +40,28 @@ node_modules/
 front/node_modules/
 front/dist/
 .vite/
+front/.vite/
+front/.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+### Playwright / QA reports ###
+front/allure-results/
+front/allure-report/
+front/playwright-report/
+front/test-results/
+allure-results/
+allure-report/
+playwright-report/
+test-results/
+*.webm
+trace.zip
+
+### Generated application bundles ###
+back/src/main/resources/static/assets/
+back/src/main/resources/static/index.html
 
 ### Local OSINT prototype reports ###
 osint-report.json
@@ -47,5 +69,20 @@ osint-report.md
 __pycache__/
 **/__pycache__/
 
+### Runtime logs ###
+logs/
+*.log
+
 ### Local environment ###
 .env
+.env.*
+!.env.example
+
+### Local temp files ###
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini

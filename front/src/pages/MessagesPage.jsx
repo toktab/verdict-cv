@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Mail, MailOpen, Star, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { CheckCircle2, CornerUpLeft, Forward, Mail, MailOpen, Star, X } from 'lucide-react';
 import { apiAcceptProjectInvite, apiListMessages, apiUpdateMessage } from '../api';
 import { messageBelongsTo, readMessages, writeMessages } from '../messageStore';
 
-export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUserToken, openCompose }) {
+export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUserToken, openCompose, onProjectsChange }) {
     const [folder, setFolder] = useState('inbox');
     const [activeId, setActiveId] = useState(null);
     const [messages, setMessages] = useState(() => readMessages(user));
     const [actionMessage, setActionMessage] = useState('');
+    const [highlightedId, setHighlightedId] = useState(null);
+    const seenMessageIds = useRef(new Set());
     const visible = useMemo(() => messages.filter((message) => {
         if (folder === 'sent') return messageBelongsTo(message, user, 'from');
         if (folder === 'starred') return message.starred;
@@ -26,18 +28,31 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
 
     useEffect(() => {
         setActionMessage('');
+        const message = visible.find((row) => row.id === activeId);
+        if (message && !message.read && messageBelongsTo(message, user, 'to')) {
+            updateMessage(message.id, { read: true });
+        }
     }, [activeId]);
 
     async function loadMessages() {
+        let rows;
         if (!userToken) {
-            setMessages(readMessages(user));
-            return;
+            rows = readMessages(user);
+        } else {
+            try {
+                rows = await apiListMessages(userToken);
+            } catch {
+                rows = readMessages(user);
+            }
         }
-        try {
-            setMessages(await apiListMessages(userToken));
-        } catch {
-            setMessages(readMessages(user));
+        const nextIds = new Set(rows.map((message) => String(message.id)));
+        const fresh = rows.find((message) => !seenMessageIds.current.has(String(message.id)));
+        if (seenMessageIds.current.size > 0 && fresh) {
+            setHighlightedId(String(fresh.id));
+            window.setTimeout(() => setHighlightedId(null), 1600);
         }
+        seenMessageIds.current = nextIds;
+        setMessages(rows);
     }
 
     function updateMessage(id, patch) {
@@ -70,6 +85,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         try {
             await apiAcceptProjectInvite(message.meta.inviteToken, userToken);
             updateMessage(message.id, { read: true, meta: { ...message.meta, inviteStatus: 'ACCEPTED' } });
+            await onProjectsChange?.();
             setActionMessage('Invite accepted. Open Projects to see shared access.');
         } catch (error) {
             setActionMessage(error.message || 'Could not accept invite.');
@@ -79,6 +95,21 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     function declineInvite(message) {
         updateMessage(message.id, { read: true, meta: { ...message.meta, inviteStatus: 'DECLINED' } });
         setActionMessage('Invite declined.');
+    }
+
+    function replyTo(message) {
+        openCompose?.({
+            to: message.from,
+            subject: prefixedSubject('Re:', message.subject),
+            body: `\n\nOn ${formatMessageDate(message.createdAt)}, ${message.fromName || message.from} wrote:\n${quoteBody(message.body)}`,
+        });
+    }
+
+    function forwardMessage(message) {
+        openCompose?.({
+            subject: prefixedSubject('Fwd:', message.subject),
+            body: `\n\n---------- Forwarded message ----------\nFrom: ${message.from} (${message.fromName || 'Unknown'})\nTo: ${message.to}\nDate: ${formatMessageDate(message.createdAt)}\nSubject: ${message.subject}\n\n${message.body}`,
+        });
     }
 
     return (
@@ -102,7 +133,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                     </div>
                     <div className="messageRows">
                         {visible.map((message) => (
-                            <button className={`${active?.id === message.id ? 'active' : ''} ${message.read ? '' : 'unread'}`} key={message.id} onClick={() => setActiveId(message.id)}>
+                            <button className={`${active?.id === message.id ? 'active' : ''} ${message.read ? '' : 'unread'} ${highlightedId === String(message.id) ? 'fresh' : ''}`} key={message.id} onClick={() => setActiveId(message.id)}>
                                 <Star size={16} className={message.starred ? 'filled' : ''} onClick={(event) => { event.stopPropagation(); toggleStar(message.id); }} />
                                 <strong>{message.from} ({message.fromName})</strong>
                                 <span>{message.subject}</span>
@@ -127,19 +158,38 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                 <div className="messageModalBackdrop" role="dialog" aria-modal="true">
                     <article className="messageModal">
                         <div className="messageModalHead">
+                            <button className="messageCloseButton" aria-label="Close message" type="button" onClick={() => setActiveId(null)}><X size={28} /></button>
                             <div>
-                                <span className="eyebrow">{active.from} ({active.fromName})</span>
+                                <span className="eyebrow">{active.type === 'projectInvite' ? 'Project invite' : folder === 'sent' ? 'Sent message' : 'Inbox message'}</span>
                                 <h2>{active.subject}</h2>
                             </div>
-                            <button type="button" onClick={() => setActiveId(null)}><X size={16} /> Close</button>
                         </div>
-                        <div className="messageMetaGrid">
-                            <span>To <strong>{active.to}</strong></span>
-                            <span>{active.createdAt.slice(0, 16).replace('T', ' ')}</span>
-                            <span>{active.meta?.inviteStatus || (active.read ? 'Read' : 'Unread')}</span>
+                        <div className="messageModalToolbar">
+                            <button className="primary" type="button" onClick={() => replyTo(active)}><CornerUpLeft size={16} /> Reply</button>
+                            <button className="secondary" type="button" onClick={() => forwardMessage(active)}><Forward size={16} /> Forward</button>
+                            <button className="secondary" type="button" onClick={() => toggleRead(active.id)}><MailOpen size={15} /> Mark {active.read ? 'unread' : 'read'}</button>
+                            <button className="secondary" type="button" onClick={() => toggleStar(active.id)}><Star size={15} className={active.starred ? 'filled' : ''} /> {active.starred ? 'Unstar' : 'Star'}</button>
+                        </div>
+                        <div className="messageModalScroll">
+                        <div className="messagePeopleCard">
+                            <div>
+                                <span>From</span>
+                                <strong>{active.fromName || 'Unknown sender'}</strong>
+                                <small>{active.from}</small>
+                            </div>
+                            <div>
+                                <span>To</span>
+                                <strong>{recipientName(active.to, user)}</strong>
+                                <small>{active.to}</small>
+                            </div>
                         </div>
                         {actionMessage && <div className="inlineNotice">{actionMessage}</div>}
-                        <p>{active.body}</p>
+                        <div className="messageMetaGrid">
+                            <span>When <strong>{formatMessageDate(active.createdAt)}</strong></span>
+                            <span>Status <strong>{active.meta?.inviteStatus || (active.read ? 'Read' : 'Unread')}</strong></span>
+                            <span>Type <strong>{active.type === 'projectInvite' ? 'Invite alert' : 'Mail message'}</strong></span>
+                            {active.meta?.projectTitle && <span>Project <strong>{active.meta.projectTitle}</strong></span>}
+                        </div>
                         {active.type === 'projectInvite' && active.meta?.inviteStatus === 'PENDING' && (
                             <div className="inviteDecisionBox">
                                 <strong>Project invitation</strong>
@@ -150,9 +200,23 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                                 </div>
                             </div>
                         )}
+                        <section className="messageBodyCard">
+                            <span className="eyebrow">Message</span>
+                            <p>{active.body}</p>
+                        </section>
+                        <section className="messageInfoCard">
+                            <strong>Delivery details</strong>
+                            <span>Message ID: {active.id}</span>
+                            <span>Sender mail: {active.from}</span>
+                            <span>Sender name: {active.fromName || 'Unknown'}</span>
+                            <span>Recipient mail: {active.to}</span>
+                            <span>Title: {active.subject}</span>
+                        </section>
+                        </div>
                         <div className="messageModalActions">
-                            <button className="secondary" type="button" onClick={() => toggleRead(active.id)}><MailOpen size={15} /> Mark {active.read ? 'unread' : 'read'}</button>
-                            <button className="secondary" type="button" onClick={() => toggleStar(active.id)}><Star size={15} className={active.starred ? 'filled' : ''} /> {active.starred ? 'Unstar' : 'Star'}</button>
+                            <button className="primary" type="button" onClick={() => replyTo(active)}><CornerUpLeft size={15} /> Reply</button>
+                            <button className="secondary" type="button" onClick={() => forwardMessage(active)}><Forward size={15} /> Forward</button>
+                            <button className="secondary" type="button" onClick={() => setActiveId(null)}><X size={15} /> Close</button>
                         </div>
                     </article>
                 </div>
@@ -165,6 +229,26 @@ function folderLabel(folder) {
     if (folder === 'sent') return 'Sent';
     if (folder === 'starred') return 'Starred';
     return 'Inbox';
+}
+
+function prefixedSubject(prefix, subject = '') {
+    return subject.toLowerCase().startsWith(prefix.toLowerCase()) ? subject : `${prefix} ${subject || 'No subject'}`;
+}
+
+function quoteBody(body = '') {
+    return body.split(/\r?\n/).map((line) => `> ${line}`).join('\n');
+}
+
+function formatMessageDate(value = '') {
+    if (!value) return 'Unknown time';
+    return String(value).slice(0, 16).replace('T', ' ');
+}
+
+function recipientName(email, user) {
+    if (messageBelongsTo({ to: email }, user, 'to')) {
+        return user?.fullName || user?.username || 'You';
+    }
+    return email?.split('@')[0] || 'Recipient';
 }
 
 function serverPatch(patch) {

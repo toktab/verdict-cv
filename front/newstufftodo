@@ -1,0 +1,157 @@
+# Feature Spec: Team Management, Messaging, Candidate Voting & Status System
+
+## 0. Summary
+
+This spec covers four connected features:
+
+1. A global **Mailing icon + button** in the top nav (between username and Audits) that links to `/messages`, a Gmail-style inbox.
+2. A per-project **Team page** showing members, their roles/permissions, and role-management actions (kick, promote, demote).
+3. A **candidate voting system** (upvote with score, downvote, star) tied to permission level, visible per-candidate and aggregated.
+4. A **candidate status pipeline** (Unreviewed → OnCheck → OnInterview → Hired/Closed) gated by permission level.
+
+Note: your original prompt described one "Team" page that mixed messaging and role management together. I've split these into two separate pages — **Team** (roles/permissions only) and **Messages** (Gmail-style inbox) — since that's what you described later in the prompt anyway. Confirm this split is correct before build.
+
+---
+
+## 1. Global Navigation Changes
+
+- Add a **mail icon** + label/button in the top nav, positioned between the username display and the "Audits" link/button (exact spot: wherever that row currently renders `[username] ... [Audits]`).
+- Clicking it navigates to `/messages`.
+- Optionally show an unread-count badge on the icon (not specified by you — flag as open question, recommend yes).
+
+---
+
+## 2. `/messages` Page — Gmail-style Inbox
+
+Build this as a close visual/functional clone of Gmail's inbox layout:
+
+- **Left sidebar**: Inbox, Sent, (optionally Starred/Drafts later — out of scope for v1).
+- **Message list (center/main)**: each row shows sender email, sender display name in parentheses next to it (format: `email@domain.com (First Last)`), subject/title, and a preview snippet of the description/body.
+- **Compose**: clicking "Compose" (or the existing + entry point from the Team page, see §3.3) opens a **small floating window docked to the bottom-right of the screen**, exactly like Gmail's compose popup (not a full-page modal, not a centered dialog) — with fields for: recipient(s) (searchable by email/name), title/subject, description/body.
+- Opening a message from the list should expand it inline or in a reading pane (standard Gmail behavior) — pick whichever is simpler for your stack, flag as open question.
+- This `/messages` inbox is **global** (not scoped to one project) — it's the same destination whether you arrive via the nav icon or via Team page actions.
+
+---
+
+## 3. Team Page (per-project, e.g. `/projects/:id/team`)
+
+### 3.1 Entry point
+Add a **"Team" button** next to the **"Add Candidate"** button (same row/toolbar, positioned immediately to its left or right — confirm which side).
+
+### 3.2 Page contents
+The Team page is **role/permission management only** (not messaging). It shows:
+
+- **Your role** in this project (name + plain-language description of what you can/can't do).
+- **List of all members**: name, email, current role/access level.
+- **Per-member actions** (each gated individually by its own permission — see §5.1/§5.2; only visible/enabled if *you* hold that specific permission):
+  - **Kick** (remove from project) — requires `canKickMembers`
+  - **Demote** (assign a lower role) — requires `canDemoteMembers`
+  - **Promote** (assign a higher role) — requires `canPromoteMembers`
+  - **Change Permissions** (assign a Custom permission set instead of a template) — requires `canChangePermissions`
+  - These should use the same role templates defined in §5, or allow assigning a custom permission set.
+
+### 3.3 "Send Candidate(s)" action (the + button flow)
+This is **not** part of the Team page's core purpose, but you described it attached there — confirm whether this belongs on Team page or should live inside `/messages` compose instead, since it's really a messaging action. Recommendation: move it into `/messages` as a special "attach candidates" option inside Compose, OR keep as a shortcut button on Team page that opens the same flow. Spec below assumes it's a shortcut available from Team page (and/or Messages compose):
+
+- A **`+` button** at the bottom of the relevant panel opens a small action menu. For v1, it contains exactly **one option: "Send Candidate(s)"**.
+- Selecting it opens a **centered modal**:
+  - Background behind the modal blurs (backdrop blur, not just a dim overlay).
+  - Modal is a large rectangle, centered on screen.
+  - **Search bar** at the top of the modal to filter candidates.
+  - Below it, a **list of all candidates in this project**.
+  - Multi-select supported via **Ctrl+Click** (show a visible hint text: *"Hint: Ctrl+Select to select multiple candidates"*).
+  - Confirming the selection proceeds to (or opens) the Gmail-style compose window (§2) with the selected candidates pre-attached, so the user can pick a recipient and send.
+
+---
+
+## 4. Candidate Voting & Scoring System
+
+Applies wherever candidates are listed (project view, candidate detail view).
+
+- **Upvote**: a reviewer can upvote a candidate and assign a **score from 0–5 in 0.5 increments** (e.g. 1, 2.5, 4.5).
+- **Downvote**: a simple binary "dislike" — no score attached.
+- **Star**: a separate flag/highlight a reviewer can toggle on a candidate (e.g. for shortlisting), independent of up/downvote.
+- **Visibility**:
+  - Up/downvotes and stars are **not anonymous** — any project member can see *who* voted which way on a candidate.
+  - On the project's candidate list view, each candidate shows:
+    - **Average score** (from all upvotes with scores), e.g. "Avg: 3.8/5"
+    - **Downvote count**, e.g. "4 downvotes" (just a number, not a score)
+    - Star count or a "starred by" indicator (your spec didn't say if star is per-user or aggregate — flag as open question; recommend showing both count and "starred by you" toggle state).
+- **Permission gating**: who can vote at all is determined by role (see §5).
+
+---
+
+## 5. Roles & Permissions
+
+Roles are **templates** that bundle a fixed set of permissions. Admins can also assign a **Custom** role with hand-picked permissions instead of a template.
+
+### 5.1 Permission atoms (the building blocks)
+| Key | Meaning |
+|---|---|
+| `canView` | View project & candidates |
+| `canVote` | Upvote (with score), downvote, star a candidate |
+| `canMarkOnCheck` | Set candidate status to "OnCheck" / move it out of "Unreviewed" |
+| `canSetInterview` | Set candidate status to "OnInterview" |
+| `canHire` | Set candidate status to "Hired" |
+| `canClose` | Set candidate status to "Closed" |
+| `canKickMembers` | Remove a member from the project |
+| `canPromoteMembers` | Move a member to a higher role/tier |
+| `canDemoteMembers` | Move a member to a lower role/tier |
+| `canChangePermissions` | Assign a Custom permission set (override template roles) to a member |
+| `canMessage` | Send messages / candidate packages to others |
+| `canViewActivityLog` | View the per-member activity/audit log (see §6.1) |
+
+(`canSetInterview`, `canHire`, `canClose` are grouped together in your spec as "all the high-impact status changes" — kept as separate atoms here so Custom roles can mix and match, but the **template roles** below grant/deny them as a group.)
+
+### 5.2 Role templates (from lowest to highest access)
+
+| # | Role name | Permissions granted |
+|---|---|---|
+| 1 | **Viewer** | `canView` only. No voting, no status changes. |
+| 2 | **Reviewer** | `canView` + `canVote` (upvote/score, downvote, star). |
+| 3 | **Screener** | Everything in Reviewer + `canMarkOnCheck` (can flip a candidate from "Unreviewed" to "OnCheck"). |
+| 4 | **Coordinator** | Everything in Screener + `canSetInterview` + `canHire` + `canClose` (full control over candidate pipeline status) + `canViewActivityLog` (can audit what every member has done) + `canKickMembers` + `canPromoteMembers` + `canDemoteMembers` + `canChangePermissions` (can manage members, but one tier below Admin). |
+| 5 | **Admin** (project creator default) | Everything, including all member-management permissions (`canKickMembers`, `canPromoteMembers`, `canDemoteMembers`, `canChangePermissions`), `canMessage`, and `canViewActivityLog` on behalf of the project, plus the ability to set others' roles, including assigning **Custom** permission sets. |
+
+You can rename these (e.g. Coordinator → "Pipeline Manager") — these are placeholder names matching the tiers you described; flag if you want different naming.
+
+### 5.3 Custom role
+When assigning a role to a member, anyone with `canChangePermissions` (Coordinator and Admin tiers) can choose **Custom** instead of a template and individually toggle each permission atom from §5.1 (checkboxes: `canView`, `canVote`, `canMarkOnCheck`, `canSetInterview`, `canHire`, `canClose`, `canKickMembers`, `canPromoteMembers`, `canDemoteMembers`, `canChangePermissions`, `canMessage`, `canViewActivityLog`).
+
+---
+
+## 6. Candidate Status Pipeline
+
+Each candidate has exactly one status at a time:
+
+| Status | Meaning | Who can set it |
+|---|---|---|
+| **Unreviewed** | Default state — nobody has checked this candidate yet. | System default (auto on creation) |
+| **OnCheck** | Someone is actively reviewing/screening this candidate. | `canMarkOnCheck` (Screener+) |
+| **OnInterview** | Candidate has been moved to interview stage. | `canSetInterview` (Coordinator+) |
+| **Hired** | Candidate was hired. | `canHire` (Coordinator+) |
+| **Closed** | Candidate process closed/rejected, no further action. | `canClose` (Coordinator+) |
+
+"Unreviewed" is the default-state name I picked per your "if nobody has seen it yet, it should be some word too" request — flag if you'd prefer something like "New" or "Pending."
+
+### 6.1 Activity Log / Audit Trail (Coordinator & Admin only)
+
+Members with `canViewActivityLog` (the Coordinator tier and the Admin/creator tier) can open a **per-member activity log** showing a chronological history of that member's actions within the project. For each entry, log at minimum:
+
+- **Which candidate** was acted on
+- **What action** was taken: opened/viewed CV (with timestamp of when it was opened), upvoted (with the score given), downvoted, starred/unstarred, and any status change they made (e.g. moved candidate to OnCheck, OnInterview, Hired, or Closed)
+- **Timestamp** of each action
+
+This should likely be surfaced as a tab or sub-page on the Team page member list (e.g. clicking a member, or an "Activity" icon next to their row, opens their log) — exact placement is an implementation choice, but it must be reachable from the Team page and restricted to viewers with `canViewActivityLog`.
+
+---
+
+## 7. Open Questions to Confirm Before Build
+
+1. Does the "Send Candidate(s)" `+` flow live on the Team page, inside Messages compose, or both?
+2. Should the mail icon in the nav show an unread-message badge?
+3. Are stars per-user toggles (with a count) or a single global "this candidate is starred" flag?
+4. Exact placement: Team button to the left or right of Add Candidate?
+5. Do you want the 5 template role names kept as-is (Viewer / Reviewer / Screener / Coordinator / Admin) or renamed?
+6. Should a demoted/kicked member's existing votes/scores stay attached to the candidate, or be removed?
+7. Should regular members (below Coordinator) be able to see their *own* activity log, even if they can't see others'?

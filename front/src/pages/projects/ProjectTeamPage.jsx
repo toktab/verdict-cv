@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
-import { apiCreateProjectInvite, apiListProjectInvites, apiSendMessage } from '../../api';
+import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMembers, apiSendMessage } from '../../api';
 import { appendMessage, createMessage } from '../../messageStore';
 import { findProjectFromPath } from './projectPageUtils';
 
-const PERMISSION_ATOMS = ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canKickMembers', 'canPromoteMembers', 'canDemoteMembers', 'canChangePermissions', 'canMessage', 'canViewActivityLog'];
+const PERMISSION_ATOMS = ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canInvite', 'canTeamManage', 'canKickMembers', 'canPromoteMembers', 'canDemoteMembers', 'canChangePermissions', 'canMessage', 'canViewActivityLog'];
 const ROLE_ORDER = ['Viewer', 'Voter', 'Reviewer', 'Screener', 'Coordinator', 'Admin', 'Head Admin', 'Custom'];
 const ROLE_PERMISSIONS = {
     Viewer: ['canView'],
     Voter: ['canView', 'canVote'],
     Reviewer: ['canView', 'canVote', 'canAddNote'],
     Screener: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck'],
-    Coordinator: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canKickMembers', 'canPromoteMembers', 'canDemoteMembers', 'canChangePermissions', 'canViewActivityLog'],
+    Coordinator: ['canView', 'canVote', 'canAddNote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'canInvite', 'canTeamManage', 'canKickMembers', 'canPromoteMembers', 'canDemoteMembers', 'canChangePermissions', 'canViewActivityLog'],
     Admin: [...PERMISSION_ATOMS],
     'Head Admin': [...PERMISSION_ATOMS, 'protectedAccount'],
     Custom: ['canView'],
@@ -20,6 +20,7 @@ const ROLE_PERMISSIONS = {
 export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], openCompose }) {
     const project = findProjectFromPath(projects) || projects[0];
     const [invites, setInvites] = useState([]);
+    const [serverMembers, setServerMembers] = useState(null);
     const [email, setEmail] = useState('');
     const [roleOverrides, setRoleOverrides] = useState(() => readRoles(project?.id));
     const [customPermissions, setCustomPermissions] = useState(() => readCustomPermissions(project?.id));
@@ -30,9 +31,11 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
     const [activityMember, setActivityMember] = useState(null);
     const [activityRows, setActivityRows] = useState(() => readActivity(project?.id));
-    const members = useMemo(() => buildMembers(project, user, invites, roleOverrides), [project, user, invites, roleOverrides]);
-    const myRole = members.find((member) => member.email === user?.email)?.role || 'Head Admin';
+    const members = useMemo(() => buildMembers(project, user, invites, roleOverrides, serverMembers), [project, user, invites, roleOverrides, serverMembers]);
+    const myRole = members.find((member) => sameEmail(member.email, user?.email))?.role || 'Viewer';
     const myPermissions = permissionsFor(myRole, user?.email, customPermissions);
+    const canTeamManage = myPermissions.includes('canTeamManage') || myPermissions.includes('protectedAccount');
+    const canInvite = myPermissions.includes('canInvite') || myPermissions.includes('protectedAccount');
     const visibleCandidates = useMemo(() => {
         const needle = candidateSearch.trim().toLowerCase();
         if (!needle) return project?.candidates || [];
@@ -42,7 +45,16 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
 
     useEffect(() => {
         if (!project?.id || !userToken) return;
-        apiListProjectInvites(project.id, userToken).then(setInvites).catch(() => setInvites([]));
+        loadTeamData();
+        function refreshOnFocus() {
+            loadTeamData();
+        }
+        window.addEventListener('focus', refreshOnFocus);
+        const timer = window.setInterval(refreshOnFocus, 12000);
+        return () => {
+            window.removeEventListener('focus', refreshOnFocus);
+            window.clearInterval(timer);
+        };
     }, [project?.id, userToken]);
 
     useEffect(() => {
@@ -64,8 +76,19 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         event.preventDefault();
         const row = await apiCreateProjectInvite(project.id, { email, role: 'REVIEWER' }, userToken);
         setInvites((current) => [row, ...current]);
+        loadTeamData();
         setEmail('');
         setMessage(`Invite token created for ${row.email}: ${row.token}`);
+    }
+
+    async function loadTeamData() {
+        if (!project?.id || !userToken) return;
+        const [inviteRows, memberRows] = await Promise.all([
+            apiListProjectInvites(project.id, userToken).catch(() => []),
+            apiListProjectMembers(project.id, userToken).catch(() => []),
+        ]);
+        setInvites(inviteRows);
+        setServerMembers(memberRows);
     }
 
     function setRole(emailAddress, role) {
@@ -147,11 +170,12 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                     <div>
                         <span className="eyebrow">Team</span>
                         <h1>{project.title}</h1>
-                        <p>Manage role templates, project members, and invite access.</p>
+                        <p>{canTeamManage ? 'Manage role templates, project members, and invite access.' : 'View project members, roles, and access status.'}</p>
                     </div>
                     <button className="secondary" onClick={() => navigateTo(setRoute, 'projectDetail', project.id)}><ArrowRight size={16} /> Back to project</button>
                     <button className="primary" onClick={() => navigateTo(setRoute, 'messages')}><Mail size={16} /> Messages</button>
                 </section>
+                {canTeamManage && (
                 <section className="dashboardGrid">
                     <article className="dashboardPanel">
                         <div className="rolePanelHead">
@@ -179,24 +203,25 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                         {message && <div className="inlineNotice">{message}</div>}
                         <form className="teamInviteForm" onSubmit={invite}>
                             <label>Reviewer email<input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required /></label>
-                            <button className="primary" type="submit">Create invite</button>
+                            <button className="primary" disabled={!canInvite} type="submit">Create invite</button>
                         </form>
                     </article>
                 </section>
+                )}
                 <section className="teamMembersPanel">
                     <div className="tableToolbar">
                         <div>
                             <span className="eyebrow">Members</span>
                             <h2><Shield size={18} /> Role management</h2>
                         </div>
-                        <label className="notifyRoleToggle">
+                        {canTeamManage && <label className="notifyRoleToggle">
                             <input type="checkbox" checked={notifyRoleChange} onChange={(event) => setNotifyRoleChange(event.target.checked)} />
                             <span>Send message to them</span>
-                        </label>
+                        </label>}
                     </div>
-                    <div className="teamShortcutBar">
+                    {canTeamManage && <div className="teamShortcutBar">
                         <button className="secondary" type="button" onClick={() => setCandidateSenderOpen(true)}><Plus size={16} /> Send Candidate(s)</button>
-                    </div>
+                    </div>}
                     <div className="teamMemberRows">
                         {members.filter((member) => member.role !== 'Kicked').map((member) => {
                             const protectedMember = isProtectedMember(member);
@@ -206,20 +231,27 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                                     <div>
                                         <strong>{member.name}</strong>
                                         <small>{member.email}</small>
+                                        <small>{member.status || 'ACTIVE'} / {member.source || 'MEMBER'}</small>
                                         {member.role === 'Custom' && <small>Custom permissions: {memberPermissions.length}</small>}
                                     </div>
-                                    <select value={member.role} disabled={protectedMember || !myPermissions.includes('canChangePermissions')} onChange={(event) => setRole(member.email, event.target.value)}>
-                                        {ROLE_ORDER.map((role) => <option key={role}>{role}</option>)}
-                                    </select>
-                                    <div className="teamActionRow">
-                                        <button className="secondary" type="button" disabled={!myPermissions.includes('canMessage')} onClick={() => openCompose?.({ to: member.email, subject: `Message about ${project.title}` })}><Mail size={15} /> Message</button>
-                                        <button className="secondary" type="button" disabled={!myPermissions.includes('canViewActivityLog')} onClick={() => { setActivityRows(readActivity(project.id)); setActivityMember(member); }}><Activity size={15} /> Activity</button>
-                                        <button className="secondary" type="button" disabled={protectedMember || !myPermissions.includes('canPromoteMembers')} onClick={() => setRole(member.email, promote(member.role))}><UserCog size={15} /> Promote</button>
-                                        <button className="secondary" type="button" disabled={protectedMember || !myPermissions.includes('canDemoteMembers')} onClick={() => setRole(member.email, demote(member.role))}>Demote</button>
-                                        <button className="destructive" type="button" disabled={protectedMember || !myPermissions.includes('canKickMembers')} onClick={() => removeMember(member.email)}><Trash2 size={15} /> Kick</button>
-                                        {protectedMember && <span className="protectedBadge"><Lock size={14} /> Protected</span>}
-                                    </div>
-                                    {member.role === 'Custom' && (
+                                    {canTeamManage ? (
+                                        <>
+                                            <select value={member.role} disabled={protectedMember || !myPermissions.includes('canChangePermissions')} onChange={(event) => setRole(member.email, event.target.value)}>
+                                                {ROLE_ORDER.map((role) => <option key={role}>{role}</option>)}
+                                            </select>
+                                            <div className="teamActionRow">
+                                                <button className="secondary" type="button" disabled={!myPermissions.includes('canMessage')} onClick={() => openCompose?.({ to: member.email, subject: `Message about ${project.title}` })}><Mail size={15} /> Message</button>
+                                                <button className="secondary" type="button" disabled={!myPermissions.includes('canViewActivityLog')} onClick={() => { setActivityRows(readActivity(project.id)); setActivityMember(member); }}><Activity size={15} /> Activity</button>
+                                                <button className="secondary" type="button" disabled={protectedMember || !myPermissions.includes('canPromoteMembers')} onClick={() => setRole(member.email, promote(member.role))}><UserCog size={15} /> Promote</button>
+                                                <button className="secondary" type="button" disabled={protectedMember || !myPermissions.includes('canDemoteMembers')} onClick={() => setRole(member.email, demote(member.role))}>Demote</button>
+                                                <button className="destructive" type="button" disabled={protectedMember || !myPermissions.includes('canKickMembers')} onClick={() => removeMember(member.email)}><Trash2 size={15} /> Kick</button>
+                                                {protectedMember && <span className="protectedBadge"><Lock size={14} /> Protected</span>}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <span className={`memberStatusPill ${(member.status || 'active').toLowerCase()}`}>{member.role} / {member.status || 'ACTIVE'}</span>
+                                    )}
+                                    {canTeamManage && member.role === 'Custom' && (
                                         <div className="customPermissionGrid">
                                             {PERMISSION_ATOMS.map((permission) => (
                                                 <label key={permission}>
@@ -304,27 +336,62 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     );
 }
 
-function buildMembers(project, user, invites, overrides) {
-    const rows = [{
+function buildMembers(project, user, invites, overrides, serverMembers = []) {
+    const rows = Array.isArray(serverMembers) && serverMembers.length ? serverMembers.map((member) => ({
+        name: member.name || member.email?.split('@')[0] || 'Reviewer',
+        email: member.email,
+        role: overrides[member.email] || normalizeRole(member.role, member.status),
+        status: member.status || 'ACTIVE',
+        source: member.source || 'MEMBER',
+        protectedMember: Boolean(member.protected_member || member.protectedMember),
+    })) : [{
         name: user?.fullName || user?.username || 'Project creator',
         email: user?.email || 'owner@verdict.local',
         role: 'Head Admin',
+        status: 'ACTIVE',
+        source: 'OWNER',
+        protectedMember: true,
     }];
+    const known = new Set(rows.map((row) => row.email?.toLowerCase()).filter(Boolean));
     for (const invite of invites || []) {
+        const email = invite.email?.toLowerCase();
+        if (known.has(email)) {
+            continue;
+        }
         rows.push({
             name: invite.email?.split('@')[0] || 'Reviewer',
             email: invite.email,
-            role: overrides[invite.email] || (invite.status === 'ACCEPTED' ? 'Voter' : 'Viewer'),
+            role: overrides[invite.email] || normalizeRole(invite.role, invite.status),
+            status: invite.status || 'PENDING',
+            source: 'INVITE',
+            protectedMember: false,
         });
     }
     return rows;
+}
+
+function normalizeRole(role, status) {
+    if (status && status !== 'ACCEPTED' && status !== 'ACTIVE') return 'Viewer';
+    const value = String(role || '').toLowerCase();
+    if (value.includes('head admin') || value.includes('organization_admin')) return 'Head Admin';
+    if (value.includes('coordinator')) return 'Coordinator';
+    if (value.includes('screener')) return 'Screener';
+    if (value.includes('reviewer')) return 'Reviewer';
+    if (value.includes('voter')) return 'Voter';
+    if (value.includes('admin')) return 'Admin';
+    if (value.includes('viewer')) return 'Viewer';
+    return 'Reviewer';
+}
+
+function sameEmail(left = '', right = '') {
+    return String(left || '').trim().toLowerCase() === String(right || '').trim().toLowerCase();
 }
 
 function roleDescription(role) {
     if (role === 'Head Admin') return 'Protected owner role. Cannot be edited, kicked, demoted, or promoted.';
     if (role === 'Custom') return 'Custom permission set assigned by a Coordinator, Admin, or Head Admin.';
     if (role === 'Admin') return 'Can manage members, send messages, vote, and change the full candidate pipeline.';
-    if (role === 'Coordinator') return 'Can add notes, vote, move candidates through interview and hire/close decisions, and view activity.';
+    if (role === 'Coordinator') return 'Can invite members, manage team access, add notes, vote, move candidates through interview and hire/close decisions, and view activity.';
     if (role === 'Screener') return 'Can add notes, vote, and move candidates into OnCheck.';
     if (role === 'Reviewer') return 'Can add candidate notes and vote.';
     if (role === 'Voter') return 'Can upvote, downvote, star, and score candidates, but cannot add notes.';
@@ -332,7 +399,7 @@ function roleDescription(role) {
 }
 
 function isProtectedMember(member) {
-    return member.role === 'Head Admin';
+    return member.protectedMember || member.role === 'Head Admin';
 }
 
 function promote(role) {

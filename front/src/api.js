@@ -126,6 +126,10 @@ export async function apiListProjectInvites(projectId, token) {
     return get(`/projects/${projectId}/invites`, token);
 }
 
+export async function apiListProjectMembers(projectId, token) {
+    return get(`/projects/${projectId}/members`, token);
+}
+
 export async function apiCreateProjectInvite(projectId, { email, role }, token) {
     return post(`/projects/${projectId}/invites`, { email, role }, token);
 }
@@ -202,6 +206,12 @@ export const javaApi = {
     },
     updateAdminSettings(token, payload) {
         return adminRequest('PATCH', '/admin/settings', payload, token);
+    },
+    adminTableClearTargets(token) {
+        return adminRequest('GET', '/admin/table-clear-targets', undefined, token);
+    },
+    clearAdminTables(token, targets) {
+        return adminRequest('POST', '/admin/clear-tables', { targets }, token);
     },
     createUser(token, payload) {
         return adminRequest('POST', '/admin/users', payload, token);

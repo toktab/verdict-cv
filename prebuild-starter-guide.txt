@@ -494,7 +494,7 @@ STEP 7 — CREATE THE LLM SERVICE STUB (THE PART YOU FINISH ON HACKATHON DAY)
             // See hackathon-idea.txt for the prompt + JSON schema.
 
             // Hardcoded demo response for testing:
-            return List.of(
+            return List.of(stal
                 createItem(0, sentences.size() > 0 ? sentences.get(0) : "Sentence 1", true, "SUPPORTED", "Evidence confirms this claim.", evidenceText.length() > 50 ? evidenceText.substring(0, 50) : evidenceText),
                 createItem(1, sentences.size() > 1 ? sentences.get(1) : "Sentence 2", true, "STRETCHED", "Partially true but language exceeds evidence.", "Partial match found"),
                 createItem(2, sentences.size() > 2 ? sentences.get(2) : "Sentence 3", true, "UNSUPPORTED", "No evidence found for this claim.", "No evidence found"),
