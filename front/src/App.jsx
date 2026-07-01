@@ -2503,6 +2503,10 @@ function AdminPanel({ setRoute }) {
     const [userForm, setUserForm] = useState(emptyUserForm());
     const [adminLoading, setAdminLoading] = useState(false);
     const [error, setError] = useState('');
+    const selectedClearTargetRows = tableClearTargets.filter((target) => selectedClearTargets.includes(target.key));
+    const selectedClearRowCount = selectedClearTargetRows.reduce((sum, target) => sum + Number(target.deletedRows || 0), 0);
+    const clearConfirmationPhrase = selectedClearTargetRows.map((target) => target.key).join(' + ');
+    const clearConfirmed = Boolean(clearConfirmationPhrase) && clearConfirmText.trim().toLowerCase() === clearConfirmationPhrase;
 
     async function signIn() {
         track('admin_login_clicked', 'admin_login', login.username);
@@ -2621,23 +2625,21 @@ function AdminPanel({ setRoute }) {
         setSelectedClearTargets((current) => current.includes(key)
             ? current.filter((item) => item !== key)
             : [...current, key]);
+        setClearConfirmText('');
         setClearResults([]);
     }
 
     async function clearSelectedTables() {
-        if (clearConfirmText !== 'CLEAR') {
-            setError('Type CLEAR before clearing selected tables.');
-            return;
-        }
         if (!selectedClearTargets.length) {
             setError('Select at least one table group to clear.');
             return;
         }
-        const labels = tableClearTargets
-            .filter((target) => selectedClearTargets.includes(target.key))
-            .map((target) => target.label)
-            .join(', ');
-        if (!window.confirm(`Clear all data for: ${labels}? This cannot be undone.`)) {
+        if (!clearConfirmed) {
+            setError(`Type "${clearConfirmationPhrase}" before clearing selected tables.`);
+            return;
+        }
+        const labels = selectedClearTargetRows.map((target) => target.label).join(', ');
+        if (!window.confirm(`Clear ${selectedClearRowCount} rows for: ${labels}? This cannot be undone.`)) {
             return;
         }
         track('admin_clear_tables', 'admin_panel', selectedClearTargets.join(','));
@@ -2721,15 +2723,20 @@ function AdminPanel({ setRoute }) {
                                     onChange={() => toggleClearTarget(target.key)}
                                 />
                                 <span>{target.label}</span>
-                                <small>{target.key}</small>
+                                <small>{target.key} / {target.deletedRows || 0} rows</small>
                             </label>
                         ))}
                     </div>
+                    <div className="tableClearSummary">
+                        <span>{selectedClearTargets.length ? `${selectedClearTargets.length} group${selectedClearTargets.length === 1 ? '' : 's'} selected` : 'No groups selected'}</span>
+                        <strong>{selectedClearRowCount} rows affected</strong>
+                        <small>{clearConfirmationPhrase ? `Required phrase: ${clearConfirmationPhrase}` : 'Select a group to generate the confirmation phrase.'}</small>
+                    </div>
                     <div className="tableClearConfirm">
-                        <Input label="Type CLEAR to confirm" value={clearConfirmText} onChange={setClearConfirmText} />
+                        <Input label={clearConfirmationPhrase ? `Type ${clearConfirmationPhrase} to confirm` : 'Select tables before confirming'} value={clearConfirmText} onChange={setClearConfirmText} />
                         <button
                             className="destructive"
-                            disabled={!selectedClearTargets.length || clearConfirmText !== 'CLEAR'}
+                            disabled={!selectedClearTargets.length || !clearConfirmed}
                             onClick={clearSelectedTables}
                         >
                             <Trash2 size={16} /> Clear selected tables

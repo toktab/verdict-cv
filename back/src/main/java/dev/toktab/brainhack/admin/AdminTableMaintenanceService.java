@@ -19,7 +19,7 @@ public class AdminTableMaintenanceService {
 
     public List<TableClearResult> targets() {
         return TARGETS.values().stream()
-                .map(target -> new TableClearResult(target.key(), target.label(), 0))
+                .map(target -> new TableClearResult(target.key(), target.label(), countRows(target)))
                 .toList();
     }
 
@@ -45,6 +45,15 @@ public class AdminTableMaintenanceService {
 
     private String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private int countRows(ClearTarget target) {
+        int count = 0;
+        for (String table : target.tablesInDeleteOrder()) {
+            Number tableCount = (Number) entityManager.createNativeQuery("SELECT COUNT(*) FROM " + table).getSingleResult();
+            count += tableCount.intValue();
+        }
+        return count;
     }
 
     private static final Map<String, ClearTarget> TARGETS = targetsByKey();

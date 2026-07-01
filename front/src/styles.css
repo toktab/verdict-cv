@@ -6060,6 +6060,27 @@ select {
     color: var(--muted);
 }
 
+.tableClearSummary {
+    margin-top: 12px;
+    border: 1px solid rgba(255, 105, 105, 0.28);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    display: grid;
+    grid-template-columns: minmax(160px, auto) minmax(160px, auto) minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+}
+
+.tableClearSummary span,
+.tableClearSummary small {
+    color: var(--muted);
+}
+
+.tableClearSummary strong {
+    color: #ffb4b4;
+}
+
 .tableClearConfirm {
     display: grid;
     grid-template-columns: minmax(240px, 1fr) auto;
@@ -6386,6 +6407,9 @@ select {
     .magnetList,
     .authGrid,
     .userEditor,
+    .tableClearGrid,
+    .tableClearSummary,
+    .tableClearConfirm,
     .dashboardStats,
     .dashboardGrid,
     .jobListingGrid {
