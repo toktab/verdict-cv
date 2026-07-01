@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, Edit3, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, Save, Send, ShieldCheck, Trash2, User, UserPlus, X } from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, Edit3, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, RefreshCcw, Save, Send, ShieldCheck, Trash2, User, UserPlus, X } from 'lucide-react';
 import IntroAnimation from './IntroAnimation';
 import { CandidateDetailPage } from './pages/projects/CandidateDetailPage';
 import { CandidateProfilePage } from './pages/projects/CandidateProfilePage';
@@ -271,6 +271,12 @@ function track(action, target = '', detail = '') {
     api.telemetry({ action, target, detail });
 }
 
+function shouldShowIntroOnBoot() {
+    if (typeof window === 'undefined') return false;
+    if (window.location.pathname !== '/') return false;
+    return sessionStorage.getItem('verdictIntroSeen') !== 'true';
+}
+
 function App() {
     const { route, setRoute, detailAuditId, setDetailAuditId } = useRouteState(routeFromPath);
     const [userToken, setUserToken] = useState(localStorage.getItem('verdictUserToken') || '');
@@ -294,7 +300,9 @@ function App() {
     const [uploadingField, setUploadingField] = useState('');
     const [stage, setStage] = useState('');
     const [error, setError] = useState('');
-    const [introVisible, setIntroVisible] = useState(true);
+    const [historyError, setHistoryError] = useState('');
+    const [projectsError, setProjectsError] = useState('');
+    const [introVisible, setIntroVisible] = useState(() => shouldShowIntroOnBoot());
     const [lang, setLangState] = useState(() => localStorage.getItem('verdictLang') || 'ge');
     const [composeOpen, setComposeOpen] = useState(false);
     const [composeDraft, setComposeDraft] = useState({ to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null });
@@ -394,13 +402,16 @@ function App() {
     async function loadHistory() {
         if (!userToken) {
             setHistory([]);
+            setHistoryError('');
             return;
         }
         setHistoryLoading(true);
+        setHistoryError('');
         try {
             setHistory(await api.history(userToken));
-        } catch {
+        } catch (err) {
             setHistory([]);
+            setHistoryError(err.message || 'Could not load audit history.');
         } finally {
             setHistoryLoading(false);
         }
@@ -440,15 +451,18 @@ function App() {
     async function loadProjects() {
         if (!userToken) {
             setProjects([]);
+            setProjectsError('');
             setProjectsLoading(false);
             return;
         }
         setProjectsLoading(true);
+        setProjectsError('');
         try {
             const rows = await apiListProjects(userToken);
             setProjects(rows.map(normaliseProject));
-        } catch {
+        } catch (err) {
             setProjects([]);
+            setProjectsError(err.message || 'Could not load projects.');
         } finally {
             setProjectsLoading(false);
         }
@@ -577,7 +591,10 @@ function App() {
     if (introVisible) {
         return (
             <LanguageContext.Provider value={{ lang, setLang, t }}>
-                <IntroAnimation onDone={() => setIntroVisible(false)} />
+                <IntroAnimation onDone={() => {
+                    sessionStorage.setItem('verdictIntroSeen', 'true');
+                    setIntroVisible(false);
+                }} />
             </LanguageContext.Provider>
         );
     }
@@ -588,9 +605,9 @@ function App() {
     if (route === 'admin') {
         content = <AdminPanel setRoute={setRoute} />;
     } else if (route === 'dashboard') {
-        content = <DashboardPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} templates={templates} historyLoading={historyLoading} openAudit={openAudit} />;
+        content = <DashboardPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} templates={templates} historyLoading={historyLoading} historyError={historyError} onRefreshHistory={loadHistory} openAudit={openAudit} />;
     } else if (route === 'projects') {
-        content = <ProjectsPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} onProjectsChange={loadProjects} />;
+        content = <ProjectsPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} projectsError={projectsError} onProjectsChange={loadProjects} />;
     } else if (route === 'newProject') {
         content = <NewJobPage Header={AppHeader} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} onProjectsChange={loadProjects} />;
     } else if (route === 'projectDetail') {
@@ -701,7 +718,7 @@ function App() {
                     {error && <div className="error">{error}</div>}
                     {loading && <><Loading stage={stage} /><SkeletonBlock rows={5} /></>}
                     {audit && <AuditResult audit={audit} setRoute={setRoute} />}
-                    <HistoryPanel history={history} templates={templates} loading={historyLoading} openAudit={openAudit} />
+                    <HistoryPanel history={history} templates={templates} loading={historyLoading} error={historyError} onRefresh={loadHistory} openAudit={openAudit} />
                 </main>
                 {demoConfirmOpen && (
                     <DemoConfirmModal
@@ -962,7 +979,7 @@ function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessag
     );
 }
 
-function DashboardPage({ setRoute, user, userToken, setUser, setUserToken, history, templates, historyLoading, openAudit }) {
+function DashboardPage({ setRoute, user, userToken, setUser, setUserToken, history, templates, historyLoading, historyError, onRefreshHistory, openAudit }) {
     const { t } = useLanguage();
     const [templateFilter, setTemplateFilter] = useState('ALL');
     const stats = dashboardStats(history);
@@ -989,8 +1006,14 @@ function DashboardPage({ setRoute, user, userToken, setUser, setUserToken, histo
                 </section>
                 <section className="dashboardGrid">
                     <div className="dashboardPanel">
-                        <h2><History size={18} /> Recent audits</h2>
+                        <div className="historyHead">
+                            <h2><History size={18} /> Recent audits</h2>
+                            <button className="secondary" disabled={historyLoading} onClick={onRefreshHistory} type="button">
+                                <RefreshCcw size={15} /> {historyLoading ? 'Refreshing...' : 'Refresh'}
+                            </button>
+                        </div>
                         <TemplateLensBar filters={templateFilters} value={templateFilter} onChange={setTemplateFilter} />
+                        {historyError && <div className="error compact">Could not load audits. {historyError}</div>}
                         {historyLoading && <SkeletonBlock rows={5} compact />}
                         {!historyLoading && filteredHistory.length === 0 && <div className="emptyState">No private audits match this template lens.</div>}
                         {filteredHistory.slice(0, 5).map((item) => (
@@ -2480,14 +2503,20 @@ function VerdictCard({ verdict }) {
     );
 }
 
-function HistoryPanel({ history, templates, loading, openAudit }) {
+function HistoryPanel({ history, templates, loading, error, onRefresh, openAudit }) {
     const [templateFilter, setTemplateFilter] = useState('ALL');
     const filteredHistory = filterAuditsByTemplate(history, templateFilter);
     const templateFilters = templateFilterOptions(history, templates);
     return (
         <section className="history">
-            <h2><History size={18} /> My Audit History</h2>
+            <div className="historyHead">
+                <h2><History size={18} /> My Audit History</h2>
+                <button className="secondary" disabled={loading} onClick={onRefresh} type="button">
+                    <RefreshCcw size={15} /> {loading ? 'Refreshing...' : 'Refresh'}
+                </button>
+            </div>
             <TemplateLensBar filters={templateFilters} value={templateFilter} onChange={setTemplateFilter} />
+            {error && <div className="error compact">Could not load audits. {error}</div>}
             <div className="historyRows">
                 {loading && <SkeletonBlock rows={5} compact />}
                 {!loading && filteredHistory.length === 0 && <div className="emptyState">No audits match this template lens.</div>}
@@ -2769,7 +2798,7 @@ function AdminPanel({ setRoute }) {
                 <div className="loginBox">
                     <h1>VERDICT ADMIN</h1>
                     <Input label="Username" value={login.username} onChange={(username) => setLogin({ ...login, username })} />
-                    <Input label="Password" value={login.password} onChange={(password) => setLogin({ ...login, password })} />
+                    <Input type="password" label="Password" value={login.password} onChange={(password) => setLogin({ ...login, password })} />
                     <button className="primary" onClick={signIn}><Lock size={18} /> Authenticate</button>
                     <button className="secondary" onClick={() => setRoute('app')}>Back to site</button>
                     {error && <div className="error">{error}</div>}
@@ -2784,6 +2813,15 @@ function AdminPanel({ setRoute }) {
             <Header setRoute={setRoute} />
             <main className="adminGrid contentFadeIn">
                 {error && <div className="error">{error}</div>}
+                <section className="adminSection adminWide adminStatusBar">
+                    <div>
+                        <span className="eyebrow">Admin session</span>
+                        <strong>Maintenance console</strong>
+                    </div>
+                    <button className="secondary" disabled={adminLoading} onClick={() => loadAdmin().catch((err) => setError(err.message))} type="button">
+                        <RefreshCcw size={15} /> {adminLoading ? 'Refreshing...' : 'Refresh admin'}
+                    </button>
+                </section>
                 <section className="adminSection adminWide adminDangerZone">
                     <h2><Trash2 size={18} /> Clear tables</h2>
                     <p className="mutedPanelText">Select table groups to empty. This permanently deletes every row in those groups and handles related child tables in the right order.</p>

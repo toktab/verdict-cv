@@ -1738,6 +1738,28 @@ nav button:hover,
     font-size: 18px;
 }
 
+.toolbarActions,
+.historyHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.toolbarActions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.toolbarActions span {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.historyHead h2 {
+    margin: 0;
+}
+
 .filterTabs {
     display: flex;
     flex-wrap: wrap;
@@ -5388,7 +5410,7 @@ select {
 }
 
 .contentFadeIn {
-    animation: fadeIn 3.5s ease forwards;
+    animation: fadeIn 0.36s ease both;
 }
 
 .error {
@@ -5398,6 +5420,12 @@ select {
     background: rgba(75, 8, 8, 0.58);
     padding: 12px 14px;
     margin-bottom: 16px;
+}
+
+.error.compact {
+    margin: 10px 0;
+    padding: 10px 12px;
+    font-size: 13px;
 }
 
 .success {
@@ -5754,9 +5782,9 @@ select {
 }
 
 .stickyAuditBar {
-    position: sticky;
-    top: 76px;
-    z-index: 8;
+    position: relative;
+    top: auto;
+    z-index: 1;
     display: grid;
     grid-template-columns: repeat(7, minmax(84px, auto)) minmax(260px, 1fr);
     gap: 8px;
@@ -5764,7 +5792,8 @@ select {
     border: 1px solid rgba(255, 99, 99, 0.32);
     border-radius: 8px;
     padding: 8px;
-    margin-bottom: 12px;
+    margin: 16px;
+    margin-bottom: 14px;
     background: rgba(11, 11, 13, 0.94);
     backdrop-filter: blur(16px);
     box-shadow: 0 14px 45px rgba(0, 0, 0, 0.38);
@@ -5975,6 +6004,78 @@ select {
     background: rgba(255, 255, 255, 0.06);
 }
 
+.projectCardSkeleton,
+.messageRowSkeleton {
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.projectCardSkeleton span,
+.projectCardSkeleton strong,
+.projectCardSkeleton small,
+.projectCardSkeleton div,
+.messageRowSkeleton span,
+.messageRowSkeleton strong,
+.messageRowSkeleton small,
+.messageRowSkeleton em {
+    display: block;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.055));
+    background-size: 220% 100%;
+    animation: skeletonPulse 1.15s ease-in-out infinite;
+}
+
+.projectCardSkeleton span {
+    width: 96px;
+    height: 18px;
+}
+
+.projectCardSkeleton strong {
+    width: 72%;
+    height: 24px;
+}
+
+.projectCardSkeleton small {
+    width: 54%;
+    height: 14px;
+}
+
+.projectCardSkeleton div {
+    width: 100%;
+    height: 48px;
+    border-radius: 8px;
+}
+
+.messageRowSkeleton {
+    display: grid;
+    grid-template-columns: 22px 180px 1fr 80px;
+    gap: 12px;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.032);
+}
+
+.messageRowSkeleton span {
+    width: 18px;
+    height: 18px;
+}
+
+.messageRowSkeleton strong,
+.messageRowSkeleton small,
+.messageRowSkeleton em {
+    height: 14px;
+}
+
+.messageRowSkeleton small {
+    width: 92%;
+}
+
+.messageRowSkeleton em {
+    width: 70px;
+}
+
 .emptyState {
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -5982,6 +6083,31 @@ select {
     margin-top: 12px;
     color: var(--muted);
     background: rgba(255, 255, 255, 0.028);
+}
+
+.projectEmptyState,
+.messageEmptyState {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+}
+
+.projectEmptyState {
+    grid-column: 1 / -1;
+}
+
+.projectEmptyState strong,
+.messageEmptyState strong {
+    color: var(--text);
+}
+
+.projectEmptyState span,
+.messageEmptyState span {
+    color: var(--muted);
+}
+
+.projectEmptyState button {
+    width: fit-content;
 }
 
 .adminLogin {
@@ -6008,6 +6134,19 @@ select {
 
 .adminSection {
     padding: 16px;
+}
+
+.adminStatusBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.adminStatusBar strong {
+    display: block;
+    margin-top: 4px;
+    color: var(--text);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -6583,6 +6722,10 @@ select {
 }
 
 @media (max-width: 640px) {
+    .pageGlow {
+        opacity: 0.38;
+    }
+
     .workspace,
     .home,
     .dashboard,
@@ -6606,6 +6749,29 @@ select {
 
     .home {
         margin-bottom: 42px;
+    }
+
+    .dashboardHero,
+    .detailHero,
+    .privateStrip,
+    .panel,
+    .results,
+    .history,
+    .adminSection {
+        background-color: rgba(255, 255, 255, 0.055);
+    }
+
+    .dashboardHero h1,
+    .detailHero h1 {
+        font-size: clamp(36px, 13vw, 54px);
+        line-height: 0.98;
+    }
+
+    .dashboardHero p,
+    .detailHero p,
+    .privateStrip,
+    .mutedPanelText {
+        color: var(--soft);
     }
 
     .hero {

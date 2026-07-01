@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, CornerUpLeft, Forward, Mail, MailOpen, Star, X } from 'lucide-react';
+import { CheckCircle2, CornerUpLeft, Forward, Mail, MailOpen, RefreshCcw, Star, X } from 'lucide-react';
 import { apiAcceptProjectInvite, apiListMessages, apiUpdateMessage } from '../api';
 import { messageBelongsTo, readMessages, writeMessages } from '../messageStore';
 
@@ -8,6 +8,8 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     const [activeId, setActiveId] = useState(null);
     const [messages, setMessages] = useState(() => readMessages(user));
     const [actionMessage, setActionMessage] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState('');
     const [highlightedId, setHighlightedId] = useState(null);
     const seenMessageIds = useRef(new Set());
     const visible = useMemo(() => messages.filter((message) => {
@@ -36,14 +38,19 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
 
     async function loadMessages() {
         let rows;
-        if (!userToken) {
-            rows = readMessages(user);
-        } else {
-            try {
-                rows = await apiListMessages(userToken);
-            } catch {
+        setLoading(true);
+        setLoadError('');
+        try {
+            if (!userToken) {
                 rows = readMessages(user);
+            } else {
+                rows = await apiListMessages(userToken);
             }
+        } catch (error) {
+            rows = readMessages(user);
+            setLoadError(error.message || 'Could not refresh messages. Showing saved local messages.');
+        } finally {
+            setLoading(false);
         }
         const nextIds = new Set(rows.map((message) => String(message.id)));
         const fresh = rows.find((message) => !seenMessageIds.current.has(String(message.id)));
@@ -131,10 +138,24 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                             <span className="eyebrow">Messages</span>
                             <h1>{folderLabel(folder)}</h1>
                         </div>
-                        <span>{visible.length} message{visible.length === 1 ? '' : 's'}</span>
+                        <div className="toolbarActions">
+                            <button className="secondary" disabled={loading} onClick={loadMessages} type="button">
+                                <RefreshCcw size={15} /> {loading ? 'Refreshing...' : 'Refresh'}
+                            </button>
+                            <span>{visible.length} message{visible.length === 1 ? '' : 's'}</span>
+                        </div>
                     </div>
+                    {loadError && <div className="error compact">{loadError}</div>}
                     <div className="messageRows">
-                        {visible.map((message) => (
+                        {loading && Array.from({ length: 4 }, (_, index) => (
+                            <div className="messageRowSkeleton" key={index}>
+                                <span />
+                                <strong />
+                                <small />
+                                <em />
+                            </div>
+                        ))}
+                        {!loading && visible.map((message) => (
                             <button className={`${active?.id === message.id ? 'active' : ''} ${message.read ? '' : 'unread'} ${highlightedId === String(message.id) ? 'fresh' : ''}`} key={message.id} onClick={() => setActiveId(message.id)}>
                                 <Star size={16} className={message.starred ? 'filled' : ''} onClick={(event) => { event.stopPropagation(); toggleStar(message.id); }} />
                                 <strong>{message.from} ({message.fromName})</strong>
@@ -152,7 +173,12 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                                 </span>
                             </button>
                         ))}
-                        {!visible.length && <p className="mutedPanelText">No messages in this folder yet.</p>}
+                        {!loading && !visible.length && (
+                            <div className="emptyState messageEmptyState">
+                                <strong>No messages in this folder yet.</strong>
+                                <span>Compose a message or refresh this folder to check for new team activity.</span>
+                            </div>
+                        )}
                     </div>
                 </section>
             </main>

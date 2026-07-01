@@ -1,11 +1,11 @@
-import { BriefcaseBusiness, Database } from 'lucide-react';
+import { BriefcaseBusiness, Database, RefreshCcw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { apiImportJobPostings } from '../../api';
 import { useLanguage } from '../../i18n';
 import { ProjectScoreStrip } from './components/ProjectScoreStrip';
 import { formatShortDate, pageCount, pageItems, projectTotals, workModeInfo } from './projectPageUtils';
 
-export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], onProjectsChange }) {
+export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false, projectsError = '', onProjectsChange }) {
     const { t } = useLanguage();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
@@ -39,6 +39,17 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
         }
     }
 
+    async function refreshProjects() {
+        setImportError('');
+        setImportMessage('');
+        try {
+            await onProjectsChange?.();
+            setPage(1);
+        } catch (err) {
+            setImportError(err.message || 'Could not refresh projects.');
+        }
+    }
+
     return (
         <div className="shell">
             <div className="pageGlow contentFadeIn" />
@@ -51,6 +62,9 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
                         <p>{t('jobsUnderReviewText')}</p>
                     </div>
                     <div className="heroActions">
+                        <button className="secondary" disabled={projectsLoading || importing} onClick={refreshProjects}>
+                            <RefreshCcw size={18} /> {projectsLoading ? 'Refreshing...' : 'Refresh'}
+                        </button>
                         <button className="secondary" disabled={importing} onClick={importListings}>
                             <Database size={18} /> {importing ? 'Importing...' : 'Import listings'}
                         </button>
@@ -62,6 +76,7 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
                         {importError || importMessage}
                     </section>
                 )}
+                {projectsError && <section className="error compact">Could not load projects. {projectsError}</section>}
                 <section className="dashboardStats">
                     <Metric label={t('openJobs')} value={projects.length} />
                     <Metric label={t('candidates')} value={totals.candidates} />
@@ -95,7 +110,24 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
                     <span>{t('showingOf', { shown: visibleProjects.length, total: filteredProjects.length })}</span>
                 </section>
                 <section className="projectGrid">
-                    {visibleProjects.map((project) => (
+                    {projectsLoading && Array.from({ length: 3 }, (_, index) => (
+                        <article className="projectCard projectCardSkeleton" key={index}>
+                            <span />
+                            <strong />
+                            <small />
+                            <div />
+                        </article>
+                    ))}
+                    {!projectsLoading && visibleProjects.length === 0 && (
+                        <div className="emptyState projectEmptyState">
+                            <strong>No projects yet.</strong>
+                            <span>Create a job description or import sample listings to start reviewing candidates.</span>
+                            <button className="primary" onClick={() => navigateTo(setRoute, 'newProject')} type="button">
+                                <BriefcaseBusiness size={16} /> New job description
+                            </button>
+                        </div>
+                    )}
+                    {!projectsLoading && visibleProjects.map((project) => (
                         <button className="projectCard" key={project.id} onClick={() => navigateTo(setRoute, 'projectDetail', project.id)}>
                             {(() => {
                                 const mode = workModeInfo(project, t);
@@ -115,7 +147,7 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
                         </button>
                     ))}
                 </section>
-                <Pagination page={currentPage} totalPages={pageCount(filteredProjects)} onPage={setPage} t={t} />
+                {!projectsLoading && <Pagination page={currentPage} totalPages={pageCount(filteredProjects)} onPage={setPage} t={t} />}
             </main>
         </div>
     );

@@ -1,0 +1,92 @@
+VERDICT Website/System Remaining Work
+=====================================
+
+Most Important
+--------------
+1. Admin login password field is plain text on /admin.
+That needs fixing first. It should be type="password".
+
+2. The intro/blank loading behavior happens on direct route loads.
+When opening /audit, /projects, etc., the page is blank for a few seconds before content appears. This feels like a crash or slow app. The intro should run once, not block every route.
+
+3. Language is mixed everywhere.
+Georgian UI contains "Messages", "Risky claims", "Saved reports", "PRIVATE WORKSPACE", "Load sample CV", etc. This makes the product feel unfinished. Finish i18n or default to English until Georgian is complete.
+
+4. Mobile contrast is too low.
+Dashboard/audit mobile screens are structurally responsive, but text becomes dim and hard to read. Some hero text is huge and faded. Needs a mobile contrast/density pass.
+
+5. Audit result sticky bar overlaps/feels cramped.
+The sticky score/export bar covers the result area while scrolling. Also export buttons appear twice near the result.
+
+Website Smoothness
+------------------
+- Reduce heavy first-load animation and avoid repeating it on route navigation.
+- Add real loading skeletons for direct routes instead of blank screens.
+- Make sticky bars reserve space and not cover content.
+- Tone down excessive glow/dark overlays on mobile.
+- Make button/card animations consistent; some screens feel polished, others static.
+- Add refresh/retry states for Messages, Projects, Admin, and Audit history.
+
+Visual/UI
+---------
+- Normalize one product visual language: compose window currently has a blue Gmail-like block that does not fully match the red/black VERDICT system.
+- Dashboard/project hero headings are too large for Georgian and wrap awkwardly.
+- Projects empty state is weak: no "create first project" guidance in the empty list area.
+- Audit workspace is useful but dense; template builder fields look noisy when user just wants to run an audit.
+- Admin is functional but visually overloaded: logs are huge, repeated Delete buttons dominate.
+- Improve accessibility: contrast, keyboard flow, visible focus, modal focus trap, proper labels.
+
+Data/Product
+------------
+- One-click demo is still mostly form sample data, not a full seeded product workspace.
+- Need seeded demo projects, candidates, team members, messages, audit history, and admin data.
+- Candidate comparison/export still needs depth.
+- Evidence/source cards are still missing: GitHub, LinkedIn, portfolio, certificates, public traces.
+- "NOT_A_CLAIM / HIGH" reads confusingly; confidence should be hidden or renamed for non-claims.
+- Need clearer distinction between "not found", "unsupported", "contradicted", and "not checked."
+
+Backend/System
+--------------
+- Server authority improved, but frontend still has localStorage paths for votes/statuses/activity/custom permissions.
+- Admin needs its own authenticated shell: admin badge, logout, session expiry, no public nav.
+- Tokens are stored in localStorage; production should consider safer session handling.
+- Add admin health/version panel: DB, LLM, RabbitMQ, build hash, queue status.
+- Add row-count/export/restore safety for destructive admin actions.
+- Add real metrics: audit duration, failures, LLM fallback rate, message failures, invite acceptance.
+
+Handling/Errors
+---------------
+- More user-facing retry actions: failed audit, failed message send, failed project load, failed export.
+- Better empty states: Projects, Messages, Team, Audit history, Admin logs.
+- File upload needs clearer limits and error recovery.
+- Long-running audit progress should survive refresh and show cancel/retry clearly.
+- Route recovery exists, but blank-before-load still hurts trust.
+
+Architecture
+------------
+- front/src/App.jsx is still about 3,000 lines.
+- front/src/styles.css is about 7,000 lines.
+- Admin, audit workspace, profiling, dashboard, and route rendering should keep moving out of App.jsx.
+- CSS should be split by feature or converted gradually to scoped modules.
+- Static assets are rebuilt into backend resources every frontend build, causing churn.
+
+Testing/DevOps
+--------------
+- Current Playwright/TestNG QA files are removed/dirty from earlier rollback, so there is no active E2E suite.
+- Frontend lint still has hook dependency warnings and unused state warnings.
+- Need smoke tests for login, audit run, project create, candidate add, invite accept, messages, admin clear guard.
+- Need CI pipeline: backend tests, frontend typecheck/lint/build, smoke run.
+- Need production checklist for env vars, migrations, admin credentials, CORS, LLM key, export paths.
+
+My Priority Order
+-----------------
+1. Fix admin password field and blank route loading.
+2. Finish i18n consistency or force English default.
+3. Mobile contrast/density pass.
+4. Remove audit result sticky overlap and duplicate exports.
+5. Add real seeded demo workspace.
+6. Finish localStorage-to-server cleanup.
+7. Add E2E smoke tests back.
+8. Split App.jsx and styles.css.
+9. Add admin health/observability.
+10. Deepen evidence/source cards and candidate comparison.
