@@ -357,7 +357,7 @@ Fix notes: Added a RabbitMQ audit job queue/exchange/binding, Rabbit-backed audi
 29. Add better failure states.
 Status: FIXED
 Advice: Distinguish model failure, parser failure, quota failure, timeout, unsupported file, and permission failure.
-Fix notes: Added persisted audit failure type/message fields, exposed them on audit detail, summary, and progress responses, classified common runtime failures into model, parser, quota, timeout, unsupported file, permission, validation, and unknown states, and covered successful NONE states in API tests. Commit: PENDING.
+Fix notes: Added persisted audit failure type/message fields, exposed them on audit detail, summary, and progress responses, classified common runtime failures into model, parser, quota, timeout, unsupported file, permission, validation, and unknown states, and covered successful NONE states in API tests. Commit: 07c6368.
 
 30. Add file upload support to the generic audit workspace.
 Status: TODO
