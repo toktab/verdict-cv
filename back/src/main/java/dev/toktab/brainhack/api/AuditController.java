@@ -101,6 +101,12 @@ public class AuditController {
         return auditMapper.toProgress(auditService.getForUser(id, user));
     }
 
+    @PostMapping("/{id}/cancel")
+    public AuditProgressResponse cancel(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorization, @RequestHeader(value = "X-User-Token", required = false) String token) {
+        UserAccount user = userTokenService.requireUser(tokenResolver.userToken(authorization, token, null));
+        return auditMapper.toProgress(auditService.cancel(id, user));
+    }
+
     @GetMapping("/{id}/snapshot")
     public AuditSnapshotResponse snapshot(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorization, @RequestHeader(value = "X-User-Token", required = false) String token) {
         UserAccount user = userTokenService.requireUser(tokenResolver.userToken(authorization, token, null));

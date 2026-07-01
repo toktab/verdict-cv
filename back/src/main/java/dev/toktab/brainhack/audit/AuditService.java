@@ -208,6 +208,22 @@ public class AuditService {
     }
 
     @Transactional
+    public Audit cancel(Long id, UserAccount owner) {
+        Audit audit = getForUser(id, owner);
+        if (audit.getStatus() == AuditStatus.COMPLETED || audit.getStatus() == AuditStatus.FAILED || audit.getStatus() == AuditStatus.CANCELLED) {
+            return audit;
+        }
+        audit.setCancellationRequested(true);
+        audit.setStatus(AuditStatus.CANCELLED);
+        setProgress(audit, "cancelled", 100, "Audit cancelled by user.");
+        audit.setProcessingMillis(audit.getProcessingMillis());
+        Audit saved = auditRepository.save(audit);
+        rabbitEventPublisher.publish("audit.cancelled", Map.of("auditId", saved.getId()));
+        logService.recordSystem("AUDIT_CANCELLED", "auditId=" + saved.getId());
+        return saved;
+    }
+
+    @Transactional
     public Audit recalculate(Long id) {
         Audit audit = get(id);
         List<AnalyzedVerdict> analyzed = audit.getVerdicts().stream()
@@ -475,10 +491,18 @@ public class AuditService {
         if (audit == null) {
             return;
         }
+        if (cancelled(audit)) {
+            markCancelled(audit);
+            return;
+        }
         try {
             List<String> sentences = sentenceSplitter.split(audit.getClaimText());
             saveProgress(audit, "analyzing", 20, "Analyzing claim sentences.");
             AuditAnalysisResult analysis = analyze(audit, sentences, audit.getEvidenceText());
+            if (cancelled(auditId)) {
+                markCancelled(auditRepository.findByIdAndDeletedAtIsNull(auditId).orElse(audit));
+                return;
+            }
             List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(applyUnimportantRules(audit, analysis.verdicts()), audit.getEvidenceText());
             audit.setEngine(analysis.engine());
             applyUsage(audit, analysis.usage());
@@ -505,6 +529,25 @@ public class AuditService {
             rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
             logService.recordSystem("AUDIT_ASYNC_FAILED", "auditId=" + audit.getId() + "; error=" + exception.getClass().getSimpleName());
         }
+    }
+
+    private boolean cancelled(Long auditId) {
+        return auditRepository.findByIdAndDeletedAtIsNull(auditId)
+                .map(this::cancelled)
+                .orElse(true);
+    }
+
+    private boolean cancelled(Audit audit) {
+        return audit.isCancellationRequested() || audit.getStatus() == AuditStatus.CANCELLED;
+    }
+
+    private void markCancelled(Audit audit) {
+        audit.setCancellationRequested(true);
+        audit.setStatus(AuditStatus.CANCELLED);
+        setProgress(audit, "cancelled", 100, "Audit cancelled by user.");
+        auditRepository.save(audit);
+        rabbitEventPublisher.publish("audit.cancelled", Map.of("auditId", audit.getId()));
+        logService.recordSystem("AUDIT_ASYNC_CANCELLED", "auditId=" + audit.getId());
     }
 
     private String analyzerVersionFor(String checkStateId) {

@@ -108,6 +108,9 @@ public class Audit {
     @Column(nullable = false, length = 160)
     private String progressMessage = "Queued for analysis.";
 
+    @Column(nullable = false)
+    private boolean cancellationRequested;
+
     @Column(length = 80)
     private String templateId;
 
@@ -343,6 +346,14 @@ public class Audit {
 
     public void setProgressMessage(String progressMessage) {
         this.progressMessage = progressMessage == null || progressMessage.isBlank() ? "Queued for analysis." : progressMessage;
+    }
+
+    public boolean isCancellationRequested() {
+        return cancellationRequested;
+    }
+
+    public void setCancellationRequested(boolean cancellationRequested) {
+        this.cancellationRequested = cancellationRequested;
     }
 
     public String getTemplateId() {

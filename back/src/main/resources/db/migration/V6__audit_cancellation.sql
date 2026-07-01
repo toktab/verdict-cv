@@ -1,0 +1,2 @@
+ALTER TABLE audits
+    ADD COLUMN cancellation_requested BOOLEAN NOT NULL DEFAULT FALSE;

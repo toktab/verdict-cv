@@ -24,6 +24,9 @@ class ServiceLayerBehaviorTest {
     @Autowired
     private AuditService auditService;
 
+    @Autowired
+    private AuditRepository auditRepository;
+
     @Test
     void authSessionLoginAndMeReturnsRegisteredUser() {
         RegisterRequest request = new RegisterRequest(
@@ -67,6 +70,25 @@ class ServiceLayerBehaviorTest {
         assertThat(auditService.getForUser(audit.getId(), owner).getId()).isEqualTo(audit.getId());
         assertThat(audit.getStatus()).isEqualTo(AuditStatus.COMPLETED);
         assertThatThrownBy(() -> auditService.getForUser(audit.getId(), other))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Audit not found");
+    }
+
+    @Test
+    void cancelRunningAuditMarksItCancelledForOwnerOnly() {
+        UserAccount owner = sessionService.register(user("cancel_owner", "cancel-owner@example.com")).account();
+        UserAccount other = sessionService.register(user("cancel_other", "cancel-other@example.com")).account();
+        Audit audit = runningAudit(owner);
+        audit = auditRepository.saveAndFlush(audit);
+        Long auditId = audit.getId();
+
+        Audit cancelled = auditService.cancel(auditId, owner);
+
+        assertThat(cancelled.getStatus()).isEqualTo(AuditStatus.CANCELLED);
+        assertThat(cancelled.isCancellationRequested()).isTrue();
+        assertThat(cancelled.getProgressStage()).isEqualTo("cancelled");
+        assertThat(cancelled.getProgressPercent()).isEqualTo(100);
+        assertThatThrownBy(() -> auditService.cancel(auditId, other))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Audit not found");
     }
@@ -216,5 +238,31 @@ class ServiceLayerBehaviorTest {
                 "cv",
                 "default-cv",
                 "war");
+    }
+
+    private Audit runningAudit(UserAccount owner) {
+        Audit audit = new Audit();
+        audit.setClaimTitle("Queued CV");
+        audit.setEvidenceTitle("Queued Evidence");
+        audit.setClaimText("Built APIs.");
+        audit.setEvidenceText("Evidence pending.");
+        audit.setCredibilityScore(0);
+        audit.setSupportedCount(0);
+        audit.setStretchedCount(0);
+        audit.setUnsupportedCount(0);
+        audit.setNotClaimCount(0);
+        audit.setGapCount(0);
+        audit.setClaimFingerprint("claim-fingerprint");
+        audit.setEvidenceFingerprint("evidence-fingerprint");
+        audit.setProcessingMillis(0);
+        audit.setEngine("queued");
+        audit.setStatus(AuditStatus.RUNNING);
+        audit.setProgressStage("queued");
+        audit.setProgressPercent(0);
+        audit.setProgressMessage("Queued for analysis.");
+        audit.setAnalyzerVersion("test");
+        audit.setPromptVersion("test");
+        audit.setOwner(owner);
+        return audit;
     }
 }

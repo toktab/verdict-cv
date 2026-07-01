@@ -340,9 +340,9 @@ Advice: Polling full audit records is heavier than necessary. Add a compact prog
 Fix notes: Added persisted progress stage, percent, and message fields on audits, stage updates through sync/async processing, a compact GET /api/audit/{id}/progress endpoint, and MockMvc coverage for owned progress access. Commit: a60b769.
 
 26. Add cancellation for long-running audits.
-Status: TODO
+Status: FIXED
 Advice: Users should be able to stop expensive or mistaken work.
-Fix notes: Pending.
+Fix notes: Added durable cancellation_requested tracking, CANCELLED audit status, POST /api/audit/{id}/cancel, progress updates for cancelled audits, async worker cancellation checks before and after analysis, and service coverage for owner-only cancellation. Commit: PENDING.
 
 27. Add durable background job persistence.
 Status: TODO
