@@ -266,6 +266,9 @@ export function normaliseProject(raw) {
         requirements: raw.requirements || [],
         state: raw.state || 'WAR State',
         status: raw.status || 'Screening',
+        ownerId: raw.owner_id || raw.ownerId || null,
+        myRole: raw.my_role || raw.myRole || '',
+        myPermissions: raw.my_permissions || raw.myPermissions || [],
         openedAt: raw.opened_at ? raw.opened_at.slice(0, 10) : (raw.created_at ? raw.created_at.slice(0, 10) : ''),
         candidates: (raw.candidates || []).map(normaliseCandidate),
     };

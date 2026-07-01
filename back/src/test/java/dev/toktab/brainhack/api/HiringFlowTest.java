@@ -333,12 +333,29 @@ class HiringFlowTest {
         mockMvc.perform(get("/api/projects").header("X-User-Token", reviewerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value((int) projectId))
-                .andExpect(jsonPath("$[0].title").value("Shared Role"));
+                .andExpect(jsonPath("$[0].title").value("Shared Role"))
+                .andExpect(jsonPath("$[0].my_role").value("Reviewer"))
+                .andExpect(jsonPath("$[0].my_permissions", hasItem("canAddNote")))
+                .andExpect(jsonPath("$[0].my_permissions", not(hasItem("canInvite"))));
+
+        mockMvc.perform(post("/api/projects/" + projectId + "/invites")
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email":"blocked-reviewer-invite@example.com",
+                                  "role":"REVIEWER"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Project permission required: canInvite"));
 
         mockMvc.perform(get("/api/projects/" + projectId + "/members").header("X-User-Token", ownerToken))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.source == 'OWNER')].permissions").exists())
                 .andExpect(jsonPath("$[?(@.email == '" + reviewerEmail + "')]").exists())
-                .andExpect(jsonPath("$[?(@.email == '" + reviewerEmail + "')].status").value(hasItem("ACTIVE")));
+                .andExpect(jsonPath("$[?(@.email == '" + reviewerEmail + "')].status").value(hasItem("ACTIVE")))
+                .andExpect(jsonPath("$[?(@.email == '" + reviewerEmail + "')].permissions").exists());
 
         MvcResult candidate = mockMvc.perform(post("/api/projects/" + projectId + "/candidates")
                         .header("X-User-Token", reviewerToken)

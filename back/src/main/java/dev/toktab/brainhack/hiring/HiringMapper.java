@@ -24,6 +24,10 @@ public class HiringMapper {
     }
 
     public ProjectResponse project(HiringProject project) {
+        return project(project, null, List.of());
+    }
+
+    public ProjectResponse project(HiringProject project, String myRole, List<String> myPermissions) {
         return new ProjectResponse(
                 project.getId(),
                 project.getOrganization() == null ? null : project.getOrganization().getId(),
@@ -36,6 +40,9 @@ public class HiringMapper {
                 project.getStatus(),
                 project.getCreatedAt(),
                 project.getCreatedAt(),
+                project.getOwner().getId(),
+                myRole,
+                myPermissions,
                 project.getCandidates().stream()
                         .filter(candidate -> candidate.getDeletedAt() == null)
                         .map(this::candidate)

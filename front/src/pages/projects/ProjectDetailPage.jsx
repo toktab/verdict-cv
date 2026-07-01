@@ -86,7 +86,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
     const risks = projectRiskClusters(project.candidates, t);
     const coverage = projectCoverage(project);
     const myMember = members.find((member) => sameIdentity(member.email, user?.email) || sameIdentity(member.email, user?.username));
-    const myPermissions = permissionsForProjectRole(myMember?.role || (project.ownerId === user?.id ? 'Head Admin' : 'Viewer'));
+    const myPermissions = project.myPermissions?.length ? project.myPermissions : permissionsForProjectRole(myMember?.role || project.myRole || (project.ownerId === user?.id ? 'Head Admin' : 'Viewer'));
     const canTeamManage = myPermissions.includes('canTeamManage') || myPermissions.includes('protectedAccount');
     const canInvite = myPermissions.includes('canInvite') || myPermissions.includes('protectedAccount');
     const reviewSteps = [

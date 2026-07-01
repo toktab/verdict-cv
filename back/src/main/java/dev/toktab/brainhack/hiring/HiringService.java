@@ -99,13 +99,14 @@ public class HiringService {
     public List<ProjectResponse> projects(UserAccount owner) {
         ensureOrganization(owner);
         return projectRepository.findAccessible(owner.getId()).stream()
-                .map(mapper::project)
+                .map(project -> mapper.project(project, actorRole(owner, project), permissionsFor(owner, project)))
                 .toList();
     }
 
     @Transactional
     public ProjectResponse project(UserAccount owner, Long id) {
-        return mapper.project(projectEntity(owner, id));
+        HiringProject project = projectEntity(owner, id);
+        return mapper.project(project, actorRole(owner, project), permissionsFor(owner, project));
     }
 
     @Transactional
@@ -124,7 +125,8 @@ public class HiringService {
         project.setRequirementsText(String.join("\n", requirements));
         project.setState(defaulted(request.state(), "WAR+AI State"));
         project.setStatus(defaulted(request.status(), "Screening"));
-        return mapper.project(projectRepository.save(project));
+        HiringProject saved = projectRepository.save(project);
+        return mapper.project(saved, actorRole(owner, saved), permissionsFor(owner, saved));
     }
 
     @Transactional
@@ -254,7 +256,7 @@ public class HiringService {
     @Transactional
     public List<InviteResponse> invites(UserAccount actor, Long projectId) {
         HiringProject project = projectEntity(actor, projectId);
-        requireProjectOwner(actor, project);
+        requirePermission(actor, project, "canInvite");
         return inviteRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream().map(mapper::invite).toList();
     }
 
@@ -268,6 +270,7 @@ public class HiringService {
                 displayName(owner),
                 owner.getEmail(),
                 "Head Admin",
+                rolePermissions("Head Admin"),
                 "ACTIVE",
                 "OWNER",
                 true
@@ -283,6 +286,7 @@ public class HiringService {
                         displayName(member),
                         member.getEmail(),
                         displayRole(membership.getRole()),
+                        rolePermissions(membership.getRole()),
                         "ACTIVE",
                         "MEMBERSHIP",
                         false
@@ -301,6 +305,7 @@ public class HiringService {
                     invite.getInvitedEmail().split("@")[0],
                     invite.getInvitedEmail(),
                     displayRole(invite.getRole()),
+                    rolePermissions(invite.getRole()),
                     invite.getStatus(),
                     "INVITE",
                     false
@@ -312,7 +317,7 @@ public class HiringService {
     @Transactional
     public InviteResponse invite(UserAccount actor, Long projectId, InviteRequest request) {
         HiringProject project = projectEntity(actor, projectId);
-        requireProjectOwner(actor, project);
+        requirePermission(actor, project, "canInvite");
         ProjectInvite invite = new ProjectInvite();
         invite.setProject(project);
         invite.setInvitedBy(actor);
@@ -794,6 +799,58 @@ public class HiringService {
         if (!project.getOwner().getId().equals(actor.getId())) {
             throw new IllegalArgumentException("Project owner permissions required");
         }
+    }
+
+    private void requirePermission(UserAccount actor, HiringProject project, String permission) {
+        if (!permissionsFor(actor, project).contains(permission)) {
+            throw new IllegalArgumentException("Project permission required: " + permission);
+        }
+    }
+
+    private String actorRole(UserAccount actor, HiringProject project) {
+        if (project.getOwner().getId().equals(actor.getId())) {
+            return "Head Admin";
+        }
+        if (project.getOrganization() == null) {
+            return "Viewer";
+        }
+        return membershipRepository.findByOrganizationIdAndUserId(project.getOrganization().getId(), actor.getId())
+                .map(TeamMembership::getRole)
+                .map(this::displayRole)
+                .orElse("Viewer");
+    }
+
+    private List<String> permissionsFor(UserAccount actor, HiringProject project) {
+        return rolePermissions(actorRole(actor, project));
+    }
+
+    private List<String> rolePermissions(String role) {
+        String normalized = displayRole(role).toLowerCase(Locale.ROOT);
+        List<String> permissions = new ArrayList<>();
+        permissions.add("canView");
+        if (normalized.contains("voter")) {
+            permissions.add("canVote");
+        } else if (normalized.contains("reviewer")) {
+            permissions.addAll(List.of("canVote", "canAddNote"));
+        } else if (normalized.contains("screener")) {
+            permissions.addAll(List.of("canVote", "canAddNote", "canMarkOnCheck"));
+        } else if (normalized.contains("coordinator")) {
+            permissions.addAll(List.of(
+                    "canVote", "canAddNote", "canMarkOnCheck", "canSetInterview", "canHire", "canClose",
+                    "canInvite", "canTeamManage", "canKickMembers", "canPromoteMembers", "canDemoteMembers",
+                    "canChangePermissions", "canMessage", "canViewActivityLog"
+            ));
+        } else if (normalized.contains("admin")) {
+            permissions.addAll(List.of(
+                    "canVote", "canAddNote", "canMarkOnCheck", "canSetInterview", "canHire", "canClose",
+                    "canInvite", "canTeamManage", "canKickMembers", "canPromoteMembers", "canDemoteMembers",
+                    "canChangePermissions", "canMessage", "canViewActivityLog"
+            ));
+            if (normalized.contains("head")) {
+                permissions.add("protectedAccount");
+            }
+        }
+        return permissions.stream().distinct().toList();
     }
 
     private String displayName(UserAccount account) {

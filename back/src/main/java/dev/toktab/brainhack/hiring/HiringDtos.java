@@ -69,6 +69,9 @@ public class HiringDtos {
             String status,
             @JsonProperty("opened_at") Instant openedAt,
             @JsonProperty("created_at") Instant createdAt,
+            @JsonProperty("owner_id") Long ownerId,
+            @JsonProperty("my_role") String myRole,
+            @JsonProperty("my_permissions") List<String> myPermissions,
             List<CandidateResponse> candidates
     ) {
     }
@@ -122,6 +125,7 @@ public class HiringDtos {
             String name,
             String email,
             String role,
+            List<String> permissions,
             String status,
             String source,
             @JsonProperty("protected_member") boolean protectedMember

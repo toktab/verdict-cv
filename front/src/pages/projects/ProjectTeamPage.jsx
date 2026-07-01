@@ -33,8 +33,9 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [activityMember, setActivityMember] = useState(null);
     const [activityRows, setActivityRows] = useState(() => readActivity(project?.id));
     const members = useMemo(() => buildMembers(project, user, invites, roleOverrides, serverMembers), [project, user, invites, roleOverrides, serverMembers]);
-    const myRole = members.find((member) => sameEmail(member.email, user?.email))?.role || 'Viewer';
-    const myPermissions = permissionsFor(myRole, user?.email, customPermissions);
+    const myMember = members.find((member) => sameEmail(member.email, user?.email));
+    const myRole = project?.myRole || myMember?.role || 'Viewer';
+    const myPermissions = project?.myPermissions?.length ? project.myPermissions : permissionsFor(myRole, user?.email, customPermissions, myMember?.permissions);
     const canTeamManage = myPermissions.includes('canTeamManage') || myPermissions.includes('protectedAccount');
     const canInvite = myPermissions.includes('canInvite') || myPermissions.includes('protectedAccount');
     const visibleCandidates = useMemo(() => {
@@ -222,7 +223,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                     <div className="teamMemberRows">
                         {members.filter((member) => member.role !== 'Kicked').map((member) => {
                             const protectedMember = isProtectedMember(member);
-                            const memberPermissions = permissionsFor(member.role, member.email, customPermissions);
+                            const memberPermissions = permissionsFor(member.role, member.email, customPermissions, member.permissions);
                             return (
                                 <article key={member.email} className={protectedMember ? 'protectedMember' : ''}>
                                     <div>
@@ -338,6 +339,7 @@ function buildMembers(project, user, invites, overrides, serverMembers = []) {
         name: member.name || member.email?.split('@')[0] || 'Reviewer',
         email: member.email,
         role: overrides[member.email] || normalizeRole(member.role, member.status),
+        permissions: member.permissions || [],
         status: member.status || 'ACTIVE',
         source: member.source || 'MEMBER',
         protectedMember: Boolean(member.protected_member || member.protectedMember),
@@ -345,6 +347,7 @@ function buildMembers(project, user, invites, overrides, serverMembers = []) {
         name: user?.fullName || user?.username || 'Project creator',
         email: user?.email || 'owner@verdict.local',
         role: 'Head Admin',
+        permissions: ROLE_PERMISSIONS['Head Admin'],
         status: 'ACTIVE',
         source: 'OWNER',
         protectedMember: true,
@@ -359,6 +362,7 @@ function buildMembers(project, user, invites, overrides, serverMembers = []) {
             name: invite.email?.split('@')[0] || 'Reviewer',
             email: invite.email,
             role: overrides[invite.email] || normalizeRole(invite.role, invite.status),
+            permissions: invite.permissions || [],
             status: invite.status || 'PENDING',
             source: 'INVITE',
             protectedMember: false,
@@ -435,7 +439,8 @@ function writeCustomPermissions(projectId, permissions) {
     localStorage.setItem(`projectCustomPermissions:${projectId}`, JSON.stringify(permissions));
 }
 
-function permissionsFor(role, email, customPermissions) {
+function permissionsFor(role, email, customPermissions, serverPermissions = []) {
+    if (serverPermissions.length) return serverPermissions;
     if (role === 'Custom') return customPermissions[email] || ROLE_PERMISSIONS.Custom;
     return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.Viewer;
 }
