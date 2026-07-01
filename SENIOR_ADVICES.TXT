@@ -342,7 +342,7 @@ Fix notes: Added persisted progress stage, percent, and message fields on audits
 26. Add cancellation for long-running audits.
 Status: FIXED
 Advice: Users should be able to stop expensive or mistaken work.
-Fix notes: Added durable cancellation_requested tracking, CANCELLED audit status, POST /api/audit/{id}/cancel, progress updates for cancelled audits, async worker cancellation checks before and after analysis, and service coverage for owner-only cancellation. Commit: PENDING.
+Fix notes: Added durable cancellation_requested tracking, CANCELLED audit status, POST /api/audit/{id}/cancel, progress updates for cancelled audits, async worker cancellation checks before and after analysis, and service coverage for owner-only cancellation. Commit: a24fbeb.
 
 27. Add durable background job persistence.
 Status: TODO
