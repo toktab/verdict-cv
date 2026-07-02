@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, Edit3, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, RefreshCcw, Save, Send, ShieldCheck, Trash2, User, UserPlus, X } from 'lucide-react';
 import IntroAnimation from './IntroAnimation';
+import { HistoryPage } from './pages/HistoryPage';
 import { CandidateDetailPage } from './pages/projects/CandidateDetailPage';
 import { CandidateProfilePage } from './pages/projects/CandidateProfilePage';
 import { HomePage } from './pages/HomePage';
@@ -606,6 +607,8 @@ function App() {
         content = <AdminPanel setRoute={setRoute} />;
     } else if (route === 'dashboard') {
         content = <DashboardPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} templates={templates} historyLoading={historyLoading} historyError={historyError} onRefreshHistory={loadHistory} openAudit={openAudit} />;
+    } else if (route === 'history') {
+        content = <HistoryPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} historyLoading={historyLoading} historyError={historyError} onRefreshHistory={loadHistory} projects={projects} projectsLoading={projectsLoading} projectsError={projectsError} onRefreshProjects={loadProjects} openAudit={openAudit} />;
     } else if (route === 'projects') {
         content = <ProjectsPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} projectsError={projectsError} onProjectsChange={loadProjects} />;
     } else if (route === 'newProject') {
@@ -859,6 +862,7 @@ function emptyComposeDraft() {
 function routeFromPath() {
     if (window.location.pathname === '/admin') return { route: 'admin' };
     if (window.location.pathname === '/dashboard') return { route: 'dashboard' };
+    if (window.location.pathname === '/history') return { route: 'history' };
     if (window.location.pathname === '/messages') return { route: 'messages' };
     if (window.location.pathname === '/profile') return { route: 'profile' };
     if (window.location.pathname === '/projects') return { route: 'projects' };
@@ -881,7 +885,7 @@ function routeFromPath() {
 
 function navigateTo(setRoute, next, id, childId) {
     setRoute(next);
-    const path = next === 'admin' ? '/admin' : next === 'dashboard' ? '/dashboard' : next === 'messages' ? '/messages' : next === 'projects' ? '/projects' : next === 'newProject' ? '/projects/new' : next === 'projectDetail' ? `/projects/${id}` : next === 'projectTeam' ? `/projects/${id}/team` : next === 'addCandidate' ? `/projects/${id}/candidates/new` : next === 'signalTrace' ? `/projects/${id}/candidates/${childId}/signaltrace` : next === 'candidateProfile' ? `/projects/${id}/candidates/${childId}/profile` : next === 'candidateDetail' ? `/projects/${id}/candidates/${childId}` : next === 'profile' ? '/profile' : next === 'auditProfile' ? `/audit/${id}/profile` : next === 'auditDetail' ? `/audit/${id}` : next === 'app' ? '/projects' : next === 'login' ? '/login' : next === 'register' ? '/register' : '/';
+    const path = next === 'admin' ? '/admin' : next === 'dashboard' ? '/dashboard' : next === 'history' ? '/history' : next === 'messages' ? '/messages' : next === 'projects' ? '/projects' : next === 'newProject' ? '/projects/new' : next === 'projectDetail' ? `/projects/${id}` : next === 'projectTeam' ? `/projects/${id}/team` : next === 'addCandidate' ? `/projects/${id}/candidates/new` : next === 'signalTrace' ? `/projects/${id}/candidates/${childId}/signaltrace` : next === 'candidateProfile' ? `/projects/${id}/candidates/${childId}/profile` : next === 'candidateDetail' ? `/projects/${id}/candidates/${childId}` : next === 'profile' ? '/profile' : next === 'auditProfile' ? `/audit/${id}/profile` : next === 'auditDetail' ? `/audit/${id}` : next === 'app' ? '/projects' : next === 'login' ? '/login' : next === 'register' ? '/register' : '/';
     window.history.replaceState(null, '', path);
     scrollToPageTop();
 }
@@ -945,13 +949,13 @@ function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessag
                 <button onClick={() => navigate('home')}>{t('home')}</button>
                 {user && <button className="quiet" onClick={() => navigate('dashboard')}><Gauge size={16} /> {t('dashboard')}</button>}
                 <button className="quiet" onClick={() => navigate('projects')}><LayoutDashboard size={16} /> {t('projects')}</button>
+                {user && <button className="quiet" onClick={() => navigate('history')}><History size={16} /> {t('history')}</button>}
                 {user && (
                     <button className="quiet mailNavButton" onClick={() => navigate('messages')}>
                         <Mail size={16} /> Messages
                         {unreadMessages > 0 && <b aria-label={`${unreadMessages} unread messages`}>{unreadMessages > 99 ? '99+' : unreadMessages}</b>}
                     </button>
                 )}
-                <button className="quiet" onClick={() => navigate('projects')}><FileSearch size={16} /> {t('audits')}</button>
                 {user ? (
                     <div className="accountMenu">
                         <button className="accountChip" onClick={() => setAccountOpen(!accountOpen)}>
@@ -962,7 +966,7 @@ function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessag
                         {accountOpen && (
                             <div className="accountDropdown">
                                 <button onClick={() => navigate('dashboard')}><LayoutDashboard size={16} /> {t('dashboard')}</button>
-                                <button onClick={() => navigate('projects')}><FileSearch size={16} /> {t('audits')}</button>
+                                <button onClick={() => navigate('history')}><History size={16} /> {t('history')}</button>
                                 <button onClick={() => navigate('profile')}><User size={16} /> {t('profile')}</button>
                                 <button className="destructive" onClick={logout}><LogOut size={16} /> {t('logout')}</button>
                             </div>
@@ -1240,12 +1244,24 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
         setRegisterStep((current) => Math.max(current - 1, 0));
     }
 
+    function handleAuthSubmit(event) {
+        event.preventDefault();
+        if (loading) {
+            return;
+        }
+        if (isRegister && registerStep < registerSteps.length - 1) {
+            nextStep();
+            return;
+        }
+        submit();
+    }
+
     return (
         <div className="shell">
             <div className="pageGlow contentFadeIn" />
             <Header setRoute={setRoute} user={null} userToken="" setUser={setUser} setUserToken={setUserToken} />
             <main className="authWrap contentFadeIn">
-                <section className="authCard">
+                <form className="authCard" onSubmit={handleAuthSubmit}>
                     <span className="eyebrow">{isRegister ? t('createAccount') : t('welcomeBack')}</span>
                     <h1>{isRegister ? t('privateAuditWorkspace') : t('loginToContinue')}</h1>
                     {isRegister ? (
@@ -1261,6 +1277,7 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
                                 <div className="stepDots">
                                     {registerSteps.map((step, index) => (
                                         <button
+                                            type="button"
                                             key={step.title}
                                             className={index === registerStep ? 'active' : index < registerStep ? 'done' : ''}
                                             onClick={() => index <= registerStep && setRegisterStep(index)}
@@ -1312,6 +1329,18 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
                                 )}
                                 {registerStep === 6 && (
                                     <>
+                                        <div className="confirmSummaryCard">
+                                            <div>
+                                                <span className="eyebrow">Final review</span>
+                                                <strong>Ready to create this workspace account?</strong>
+                                                <small>Check spelling now. You can still go back and edit anything before submitting.</small>
+                                            </div>
+                                            <div className="confirmIdentityBadge">
+                                                <span>{accountInitials(form)}</span>
+                                                <strong>{registerPayload(form).fullName || 'New account'}</strong>
+                                                <small>{form.email || 'Email required'}</small>
+                                            </div>
+                                        </div>
                                         <div className="reviewBox">
                                             {reviewRows(form).map(([label, value]) => (
                                                 <div key={label}>
@@ -1320,21 +1349,24 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
                                                 </div>
                                             ))}
                                         </div>
-                                        <label className="confirmRow">
+                                        <label className={`confirmRow confirmRowFinal ${form.confirmInfo ? 'checked' : ''}`}>
                                             <input type="checkbox" checked={form.confirmInfo} onChange={(event) => updateForm({ confirmInfo: event.target.checked })} />
-                                            <span>{t('infoCorrect')}</span>
+                                            <span>
+                                                <strong>{t('infoCorrect')}</strong>
+                                                <small>Press Enter or Create account after this is checked.</small>
+                                            </span>
                                         </label>
                                     </>
                                 )}
                                 <ValidationList checks={activeChecks} />
                                 <div className="stepActions">
-                                    <button className="ghost" disabled={registerStep === 0 || loading} onClick={previousStep}>{t('back')}</button>
+                                    <button className="ghost" disabled={registerStep === 0 || loading} onClick={previousStep} type="button">{t('back')}</button>
                                     {registerStep < registerSteps.length - 1 ? (
-                                        <button className="primary" disabled={!stepValid || loading} onClick={nextStep}>
+                                        <button className="primary" disabled={!stepValid || loading} type="submit">
                                             {t('next')} <ArrowRight size={18} />
                                         </button>
                                     ) : (
-                                        <button className="primary" disabled={!stepValid || loading} onClick={submit}>
+                                        <button className="primary" disabled={!stepValid || loading} type="submit">
                                             <UserPlus size={18} /> {loading ? t('working') : t('createAccount')}
                                         </button>
                                     )}
@@ -1348,16 +1380,16 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
                         </div>
                     )}
                     {!isRegister && (
-                        <button className="primary authSubmit" disabled={loading} onClick={submit}>
+                        <button className="primary authSubmit" disabled={loading} type="submit">
                             <Lock size={18} />
                             {loading ? t('working') : t('login')}
                         </button>
                     )}
-                    <button className="ghost authSubmit" onClick={() => navigateTo(setRoute, isRegister ? 'login' : 'register')}>
+                    <button className="ghost authSubmit" onClick={() => navigateTo(setRoute, isRegister ? 'login' : 'register')} type="button">
                         {isRegister ? t('alreadyHaveAccount') : t('createNewAccount')}
                     </button>
                     {error && <div className="error">{error}</div>}
-                </section>
+                </form>
             </main>
         </div>
     );
@@ -2388,6 +2420,12 @@ function formatDateTime(value) {
 
 function shortHash(value) {
     return value ? `${value.slice(0, 8)}...` : 'None';
+}
+
+function accountInitials(form) {
+    const first = form.firstName.trim().charAt(0);
+    const last = form.lastName.trim().charAt(0);
+    return `${first}${last}`.toUpperCase() || 'VA';
 }
 
 function AuditResult({ audit, setRoute }) {

@@ -9,6 +9,7 @@ export const translations = {
         home: 'Home',
         dashboard: 'Dashboard',
         projects: 'Projects',
+        history: 'History',
         audits: 'Audits',
         profile: 'Profile',
         login: 'Login',

@@ -854,6 +854,65 @@ nav button:hover,
     gap: 8px;
 }
 
+.confirmSummaryCard {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    border: 1px solid rgba(255, 91, 91, 0.28);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 12px;
+    background:
+            linear-gradient(135deg, rgba(255, 80, 80, 0.12), rgba(255, 255, 255, 0.035)),
+            rgba(0, 0, 0, 0.18);
+}
+
+.confirmSummaryCard strong {
+    display: block;
+    margin: 5px 0;
+    color: var(--text);
+    font-size: 18px;
+}
+
+.confirmSummaryCard small {
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.confirmIdentityBadge {
+    min-width: 220px;
+    display: grid;
+    grid-template-columns: 46px 1fr;
+    column-gap: 10px;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.confirmIdentityBadge span {
+    grid-row: span 2;
+    width: 46px;
+    height: 46px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    color: var(--text);
+    font-weight: 800;
+    background: rgba(255, 80, 80, 0.18);
+}
+
+.confirmIdentityBadge strong {
+    margin: 0;
+    font-size: 15px;
+}
+
+.confirmIdentityBadge small {
+    overflow-wrap: anywhere;
+}
+
 .reviewBox div {
     display: flex;
     justify-content: space-between;
@@ -1994,6 +2053,175 @@ mark {
     gap: 8px;
     align-items: center;
     margin: 0 0 12px;
+}
+
+.historyPage {
+    gap: 18px;
+}
+
+.historyControlPanel {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) auto;
+    gap: 14px;
+    align-items: end;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.historyControlPanel label {
+    display: grid;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.historyControlPanel label span {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.historyKindTabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.historyKindTabs button {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 9px 12px;
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.historyKindTabs button.active {
+    color: var(--text);
+    border-color: rgba(255, 80, 80, 0.42);
+    background: rgba(255, 80, 80, 0.12);
+}
+
+.historyIndexPanel {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.026);
+}
+
+.historyIndexRow {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 118px minmax(220px, 1fr) 92px minmax(180px, 0.8fr) minmax(170px, 0.7fr) 24px;
+    gap: 14px;
+    align-items: center;
+    border: 0;
+    border-top: 1px solid var(--line);
+    padding: 14px;
+    color: var(--text);
+    background: transparent;
+    text-align: left;
+}
+
+.historyIndexRow:hover {
+    background: rgba(255, 255, 255, 0.052);
+}
+
+.historyKindBadge {
+    width: fit-content;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    padding: 6px 9px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.historyKindBadge.audit {
+    color: #ffd6d6;
+    border-color: rgba(255, 99, 99, 0.34);
+    background: rgba(255, 80, 80, 0.08);
+}
+
+.historyKindBadge.candidate {
+    color: #d7ffe4;
+    border-color: rgba(102, 217, 145, 0.3);
+    background: rgba(102, 217, 145, 0.08);
+}
+
+.historyMainText,
+.historyScoreBlock,
+.historyMetaText {
+    display: grid;
+    gap: 4px;
+}
+
+.historyMainText strong,
+.historyScoreBlock strong {
+    color: var(--text);
+}
+
+.historyMainText small,
+.historyMetaText small,
+.historyScoreBlock span,
+.historyCounts span {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.historyCounts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.historyCounts span {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 8px;
+    background: rgba(255, 255, 255, 0.028);
+}
+
+.historyEmptyState {
+    margin: 14px;
+}
+
+.historySkeletonList {
+    display: grid;
+    gap: 0;
+}
+
+.historyIndexSkeleton {
+    display: grid;
+    grid-template-columns: 118px minmax(220px, 1fr) 92px 180px;
+    gap: 14px;
+    align-items: center;
+    border-top: 1px solid var(--line);
+    padding: 14px;
+}
+
+.historyIndexSkeleton span,
+.historyIndexSkeleton strong,
+.historyIndexSkeleton small,
+.historyIndexSkeleton em {
+    display: block;
+    height: 14px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.055));
+    background-size: 220% 100%;
+    animation: skeletonPulse 1.15s ease-in-out infinite;
+}
+
+.historyIndexSkeleton span {
+    width: 94px;
+}
+
+.historyIndexSkeleton strong {
+    height: 18px;
+}
+
+.historyIndexSkeleton small {
+    width: 78px;
 }
 
 .privateStrip {
@@ -6057,6 +6285,34 @@ select {
     background: rgba(255, 255, 255, 0.032);
 }
 
+.confirmRowFinal {
+    align-items: flex-start;
+    border-color: rgba(255, 91, 91, 0.34);
+    background: rgba(255, 80, 80, 0.065);
+}
+
+.confirmRowFinal.checked {
+    border-color: rgba(102, 217, 145, 0.42);
+    background: rgba(42, 128, 75, 0.16);
+}
+
+.confirmRowFinal input {
+    margin-top: 4px;
+}
+
+.confirmRowFinal span {
+    display: grid;
+    gap: 3px;
+}
+
+.confirmRowFinal strong {
+    color: var(--text);
+}
+
+.confirmRowFinal small {
+    color: var(--muted);
+}
+
 .messageRowSkeleton span {
     width: 18px;
     height: 18px;
@@ -6857,6 +7113,37 @@ select {
         display: flex;
         flex-direction: column;
         gap: 12px;
+    }
+
+    .historyControlPanel,
+    .historyIndexRow,
+    .historyIndexSkeleton {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .historyKindTabs {
+        justify-content: flex-start;
+    }
+
+    .historyIndexRow {
+        gap: 10px;
+    }
+
+    .historyScoreBlock,
+    .historyMetaText {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .confirmSummaryCard,
+    .confirmIdentityBadge {
+        grid-template-columns: 1fr;
+    }
+
+    .confirmIdentityBadge span {
+        grid-row: auto;
     }
 
     .profileResizeHandle,
