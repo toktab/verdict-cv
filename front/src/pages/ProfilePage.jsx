@@ -16,6 +16,7 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
   const [error, setError] = useState('');
   const [saved, setSaved] = useState('');
   const [loading, setLoading] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState(() => readNotificationSettings(user));
 
   useEffect(() => {
     if (user) {
@@ -28,8 +29,16 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
         role: user.role || '',
         password: '',
       });
+      setNotificationSettings(readNotificationSettings(user));
     }
   }, [user?.id]);
+
+  function updateNotifications(patch) {
+    const next = { ...notificationSettings, ...patch };
+    setNotificationSettings(next);
+    writeNotificationSettings(user, next);
+    setSaved('Notification settings saved.');
+  }
 
   async function saveProfile() {
     setError('');
@@ -77,6 +86,25 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
           <Input label="Role" value={form.role} onChange={(role) => setForm({ ...form, role })} />
           <Input type="password" label="New password optional" value={form.password} onChange={(password) => setForm({ ...form, password })} />
         </section>
+        <section className="profileNotificationPanel">
+          <div>
+            <span className="eyebrow">Messages</span>
+            <h2>Notification settings</h2>
+            <p>Control the top-left new-message alerts for this account.</p>
+          </div>
+          <label className="toggleRow">
+            <input
+              type="checkbox"
+              checked={notificationSettings.messageNoticesEnabled !== false}
+              onChange={(event) => updateNotifications({ messageNoticesEnabled: event.target.checked, mutedUntil: event.target.checked ? 0 : 'forever' })}
+            />
+            <span>Show new message popups</span>
+          </label>
+          <div className="notificationStatusRow">
+            <span>{notificationStatus(notificationSettings)}</span>
+            <button className="secondary" type="button" onClick={() => updateNotifications({ messageNoticesEnabled: true, mutedUntil: 0 })}>Unmute messages</button>
+          </div>
+        </section>
       </main>
     </div>
   );
@@ -89,4 +117,31 @@ function profileValidation(form) {
   if (form.address.trim().length < 6) return 'Address must be at least 6 characters.';
   if (form.password && form.password.length < 8) return 'New password must be at least 8 characters.';
   return '';
+}
+
+function notificationSettingsKey(user) {
+  return `verdictNotificationSettings:${(user?.email || user?.username || 'guest').toLowerCase()}`;
+}
+
+function readNotificationSettings(user) {
+  try {
+    return JSON.parse(localStorage.getItem(notificationSettingsKey(user)) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function writeNotificationSettings(user, settings) {
+  localStorage.setItem(notificationSettingsKey(user), JSON.stringify(settings));
+  window.dispatchEvent(new Event('verdictNotificationSettingsChanged'));
+}
+
+function notificationStatus(settings) {
+  if (settings.messageNoticesEnabled === false || settings.mutedUntil === 'forever') {
+    return 'Message popups are muted until you turn them back on.';
+  }
+  if (Number(settings.mutedUntil || 0) > Date.now()) {
+    return `Message popups muted until ${new Date(settings.mutedUntil).toLocaleTimeString()}.`;
+  }
+  return 'Message popups are active.';
 }

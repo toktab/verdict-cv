@@ -308,6 +308,8 @@ function App() {
     const [composeOpen, setComposeOpen] = useState(false);
     const [composeDraft, setComposeDraft] = useState({ to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null });
     const [unreadMessages, setUnreadMessages] = useState(0);
+    const [messageNotice, setMessageNotice] = useState(null);
+    const seenInboundMessageIds = useRef(new Set());
 
     function setLang(nextLang) {
         localStorage.setItem('verdictLang', nextLang);
@@ -367,12 +369,21 @@ function App() {
         async function refreshUnreadMessages() {
             if (!user) {
                 setUnreadMessages(0);
+                setMessageNotice(null);
                 return;
             }
             try {
                 const rows = userToken ? await apiListMessages(userToken) : readMessages(user);
                 if (!cancelled) {
-                    setUnreadMessages(rows.filter((message) => !message.read && messageBelongsTo(message, user, 'to')).length);
+                    const inbound = rows.filter((message) => messageBelongsTo(message, user, 'to'));
+                    const unread = inbound.filter((message) => !message.read);
+                    setUnreadMessages(unread.length);
+                    const nextIds = new Set(inbound.map((message) => String(message.id)));
+                    const fresh = inbound.find((message) => !seenInboundMessageIds.current.has(String(message.id)));
+                    if (seenInboundMessageIds.current.size > 0 && fresh && shouldShowMessageNotice(user)) {
+                        setMessageNotice(fresh);
+                    }
+                    seenInboundMessageIds.current = nextIds;
                 }
             } catch {
                 if (!cancelled) {
@@ -382,9 +393,11 @@ function App() {
         }
         refreshUnreadMessages();
         window.addEventListener('verdictMessagesChanged', refreshUnreadMessages);
+        const timer = window.setInterval(refreshUnreadMessages, 7000);
         return () => {
             cancelled = true;
             window.removeEventListener('verdictMessagesChanged', refreshUnreadMessages);
+            window.clearInterval(timer);
         };
     }, [user, userToken]);
 
@@ -761,6 +774,18 @@ function App() {
                 setOpen={setComposeOpen}
                 user={user}
             />
+            <MessageNoticeToast
+                message={messageNotice}
+                onDismiss={() => setMessageNotice(null)}
+                onGo={() => {
+                    setMessageNotice(null);
+                    navigateTo(setRoute, 'messages');
+                }}
+                onMute={(duration) => {
+                    muteMessageNotices(user, duration);
+                    setMessageNotice(null);
+                }}
+            />
         </LanguageContext.Provider>
     );
 }
@@ -904,6 +929,71 @@ function RecipientPreview({ lookup, rawValue }) {
         return <div className="recipientPreview missing"><span className="recipientAvatar">?</span><div><strong>No VERDICT user found</strong><small>Check the username or enter a full email address.</small></div></div>;
     }
     return null;
+}
+
+function MessageNoticeToast({ message, onDismiss, onGo, onMute }) {
+    const [menuOpen, setMenuOpen] = useState(false);
+    if (!message) {
+        return null;
+    }
+    return (
+        <aside className="messageNoticeToast">
+            <div>
+                <span className="eyebrow">New message</span>
+                <strong>{message.subject || 'No subject'}</strong>
+                <small>From {message.fromName || message.from} / {message.from}</small>
+            </div>
+            <div className="messageNoticeActions">
+                <button className="secondary" type="button" onClick={onDismiss}>Dismiss</button>
+                <button className="primary" type="button" onClick={onGo}>Go</button>
+                <div className="noticeMuteMenu">
+                    <button className="secondary" type="button" onClick={() => setMenuOpen((open) => !open)}>Ignore for ▾</button>
+                    {menuOpen && (
+                        <div>
+                            <button type="button" onClick={() => onMute('5m')}>5 minutes</button>
+                            <button type="button" onClick={() => onMute('15m')}>15 minutes</button>
+                            <button type="button" onClick={() => onMute('1h')}>1 hour</button>
+                            <button type="button" onClick={() => onMute('forever')}>Until I change it back</button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </aside>
+    );
+}
+
+function notificationSettingsKey(user) {
+    return `verdictNotificationSettings:${(user?.email || user?.username || 'guest').toLowerCase()}`;
+}
+
+function readNotificationSettings(user) {
+    try {
+        return JSON.parse(localStorage.getItem(notificationSettingsKey(user)) || '{}');
+    } catch {
+        return {};
+    }
+}
+
+function writeNotificationSettings(user, settings) {
+    localStorage.setItem(notificationSettingsKey(user), JSON.stringify(settings));
+    window.dispatchEvent(new Event('verdictNotificationSettingsChanged'));
+}
+
+function shouldShowMessageNotice(user) {
+    const settings = readNotificationSettings(user);
+    if (settings.messageNoticesEnabled === false) return false;
+    if (settings.mutedUntil === 'forever') return false;
+    if (Number(settings.mutedUntil || 0) > Date.now()) return false;
+    return true;
+}
+
+function muteMessageNotices(user, duration) {
+    const settings = readNotificationSettings(user);
+    const durations = { '5m': 5 * 60 * 1000, '15m': 15 * 60 * 1000, '1h': 60 * 60 * 1000 };
+    writeNotificationSettings(user, {
+        ...settings,
+        mutedUntil: duration === 'forever' ? 'forever' : Date.now() + (durations[duration] || 0),
+    });
 }
 
 function userInitials(user) {
