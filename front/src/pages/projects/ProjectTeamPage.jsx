@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
-import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMembers, apiSendMessage } from '../../api';
+import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMembers, apiLookupUser, apiSendMessage } from '../../api';
 import { appendMessage, createMessage } from '../../messageStore';
 import { findProjectFromPath } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
@@ -23,6 +23,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [invites, setInvites] = useState([]);
     const [serverMembers, setServerMembers] = useState(null);
     const [email, setEmail] = useState('');
+    const [inviteLookup, setInviteLookup] = useState({ state: 'idle', user: null, query: '' });
     const [roleOverrides, setRoleOverrides] = useState(() => readRoles(project?.id));
     const [customPermissions, setCustomPermissions] = useState(() => readCustomPermissions(project?.id));
     const [message, setMessage] = useState('');
@@ -65,6 +66,21 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         setActivityRows(readActivity(project?.id));
     }, [project?.id]);
 
+    useEffect(() => {
+        const query = email.trim();
+        if (!query || !userToken) {
+            setInviteLookup({ state: 'idle', user: null, query });
+            return undefined;
+        }
+        const timeout = window.setTimeout(() => {
+            setInviteLookup({ state: 'loading', user: null, query });
+            apiLookupUser(query, userToken)
+                .then((found) => setInviteLookup({ state: 'found', user: found, query }))
+                .catch(() => setInviteLookup({ state: query.includes('@') ? 'external' : 'missing', user: null, query }));
+        }, 240);
+        return () => window.clearTimeout(timeout);
+    }, [email, userToken]);
+
     if (!project) {
         return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow="Team" title="Project team not found" message="This team route is unavailable, deleted, or not shared with your account." />;
 
@@ -76,6 +92,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         setInvites((current) => [row, ...current]);
         loadTeamData();
         setEmail('');
+        setInviteLookup({ state: 'idle', user: null, query: '' });
         setMessage(`Invite token created for ${row.email}: ${row.token}`);
     }
 
@@ -200,7 +217,8 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                         <h2><UserPlus size={18} /> Invite reviewer</h2>
                         {message && <div className="inlineNotice">{message}</div>}
                         <form className="teamInviteForm" onSubmit={invite}>
-                            <label>Reviewer email<input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required /></label>
+                            <label>Reviewer username or email<input value={email} onChange={(event) => setEmail(event.target.value)} type="text" required /></label>
+                            <InviteLookupPreview lookup={inviteLookup} rawValue={email} />
                             <button className="primary" disabled={!canInvite} type="submit">Create invite</button>
                         </form>
                     </article>
@@ -454,6 +472,37 @@ function candidatePackageLine(candidate) {
         `Status: ${candidate.state}`,
         `Summary: ${candidate.summary || 'No summary available.'}`,
     ].join('\n');
+}
+
+function InviteLookupPreview({ lookup, rawValue }) {
+    const value = (rawValue || '').trim();
+    if (!value) return null;
+    if (lookup.state === 'loading') {
+        return <div className="recipientPreview loading"><span className="recipientAvatar">...</span><div><strong>Looking up invitee</strong><small>{value}</small></div></div>;
+    }
+    if (lookup.user) {
+        return (
+            <div className="recipientPreview found">
+                <span className="recipientAvatar">{userInitials(lookup.user)}</span>
+                <div>
+                    <strong>{lookup.user.fullName || lookup.user.username}</strong>
+                    <small>{lookup.user.username} / {lookup.user.email}</small>
+                </div>
+            </div>
+        );
+    }
+    if (lookup.state === 'external') {
+        return <div className="recipientPreview external"><span className="recipientAvatar">@</span><div><strong>External email invite</strong><small>{value}</small></div></div>;
+    }
+    if (lookup.state === 'missing') {
+        return <div className="recipientPreview missing"><span className="recipientAvatar">?</span><div><strong>No VERDICT user found</strong><small>Check the username or enter a full email address.</small></div></div>;
+    }
+    return null;
+}
+
+function userInitials(user) {
+    const source = user?.fullName || user?.username || user?.email || 'U';
+    return source.split(/\s+/).map((part) => part.charAt(0)).join('').slice(0, 2).toUpperCase();
 }
 
 function readActivity(projectId) {

@@ -1,6 +1,7 @@
 package dev.toktab.brainhack.hiring;
 
 import dev.toktab.brainhack.account.UserAccount;
+import dev.toktab.brainhack.account.UserAccountService;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateStatusRequest;
@@ -76,6 +77,7 @@ public class HiringService {
     private final ProjectInviteRepository inviteRepository;
     private final CandidateReviewNoteRepository noteRepository;
     private final MessageService messageService;
+    private final UserAccountService userAccountService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(java.time.Duration.ofSeconds(4))
@@ -89,7 +91,8 @@ public class HiringService {
             TeamMembershipRepository membershipRepository,
             ProjectInviteRepository inviteRepository,
             CandidateReviewNoteRepository noteRepository,
-            MessageService messageService) {
+            MessageService messageService,
+            UserAccountService userAccountService) {
         this.projectRepository = projectRepository;
         this.candidateRepository = candidateRepository;
         this.mapper = mapper;
@@ -98,6 +101,7 @@ public class HiringService {
         this.inviteRepository = inviteRepository;
         this.noteRepository = noteRepository;
         this.messageService = messageService;
+        this.userAccountService = userAccountService;
     }
 
     @Transactional
@@ -324,9 +328,14 @@ public class HiringService {
         HiringProject project = projectEntity(actor, projectId);
         requirePermission(actor, project, "canInvite");
         ProjectInvite invite = new ProjectInvite();
+        String rawInvitee = defaulted(request.email(), "").toLowerCase(Locale.ROOT);
+        UserAccount invitedUser = userAccountService.findActiveByUsernameOrEmail(rawInvitee).orElse(null);
+        if (invitedUser == null && !rawInvitee.contains("@")) {
+            throw new IllegalArgumentException("Invite user not found");
+        }
         invite.setProject(project);
         invite.setInvitedBy(actor);
-        invite.setInvitedEmail(defaulted(request.email(), "").toLowerCase(Locale.ROOT));
+        invite.setInvitedEmail(invitedUser != null ? invitedUser.getEmail() : rawInvitee);
         invite.setRole(defaulted(request.role(), "REVIEWER").toUpperCase(Locale.ROOT));
         invite.setToken(randomToken());
         ProjectInvite saved = inviteRepository.save(invite);

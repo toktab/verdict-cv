@@ -131,7 +131,13 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
                         <button className="projectCard" key={project.id} onClick={() => navigateTo(setRoute, 'projectDetail', project.id)}>
                             {(() => {
                                 const mode = workModeInfo(project, t);
-                                return <span className={`workModeBadge ${mode.key}`}>{mode.label}</span>;
+                                const access = projectAccessLabel(project, user);
+                                return (
+                                    <div className="projectCardBadges">
+                                        <span className={`workModeBadge ${mode.key}`}>{mode.label}</span>
+                                        <span className={`projectAccessBadge ${access.kind}`}>{access.label}</span>
+                                    </div>
+                                );
                             })()}
                             <div className="projectCardHead">
                                 <span className="eyebrow">{project.id} / {project.department}</span>
@@ -151,6 +157,17 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
             </main>
         </div>
     );
+}
+
+function projectAccessLabel(project, user) {
+    if (project.ownerId && user?.id && Number(project.ownerId) === Number(user.id)) {
+        return { kind: 'owner', label: 'Owner / Head Admin' };
+    }
+    const role = project.myRole || 'Member';
+    if (role.toLowerCase().includes('head admin')) {
+        return { kind: 'owner', label: 'Owner / Head Admin' };
+    }
+    return { kind: 'invited', label: `Invited / ${role}` };
 }
 
 function stateComparisonRows(t) {

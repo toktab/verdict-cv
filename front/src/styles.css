@@ -2348,6 +2348,45 @@ mark {
     right: 12px;
 }
 
+.projectCardBadges {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.projectCardBadges .workModeBadge {
+    position: static;
+}
+
+.projectAccessBadge {
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    padding: 6px 9px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    background: rgba(0, 0, 0, 0.34);
+}
+
+.projectAccessBadge.owner {
+    color: #fff3c4;
+    border-color: rgba(240, 184, 90, 0.52);
+    background: rgba(240, 184, 90, 0.16);
+}
+
+.projectAccessBadge.invited {
+    color: #d7ffe4;
+    border-color: rgba(102, 217, 145, 0.38);
+    background: rgba(102, 217, 145, 0.11);
+}
+
 .workModeBadge.remote {
     border-color: rgba(102, 217, 145, 0.38);
     color: #d9ffe6;
