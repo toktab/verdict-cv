@@ -1,0 +1,142 @@
+NIKA BERIDZE
+JUNIORSENIORITY_CLAIM / Seniority levelsJunior, mid-level, trainee, and associate labels should match the claimed responsibility level. JAVATECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects. BACKEND DEVELOPER
+
+CONTACT
+PhoneCONTACT_FIELD / Contact and profile fieldsProfile/contact fields help verification but may include sensitive data.: +995 577 214 806
+EmailCONTACT_FIELD / Contact and profile fieldsProfile/contact fields help verification but may include sensitive data.: nika.beridze.dev@gmail.com
+LinkedInCONTACT_FIELD / Contact and profile fieldsProfile/contact fields help verification but may include sensitive data.: httpsTECH_SKILL_CLAIM / Security conceptsSecurity claims are sensitive and should not be trusted without implementation details or reports.://linkedinCONTACT_FIELD / Contact and profile fieldsProfile/contact fields help verification but may include sensitive data..com/in/nikaberidze-dev
+GitHubEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant.: httpsTECH_SKILL_CLAIM / Security conceptsSecurity claims are sensitive and should not be trusted without implementation details or reports.://githubEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant..com/nikaberidze
+
+PROFILE
+JuniorSENIORITY_CLAIM / Seniority levelsJunior, mid-level, trainee, and associate labels should match the claimed responsibility level. JavaTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects. Backend Developer with practical project experience building JavaTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects. and Spring BootTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history. backend services for web-based applications. Strong foundation in REST API design, SQLTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects. databases, MySQLTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence., PostgreSQLTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence., JPA/HibernateTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history., authentication, authorization, JWTTECH_SKILL_CLAIM / Security conceptsSecurity claims are sensitive and should not be trusted without implementation details or reports. security, and clean controller-service-repositoryEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant. architecture. Experienced inVAGUE_CLAIM / Vague skill-depth phrasesThese phrases are common but do not explain what the person actually did. writing, testing, debugging, and improving backend code using Git/GitHubEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant., PostmanTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history., SwaggerTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history., JUnitTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history., and RestAssuredTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history.. Comfortable working with DockerTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence. basics, CI/CD basics, LinuxTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence. basics, role-based access control, and deployment of small backend projects. Motivated to grow in a real engineering team, receive code reviewEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant. feedback, and contribute clean, maintainable backend code.
+
+TECHNICAL SKILLS
+- JavaTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects.
+- Spring BootTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history.
+- Spring SecurityTECH_SKILL_CLAIM / Advanced technical skillsAdvanced AI, security, load, cloud, or architecture claims need strong proof.
+- REST API Design
+- Backend Service Development
+- Controller-Service-RepositoryEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant. Architecture
+- SQLTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects.
+- MySQLTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence.
+- PostgreSQLTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence.
+- JPA / HibernateTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history.
+- JWTTECH_SKILL_CLAIM / Security conceptsSecurity claims are sensitive and should not be trusted without implementation details or reports. Authentication
+- Authorization
+- Role-Based Access Control
+- Git / GitHubEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant.
+- Maven
+- DockerTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence.
+- DockerTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence. Compose Basics
+- PostmanTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history.
+- SwaggerTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history.
+- JUnitTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history.
+- RestAssuredTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history.
+- API TestingNEEDS_EVIDENCE / Work experienceWork-history, QA, and process claims should be supported with company, dates, tools, or artifacts.
+- API Automation TestingNEEDS_EVIDENCE / Work experienceWork-history, QA, and process claims should be supported with company, dates, tools, or artifacts.
+- Object-Oriented Programming
+- Debugging
+- Clean Code Principles
+- CI/CD Basics
+- LinuxTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence. Basics
+- KafkaTECH_SKILL_CLAIM / Advanced technical skillsAdvanced AI, security, load, cloud, or architecture claims need strong proof. Basics
+- WebSockets Basics
+
+SOFT SKILLS
+- Problem-SolvingVAGUE_CLAIM / Soft skillsSoft skills are often subjective unless supported by concrete behavior.
+- Debugging Mindset
+- Fast LearnerVAGUE_CLAIM / Soft skillsSoft skills are often subjective unless supported by concrete behavior.
+- AnalyticalVAGUE_CLAIM / Soft skillsSoft skills are often subjective unless supported by concrete behavior. Thinking
+- Team Collaboration
+- Clear Communication
+- Attention to Detail
+- Responsibility
+- Adaptability
+- Ability to Receive Feedback
+- Self-Motivation
+- Time ManagementVAGUE_CLAIM / Soft skillsSoft skills are often subjective unless supported by concrete behavior.
+
+EDUCATION
+
+2023 - 2027
+CAUCASUS INTERNATIONAL TECHNICAL UNIVERSITY
+BachelorCREDENTIAL_CLAIM / Education and credentialsDegrees, licenses, awards, and certifications are verifiable credential claims. of Software Engineering, English Program
+GPACREDENTIAL_CLAIM / Education and credentialsDegrees, licenses, awards, and certifications are verifiable credential claims.: 3.9 / 4.0
+
+2025 - 2026
+VALENCIA SCHOOL OF ENGINEERING
+International Exchange Program, Spain
+Computer Engineering / Software Systems coursework
+
+2024 - 2025
+DIGITAL QUALITY ENGINEERING ACADEMY
+Software Testing and API Automation Program
+API testingNEEDS_EVIDENCE / Work experienceWork-history, QA, and process claims should be supported with company, dates, tools, or artifacts., automation testingNEEDS_EVIDENCE / Work experienceWork-history, QA, and process claims should be supported with company, dates, tools, or artifacts., testing lifecycle, backend quality assurance, and software quality fundamentals
+
+2020 - 2023
+ALGORITHM AND SOFTWARE DEVELOPMENT CENTER
+Algorithms and Programming Foundations
+JavaTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects. Core
+JavaTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects. Backend Fundamentals
+
+PROJECTS
+
+Backend Quiz Platform | JavaTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects., Spring BootTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history., MySQLTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence., JWTTECH_SKILL_CLAIM / Security conceptsSecurity claims are sensitive and should not be trusted without implementation details or reports., REST APIs, CI/CD | 2024
+- Built a JavaTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects. Spring BootTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history. backend service for an AI-powered quiz application.
+- DesignedLEADERSHIP_CLAIM / Responsibility verbsOwnership, leadership, architecture, deployment, and security verbs imply responsibility. and implemented RESTful APIs for quiz generation, answer validation, user sessions, and result handling.
+- Implemented JWTTECH_SKILL_CLAIM / Security conceptsSecurity claims are sensitive and should not be trusted without implementation details or reports. authentication, protected endpoints, and backend authorization logic.
+- Used clean controller-service-repositoryEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant. architecture to separate API, business logic, and persistence layers.
+- Integrated MySQLTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence. for relational data storage using structured entities and repositoryEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant. logic.
+- Tested backend endpoints using PostmanTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history. and SwaggerTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history. during development.
+- DeployedLEADERSHIP_CLAIM / Responsibility verbsOwnership, leadership, architecture, deployment, and security verbs imply responsibility. the project to a cloud platform with basic CI/CD pipelineEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant. support.
+
+Fitness Membership Management Backend | JavaTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects., Spring BootTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history., Spring SecurityTECH_SKILL_CLAIM / Advanced technical skillsAdvanced AI, security, load, cloud, or architecture claims need strong proof., MySQLTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence., DockerTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence. | 2025
+- Developed a Spring BootTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history. REST API for managing users, roles, memberships, admin actions, and internal fitness club operations.
+- Implemented Spring SecurityTECH_SKILL_CLAIM / Advanced technical skillsAdvanced AI, security, load, cloud, or architecture claims need strong proof. with JWTTECH_SKILL_CLAIM / Security conceptsSecurity claims are sensitive and should not be trusted without implementation details or reports.-based authentication and role-based access control.
+- Built backend business logic using controller, service, repositoryEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant., entity, and DTO structure.
+- Used MySQLTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence. and JPA/HibernateTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history. for relational persistence and entity relationships.
+- Added backend features including emailCONTACT_FIELD / Contact and profile fieldsProfile/contact fields help verification but may include sensitive data. notifications, scheduled tasks, audit logging, and admin support.
+- Containerized the backend using DockerTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence. to simplify local setup and deployment.
+- Debugged API errors, authentication issues, and database-related backend problems.
+
+Token-Based Authorization System | JavaTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects., Spring BootTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history., Spring SecurityTECH_SKILL_CLAIM / Advanced technical skillsAdvanced AI, security, load, cloud, or architecture claims need strong proof., JWTTECH_SKILL_CLAIM / Security conceptsSecurity claims are sensitive and should not be trusted without implementation details or reports., SQLTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects.
+- Built a backend authentication and authorization system using JavaTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects., Spring BootTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history., and JWTTECH_SKILL_CLAIM / Security conceptsSecurity claims are sensitive and should not be trusted without implementation details or reports..
+- Implemented registration, login, protected endpoints, token validation, and role-based access logic.
+- Practiced secure password handling and structured security configuration.
+- Used SQLTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects. database integration for user and role persistence.
+- Organized code using clean controller-service-repositoryEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant. design.
+- Tested authentication flows and protected API routes with PostmanTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history..
+
+E-Commerce Backend API | JavaTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects., Spring BootTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history., SQLTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects., REST APIs, JPA / HibernateTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history.
+- Developed backend REST APIs for products, users, and basic e-commerce operations.
+- DesignedLEADERSHIP_CLAIM / Responsibility verbsOwnership, leadership, architecture, deployment, and security verbs imply responsibility. entity relationships and database-backed service logic using JPA/HibernateTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history..
+- Practiced backend API design, request validation, service-layer logic, and repositoryEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant. usage.
+- Used SQLTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects. database queries and persistence logic for application data.
+- Focused on maintainable backend code, readable structure, and debugging API behavior.
+
+Distributed Charging Network Simulation | PythonTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects., DockerTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence., KafkaTECH_SKILL_CLAIM / Advanced technical skillsAdvanced AI, security, load, cloud, or architecture claims need strong proof., REST APIs, WebSockets | 2025
+- DesignedLEADERSHIP_CLAIM / Responsibility verbsOwnership, leadership, architecture, deployment, and security verbs imply responsibility. a distributed backend simulation for charging station workflows.
+- Worked with REST APIs, WebSockets, KafkaTECH_SKILL_CLAIM / Advanced technical skillsAdvanced AI, security, load, cloud, or architecture claims need strong proof. event streaming, and DockerTECH_SKILL_CLAIM / Databases, cloud, and DevOpsInfrastructure and database claims need implementation evidence. Compose.
+- Implemented communication between multiple backend components and services.
+- Practiced distributed system concepts, service communication, event-based messaging, and real-time data flow.
+- DeployedLEADERSHIP_CLAIM / Responsibility verbsOwnership, leadership, architecture, deployment, and security verbs imply responsibility. components across multiple machines during a software systems project.
+
+API TestingNEEDS_EVIDENCE / Work experienceWork-history, QA, and process claims should be supported with company, dates, tools, or artifacts. and Automation Practice | PostmanTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history., SwaggerTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history., JUnitTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history., RestAssuredTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history.
+- Tested REST API endpointsEVIDENCE_FIELD / Project evidenceThese fields can support claims if the links or artifacts are real and relevant. using PostmanTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history. and SwaggerTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history..
+- Practiced API automation testingNEEDS_EVIDENCE / Work experienceWork-history, QA, and process claims should be supported with company, dates, tools, or artifacts. concepts with JUnitTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history. and RestAssuredTECH_SKILL_CLAIM / Frameworks and librariesFramework claims should map to a concrete implementation, project, or work history..
+- Verified request/response behavior, authentication flows, validation errors, and backend edge cases.
+- Built stronger debugging habits by investigating failing API responses and backend errors.
+
+CERTIFICATIONS AND AWARDS
+- Software Testing and API Automation Certificate, 2024
+- JavaTECH_SKILL_CLAIM / Technical skillsTechnology names are broad skill claims unless they are tied to real tasks or projects. Backend Fundamentals Completion Certificate, 2023
+- International Academic Mobility ScholarshipCREDENTIAL_CLAIM / Education and credentialsDegrees, licenses, awards, and certifications are verifiable credential claims., Spain, 2025
+- Global Student Mobility Grant, 2025
+- University Software Innovation Challenge - 2nd Place Solo, 2024
+- Student Developer Challenge - Completion Certificate, 2024
+
+LANGUAGESCONTACT_FIELD / Contact and profile fieldsProfile/contact fields help verification but may include sensitive data.
+- Georgian - Native
+- English - Fluent
+- Spanish - Intermediate
+- Russian - Conversational

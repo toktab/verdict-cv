@@ -1,0 +1,110 @@
+JOB TITLE: Junior Java Backend Developer
+
+LOCATION: Tbilisi, Georgia / Hybrid
+EMPLOYMENT TYPE: Full-Time
+LEVEL: Junior
+
+ABOUT THE ROLE
+
+We are looking for a motivated Junior Java Backend Developer to join our engineering team and help build, maintain, and improve backend services for web-based applications. The ideal candidate should have a solid foundation in Java, Spring Boot, REST APIs, SQL databases, Git, and basic software development principles.
+
+This role is suitable for someone who has hands-on project experience, understands backend application structure, and wants to grow in a real development environment under the guidance of experienced developers.
+
+RESPONSIBILITIES
+
+* Develop and maintain backend services using Java and Spring Boot.
+* Build and improve RESTful APIs for web and internal systems.
+* Work with SQL databases such as MySQL or PostgreSQL.
+* Implement business logic using clean controller-service-repository structure.
+* Assist with authentication and authorization features, including JWT-based security.
+* Write, test, and debug backend code.
+* Use Git/GitHub for version control and collaboration.
+* Work with API testing tools such as Postman, Swagger, JUnit, or RestAssured.
+* Help investigate bugs, performance issues, and backend errors.
+* Collaborate with frontend developers, QA engineers, and senior backend developers.
+* Follow clean code principles and improve code quality through feedback and code reviews.
+
+REQUIRED QUALIFICATIONS
+
+* Basic to intermediate knowledge of Java.
+* Practical experience with Spring Boot.
+* Understanding of REST API design and backend service development.
+* Knowledge of SQL and relational databases.
+* Familiarity with MySQL or PostgreSQL.
+* Understanding of object-oriented programming principles.
+* Basic knowledge of Spring Security or JWT authentication.
+* Experience using Git and GitHub.
+* Ability to test APIs using Postman, Swagger, JUnit, or similar tools.
+* Good problem-solving and debugging skills.
+* Willingness to learn, receive feedback, and improve quickly.
+
+NICE TO HAVE
+
+* Experience with Docker.
+* Basic understanding of CI/CD pipelines.
+* Familiarity with JPA / Hibernate.
+* Experience with role-based access control.
+* Knowledge of Linux basics.
+* Experience with API automation testing.
+* Understanding of distributed systems, messaging, Kafka, or WebSockets.
+* Experience deploying small projects to cloud platforms.
+* Previous internship, academy, bootcamp, or university project experience.
+
+TECH STACK
+
+* Java
+* Spring Boot
+* Spring Security
+* REST APIs
+* MySQL / PostgreSQL
+* JPA / Hibernate
+* Git / GitHub
+* Docker
+* Postman / Swagger
+* JUnit / RestAssured
+* Basic CI/CD
+
+WHAT WE OFFER
+
+* Opportunity to grow as a backend developer in a real engineering team.
+* Mentorship from experienced developers.
+* Work on practical backend systems and production-level code.
+* Code reviews and technical guidance.
+* Friendly team environment.
+* Career growth path from Junior Backend Developer to Middle Backend Developer.
+
+IDEAL CANDIDATE PROFILE
+
+The ideal candidate has built Java/Spring Boot projects, understands how backend applications are structured, can work with APIs and databases, and is ready to improve through real development tasks. Professional experience is not required, but practical project experience and strong motivation are important.
+
+Requirements:
+- Develop and maintain backend services using Java and Spring Boot.
+- Build and improve RESTful APIs for web and internal systems.
+- Work with SQL databases such as MySQL or PostgreSQL.
+- Implement business logic using clean controller-service-repository structure.
+- Assist with authentication and authorization features, including JWT-based security.
+- Write, test, and debug backend code.
+- Use Git/GitHub for version control and collaboration.
+- Work with API testing tools such as Postman, Swagger, JUnit, or RestAssured.
+- Help investigate bugs, performance issues, and backend errors.
+- Collaborate with frontend developers, QA engineers, and senior backend developers.
+- Follow clean code principles and improve code quality through feedback and code reviews.
+- Basic to intermediate knowledge of Java.
+- Practical experience with Spring Boot.
+- Understanding of REST API design and backend service development.
+- Knowledge of SQL and relational databases.
+- Familiarity with MySQL or PostgreSQL.
+- Understanding of object-oriented programming principles.
+- Basic knowledge of Spring Security or JWT authentication.
+- Experience using Git and GitHub.
+- Ability to test APIs using Postman, Swagger, JUnit, or similar tools.
+- Good problem-solving and debugging skills.
+- Willingness to learn, receive feedback, and improve quickly.
+- Experience with Docker.
+- Basic understanding of CI/CD pipelines.
+- Familiarity with JPA / Hibernate.
+- Experience with role-based access control.
+- Knowledge of Linux basics.
+- Experience with API automation testing.
+- Understanding of distributed systems, messaging, Kafka, or WebSockets.
+- Experience deploying small projects to cloud platforms.

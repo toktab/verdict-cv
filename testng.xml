@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
-<suite name="VERDICT Full Automation Suite" verbose="2" parallel="false">
-    <test name="Backend And Playwright Regression">
-        <classes>
-            <class name="dev.toktab.brainhack.qa.FullAutomationTestNgSuite"/>
-        </classes>
-    </test>
-</suite>

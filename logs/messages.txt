@@ -1,0 +1,972 @@
+--- MESSAGE SENT ---
+logged_at=2026-07-01T11:38:54.797234900Z
+message_id=2
+type=MESSAGE
+sent_at=2026-07-01T11:38:54.792241100Z
+from_user_id=3
+from_username=testtest
+from_email=test@gmail.com
+from_name=Test Test
+to_email=tokotabagari@gmail.com
+subject=test
+body=test12312321
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T11:58:10.112136200Z
+message_id=3
+type=PROJECT_INVITE
+sent_at=2026-07-01T11:58:10.107143500Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Invitation to Junior Java Backend Developer
+body=Toko Tabagari invited you to join Junior Java Backend Developer. Open this message and choose Accept or Decline.
+project_id=1
+project_title=Junior Java Backend Developer
+invite_token=hgXvLpCcG-J4BgtGU_3Gg0-3KTaAyJH7KOa6y9UADdk13EjQ
+invite_status=PENDING
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T12:06:59.107344300Z
+message_id=4
+type=PROJECT_INVITE
+sent_at=2026-07-01T12:06:59.101350300Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Invitation to Junior Java Backend Developer
+body=Toko Tabagari invited you to join Junior Java Backend Developer. Open this message and choose Accept or Decline.
+project_id=1
+project_title=Junior Java Backend Developer
+invite_token=GMY-69IyDK_nbTrXuLIcMUi9yM22tL7et9d8Y0usIpazI_wh
+invite_status=PENDING
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T12:35:55.467426800Z
+message_id=5
+type=PROJECT_INVITE
+sent_at=2026-07-01T12:35:55.459424900Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Invitation to Playwright Full Flow 1782909334679
+body=Toko Tabagari invited you to join Playwright Full Flow 1782909334679. Open this message and choose Accept or Decline.
+project_id=3
+project_title=Playwright Full Flow 1782909334679
+invite_token=VMxJICU-Q_yEfm38tkWfBfrUcRdBUD0-67IGKHwkKGD-sTMx
+invite_status=PENDING
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T12:37:39.859427300Z
+message_id=6
+type=PROJECT_INVITE
+sent_at=2026-07-01T12:37:39.855428500Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Invitation to Playwright Full Flow 1782909433534
+body=Toko Tabagari invited you to join Playwright Full Flow 1782909433534. Open this message and choose Accept or Decline.
+project_id=4
+project_title=Playwright Full Flow 1782909433534
+invite_token=De2PSbEyW4h28FTDo-_S7XMI2gKL2m_YtvgpyYEB8pq6O2Zd
+invite_status=PENDING
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T12:37:43.962424700Z
+message_id=7
+type=MESSAGE
+sent_at=2026-07-01T12:37:43.957436500Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Playwright message 1782909433534
+body=Automated message body 1782909433534
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T12:39:30.582434500Z
+message_id=8
+type=PROJECT_INVITE
+sent_at=2026-07-01T12:39:30.579425700Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Invitation to Playwright Full Flow 1782909552321
+body=Toko Tabagari invited you to join Playwright Full Flow 1782909552321. Open this message and choose Accept or Decline.
+project_id=5
+project_title=Playwright Full Flow 1782909552321
+invite_token=f6SAmFTR-qsEWeP5ZOnkExHYHUkURlAI-TFVUdawsZdHmXVo
+invite_status=PENDING
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T12:39:34.298423700Z
+message_id=9
+type=MESSAGE
+sent_at=2026-07-01T12:39:34.294430600Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Playwright message 1782909552321
+body=Automated message body 1782909552321
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T12:42:33.399433100Z
+message_id=10
+type=PROJECT_INVITE
+sent_at=2026-07-01T12:42:33.394429300Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Invitation to Playwright Full Flow 1782909734585
+body=Toko Tabagari invited you to join Playwright Full Flow 1782909734585. Open this message and choose Accept or Decline.
+project_id=6
+project_title=Playwright Full Flow 1782909734585
+invite_token=kQZ6qj2MH27krQQA-LfgDkfDaohl35uxsHtqQM5_Zgyo-qwW
+invite_status=PENDING
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T12:42:36.568430700Z
+message_id=11
+type=MESSAGE
+sent_at=2026-07-01T12:42:36.563429100Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Playwright message 1782909734585
+body=Automated message body 1782909734585
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T12:45:17.733427500Z
+message_id=12
+type=PROJECT_INVITE
+sent_at=2026-07-01T12:45:17.729424800Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Invitation to Playwright Full Flow 1782909891076
+body=Toko Tabagari invited you to join Playwright Full Flow 1782909891076. Open this message and choose Accept or Decline.
+project_id=7
+project_title=Playwright Full Flow 1782909891076
+invite_token=iE4TIo4jo_ZD1xpEAeZ7ar2WSAcUkfrM2Q3Ft5ZsKsjDfi1Y
+invite_status=PENDING
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T12:45:20.808438900Z
+message_id=13
+type=MESSAGE
+sent_at=2026-07-01T12:45:20.804425900Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Playwright message 1782909891076
+body=Automated message body 1782909891076
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T12:50:09.674427900Z
+message_id=14
+type=PROJECT_INVITE
+sent_at=2026-07-01T12:50:09.671427900Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Invitation to Playwright Full Flow 1782910185369
+body=Toko Tabagari invited you to join Playwright Full Flow 1782910185369. Open this message and choose Accept or Decline.
+project_id=8
+project_title=Playwright Full Flow 1782910185369
+invite_token=o7GzIWlTgOmKS00F9hFb2zquBJaeGQFaF176kZyMKacvM0aU
+invite_status=PENDING
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T12:50:12.500429800Z
+message_id=15
+type=MESSAGE
+sent_at=2026-07-01T12:50:12.496428300Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Playwright message 1782910185369
+body=Automated message body 1782910185369
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T16:32:44.411949200Z
+message_id=16
+type=MESSAGE
+sent_at=2026-07-01T16:32:44.397950500Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=tokotabagari@gmail.com
+subject=QA self message 1782923558427
+body=QA automation verifies message creation and patch.
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T16:57:24.846072300Z
+message_id=17
+type=MESSAGE
+sent_at=2026-07-01T16:57:24.835064200Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=tokotabagari@gmail.com
+subject=QA self message 1782925039829
+body=QA automation verifies message creation and patch.
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T16:58:10.724066300Z
+message_id=18
+type=PROJECT_INVITE
+sent_at=2026-07-01T16:58:10.721072100Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Invitation to Playwright Full Flow 1782925050265
+body=Toko Tabagari invited you to join Playwright Full Flow 1782925050265. Open this message and choose Accept or Decline.
+project_id=21
+project_title=Playwright Full Flow 1782925050265
+invite_token=4hybX9uYiO_HnLE8aEC-FZ_k-H_ZoqP1yz1x_512uEpqDW7G
+invite_status=PENDING
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T16:58:14.524069Z
+message_id=19
+type=MESSAGE
+sent_at=2026-07-01T16:58:14.522067600Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Playwright message 1782925050265
+body=Automated message body 1782925050265
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T17:00:20.550191100Z
+message_id=20
+type=MESSAGE
+sent_at=2026-07-01T17:00:20.546187100Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=tokotabagari@gmail.com
+subject=QA self message 1782925216983
+body=QA automation verifies message creation and patch.
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T17:01:32.100192700Z
+message_id=21
+type=PROJECT_INVITE
+sent_at=2026-07-01T17:01:32.097186500Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Invitation to Playwright Full Flow 1782925267277
+body=Toko Tabagari invited you to join Playwright Full Flow 1782925267277. Open this message and choose Accept or Decline.
+project_id=24
+project_title=Playwright Full Flow 1782925267277
+invite_token=VO6focJDvBQTevBvq6LChgCp6GRR9EGzMW6-hJwLNXRwuAO0
+invite_status=PENDING
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T17:01:36.155191600Z
+message_id=22
+type=MESSAGE
+sent_at=2026-07-01T17:01:36.150184300Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Playwright message 1782925267277
+body=Automated message body 1782925267277
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T17:03:10.421190500Z
+message_id=23
+type=MESSAGE
+sent_at=2026-07-01T17:03:10.406181600Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=tokotabagari@gmail.com
+subject=QA self message 1782925386646
+body=QA automation verifies message creation and patch.
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T17:04:15.228185900Z
+message_id=24
+type=PROJECT_INVITE
+sent_at=2026-07-01T17:04:15.225197200Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Invitation to Playwright Full Flow 1782925436340
+body=Toko Tabagari invited you to join Playwright Full Flow 1782925436340. Open this message and choose Accept or Decline.
+project_id=27
+project_title=Playwright Full Flow 1782925436340
+invite_token=nhIgTd3vc1PteR2ByADnPm6t77KA1o1N9U4Sk1jeB1GnrJ1-
+invite_status=PENDING
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T17:04:17.465186900Z
+message_id=25
+type=MESSAGE
+sent_at=2026-07-01T17:04:17.462186300Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Playwright message 1782925436340
+body=Automated message body 1782925436340
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T17:12:53.565063600Z
+message_id=26
+type=MESSAGE
+sent_at=2026-07-01T17:12:53.560057700Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=tokotabagari@gmail.com
+subject=QA self message 1782925968776
+body=QA automation verifies message creation and patch.
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T17:28:42.763414700Z
+message_id=27
+type=MESSAGE
+sent_at=2026-07-01T17:28:42.752415500Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=tokotabagari@gmail.com
+subject=QA self message 1782926918738
+body=QA automation verifies message creation and patch.
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T17:30:05.711412300Z
+message_id=28
+type=PROJECT_INVITE
+sent_at=2026-07-01T17:30:05.707411300Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Invitation to Playwright Full Flow 1782926984657
+body=Toko Tabagari invited you to join Playwright Full Flow 1782926984657. Open this message and choose Accept or Decline.
+project_id=31
+project_title=Playwright Full Flow 1782926984657
+invite_token=XIvwSXVfhJDfziguw0V2kdzxQDv9_RzWFm4H9rzaNhaLaxne
+invite_status=PENDING
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T17:30:09.248406200Z
+message_id=29
+type=MESSAGE
+sent_at=2026-07-01T17:30:09.243405800Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Playwright message 1782926984657
+body=Automated message body 1782926984657
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T17:40:00.491573400Z
+message_id=30
+type=PROJECT_INVITE
+sent_at=2026-07-01T17:40:00.480568300Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Invitation to Playwright Full Flow 1782927576345
+body=Toko Tabagari invited you to join Playwright Full Flow 1782927576345. Open this message and choose Accept or Decline.
+project_id=33
+project_title=Playwright Full Flow 1782927576345
+invite_token=DxrUw2qJcF4KIw82Lh6wuOYGHFamnOdVVRbV6WUdS5NU-WsR
+invite_status=PENDING
+
+--- MESSAGE SENT ---
+logged_at=2026-07-01T17:40:03.614575600Z
+message_id=31
+type=MESSAGE
+sent_at=2026-07-01T17:40:03.607574700Z
+from_user_id=1
+from_username=tokotabagari
+from_email=tokotabagari@gmail.com
+from_name=Toko Tabagari
+to_email=test@gmail.com
+subject=Playwright message 1782927576345
+body=Automated message body 1782927576345
+project_id=
+project_title=
+invite_token=
+invite_status=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-05T12:06:15.124495600Z
+message_id=1
+type=MESSAGE
+sent_at=2026-07-05T12:06:15.118490100Z
+from_user_id=3
+from_username=toko2
+from_email=toko2@gmail.com
+from_name=Toko Tabagari
+to_email=toko1@gmail.com
+subject=Test message
+body=This is already description
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-05T12:06:26.291047300Z
+message_id=1
+type=MESSAGE
+sent_at=2026-07-05T12:06:15.118490Z
+from_user_id=2
+from_username=toko1
+from_email=toko2@gmail.com
+from_name=Toko Tabagari
+to_email=toko1@gmail.com
+subject=Test message
+body=This is already description
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-05T12:06:29.628425500Z
+message_id=1
+type=MESSAGE
+sent_at=2026-07-05T12:06:15.118490Z
+from_user_id=2
+from_username=toko1
+from_email=toko2@gmail.com
+from_name=Toko Tabagari
+to_email=toko1@gmail.com
+subject=Test message
+body=This is already description
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=true
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-05T12:06:30.741426100Z
+message_id=1
+type=MESSAGE
+sent_at=2026-07-05T12:06:15.118490Z
+from_user_id=2
+from_username=toko1
+from_email=toko2@gmail.com
+from_name=Toko Tabagari
+to_email=toko1@gmail.com
+subject=Test message
+body=This is already description
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-05T12:06:30.763427200Z
+message_id=1
+type=MESSAGE
+sent_at=2026-07-05T12:06:15.118490Z
+from_user_id=2
+from_username=toko1
+from_email=toko2@gmail.com
+from_name=Toko Tabagari
+to_email=toko1@gmail.com
+subject=Test message
+body=This is already description
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=true
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-05T12:06:35.488057200Z
+message_id=1
+type=MESSAGE
+sent_at=2026-07-05T12:06:15.118490Z
+from_user_id=2
+from_username=toko1
+from_email=toko2@gmail.com
+from_name=Toko Tabagari
+to_email=toko1@gmail.com
+subject=Test message
+body=This is already description
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-05T12:06:36.084053800Z
+message_id=1
+type=MESSAGE
+sent_at=2026-07-05T12:06:15.118490Z
+from_user_id=2
+from_username=toko1
+from_email=toko2@gmail.com
+from_name=Toko Tabagari
+to_email=toko1@gmail.com
+subject=Test message
+body=This is already description
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-05T12:14:16.310735700Z
+message_id=2
+type=PROJECT_INVITE
+sent_at=2026-07-05T12:14:16.305723800Z
+from_user_id=2
+from_username=toko1
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Invitation to Junior Java Backend Developer
+body=Toko Tabagari invited you to join Junior Java Backend Developer. Open this message and choose Accept or Decline.
+project_id=1
+project_title=Junior Java Backend Developer
+invite_token=BvSleZt3wSH1BvqXSnR-pXRHiJmtKD0t7ZQyy9kdozrosDq0
+invite_status=PENDING
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-05T12:16:23.248086400Z
+message_id=2
+type=PROJECT_INVITE
+sent_at=2026-07-05T12:14:16.305724Z
+from_user_id=3
+from_username=toko2
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Invitation to Junior Java Backend Developer
+body=Toko Tabagari invited you to join Junior Java Backend Developer. Open this message and choose Accept or Decline.
+project_id=1
+project_title=Junior Java Backend Developer
+invite_token=BvSleZt3wSH1BvqXSnR-pXRHiJmtKD0t7ZQyy9kdozrosDq0
+invite_status=PENDING
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-05T12:16:24.892092800Z
+message_id=2
+type=PROJECT_INVITE
+sent_at=2026-07-05T12:14:16.305724Z
+from_user_id=3
+from_username=toko2
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Invitation to Junior Java Backend Developer
+body=Toko Tabagari invited you to join Junior Java Backend Developer. Open this message and choose Accept or Decline.
+project_id=1
+project_title=Junior Java Backend Developer
+invite_token=BvSleZt3wSH1BvqXSnR-pXRHiJmtKD0t7ZQyy9kdozrosDq0
+invite_status=ACCEPTED
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-05T12:17:36.783699Z
+message_id=3
+type=MESSAGE
+sent_at=2026-07-05T12:17:36.779691900Z
+from_user_id=2
+from_username=toko1
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Reviewer to Viewer on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-05T12:17:41.606694Z
+message_id=4
+type=MESSAGE
+sent_at=2026-07-05T12:17:41.602693Z
+from_user_id=2
+from_username=toko1
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Viewer to Voter on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-05T12:18:07.810528300Z
+message_id=5
+type=MESSAGE
+sent_at=2026-07-05T12:18:07.803751Z
+from_user_id=2
+from_username=toko1
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Voter to Reviewer on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-05T12:18:09.294523Z
+message_id=6
+type=MESSAGE
+sent_at=2026-07-05T12:18:09.289534800Z
+from_user_id=2
+from_username=toko1
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Reviewer to Screener on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-05T12:18:10.511527300Z
+message_id=7
+type=MESSAGE
+sent_at=2026-07-05T12:18:10.505527600Z
+from_user_id=2
+from_username=toko1
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Screener to Coordinator on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-05T12:18:10.723539100Z
+message_id=8
+type=MESSAGE
+sent_at=2026-07-05T12:18:10.607520Z
+from_user_id=2
+from_username=toko1
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Admin to Head Admin on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-05T12:18:10.727526400Z
+message_id=9
+type=MESSAGE
+sent_at=2026-07-05T12:18:10.608527100Z
+from_user_id=2
+from_username=toko1
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Coordinator to Admin on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-05T12:23:15.884249800Z
+message_id=9
+type=MESSAGE
+sent_at=2026-07-05T12:18:10.608527Z
+from_user_id=3
+from_username=toko2
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Coordinator to Admin on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-05T12:23:17.267264600Z
+message_id=8
+type=MESSAGE
+sent_at=2026-07-05T12:18:10.607520Z
+from_user_id=3
+from_username=toko2
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Admin to Head Admin on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-05T12:23:18.824257300Z
+message_id=7
+type=MESSAGE
+sent_at=2026-07-05T12:18:10.505528Z
+from_user_id=3
+from_username=toko2
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Screener to Coordinator on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-05T12:23:19.270256Z
+message_id=7
+type=MESSAGE
+sent_at=2026-07-05T12:18:10.505528Z
+from_user_id=3
+from_username=toko2
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Screener to Coordinator on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-05T12:23:20.193258900Z
+message_id=6
+type=MESSAGE
+sent_at=2026-07-05T12:18:09.289535Z
+from_user_id=3
+from_username=toko2
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Reviewer to Screener on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+

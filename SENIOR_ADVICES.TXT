@@ -444,7 +444,7 @@ Status: TODO
 Advice: A single component failure should not blank the whole application.
 Fix notes: Pending.
 
-47. Add Playwright E2E tests.
+47. Add Playwright E2E tests. NEVERMIND DONT
 Status: TODO
 Advice: Cover auth, project creation, candidate upload, audit run, export, and admin flows.
 Fix notes: Pending.
