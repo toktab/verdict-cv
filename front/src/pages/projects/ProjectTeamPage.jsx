@@ -32,6 +32,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [candidateSearch, setCandidateSearch] = useState('');
     const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
     const [activityMember, setActivityMember] = useState(null);
+    const [rankModal, setRankModal] = useState(null);
     const [activityRows, setActivityRows] = useState(() => readActivity(project?.id));
     const members = useMemo(() => buildMembers(project, user, invites, roleOverrides, serverMembers), [project, user, invites, roleOverrides, serverMembers]);
     const myMember = members.find((member) => sameEmail(member.email, user?.email));
@@ -106,12 +107,20 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         setServerMembers(memberRows);
     }
 
-    function setRole(emailAddress, role) {
+    function applyRoleChange(emailAddress, role, notify = notifyRoleChange) {
         const member = members.find((row) => row.email === emailAddress);
-        if (!member || isProtectedMember(member)) return;
+        if (!member) return;
         const previousRole = member.role;
         if (previousRole === role) return;
-        const next = { ...roleOverrides, [emailAddress]: role };
+        const next = { ...roleOverrides };
+        if (role === 'Head Admin') {
+            members.forEach((row) => {
+                if (row.role === 'Head Admin' && !sameEmail(row.email, emailAddress)) {
+                    next[row.email] = 'Admin';
+                }
+            });
+        }
+        next[emailAddress] = role;
         setRoleOverrides(next);
         writeRoles(project.id, next);
         if (role === 'Custom' && !customPermissions[emailAddress]) {
@@ -119,7 +128,14 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
             setCustomPermissions(nextCustom);
             writeCustomPermissions(project.id, nextCustom);
         }
-        sendRoleNotice(emailAddress, `Your role changed from ${previousRole} to ${role} on ${project.title}.`);
+        if (notify) {
+            sendRoleNotice(emailAddress, `Your role changed from ${previousRole} to ${role} on ${project.title}.`);
+        }
+        if (role === 'Head Admin' && user?.email && !sameEmail(user.email, emailAddress)) {
+            if (notify) {
+                sendRoleNotice(user.email, `Head Admin was transferred to ${member.name} on ${project.title}. Your role is now Admin.`);
+            }
+        }
     }
 
     function removeMember(emailAddress) {
@@ -252,14 +268,10 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                                     </div>
                                     {canTeamManage ? (
                                         <>
-                                            <select value={member.role} disabled={protectedMember || !myPermissions.includes('canChangePermissions')} onChange={(event) => setRole(member.email, event.target.value)}>
-                                                {ROLE_ORDER.map((role) => <option key={role}>{role}</option>)}
-                                            </select>
                                             <div className="teamActionRow">
                                                 <button className="secondary" type="button" disabled={!myPermissions.includes('canMessage')} onClick={() => openCompose?.({ to: member.email, subject: `Message about ${project.title}` })}><Mail size={15} /> Message</button>
                                                 <button className="secondary" type="button" disabled={!myPermissions.includes('canViewActivityLog')} onClick={() => { setActivityRows(readActivity(project.id)); setActivityMember(member); }}><Activity size={15} /> Activity</button>
-                                                <button className="secondary" type="button" disabled={protectedMember || !myPermissions.includes('canPromoteMembers')} onClick={() => setRole(member.email, promote(member.role))}><UserCog size={15} /> Promote</button>
-                                                <button className="secondary" type="button" disabled={protectedMember || !myPermissions.includes('canDemoteMembers')} onClick={() => setRole(member.email, demote(member.role))}>Demote</button>
+                                                <button className="secondary" type="button" disabled={!myPermissions.includes('canChangePermissions') || sameEmail(member.email, user?.email)} onClick={() => setRankModal({ member, selectedRole: member.role, confirmText: '', countdown: 10, notify: notifyRoleChange })}><UserCog size={15} /> Rank</button>
                                                 <button className="destructive" type="button" disabled={protectedMember || !myPermissions.includes('canKickMembers')} onClick={() => removeMember(member.email)}><Trash2 size={15} /> Kick</button>
                                                 {protectedMember && <span className="protectedBadge"><Lock size={14} /> Protected</span>}
                                             </div>
@@ -325,6 +337,22 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                     </section>
                 </div>
             )}
+            {rankModal && (
+                <RankModal
+                    currentUser={user}
+                    member={rankModal.member}
+                    selectedRole={rankModal.selectedRole}
+                    confirmText={rankModal.confirmText}
+                    countdown={rankModal.countdown}
+                    notify={rankModal.notify}
+                    onChange={(patch) => setRankModal((current) => ({ ...current, ...(typeof patch === 'function' ? patch(current) : patch) }))}
+                    onClose={() => setRankModal(null)}
+                    onApply={() => {
+                        applyRoleChange(rankModal.member.email, rankModal.selectedRole, rankModal.notify);
+                        setRankModal(null);
+                    }}
+                />
+            )}
             {activityMember && (
                 <div className="candidateSendBackdrop" role="dialog" aria-modal="true">
                     <section className="candidateSendModal">
@@ -348,6 +376,77 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                     </section>
                 </div>
             )}
+        </div>
+    );
+}
+
+function RankModal({ currentUser, member, selectedRole, confirmText, countdown, notify, onChange, onClose, onApply }) {
+    const oldRole = member.role;
+    const isTransfer = selectedRole === 'Head Admin' && oldRole !== 'Head Admin';
+    const phrase = 'I fully acknowledge and Confirm';
+    const canApply = selectedRole !== oldRole && (!isTransfer || (countdown <= 0 && confirmText === phrase));
+
+    useEffect(() => {
+        if (!isTransfer) return undefined;
+        onChange({ countdown: 10, confirmText: '' });
+        const timer = window.setInterval(() => {
+            onChange((current) => ({ countdown: Math.max(0, (current.countdown || 0) - 1) }));
+        }, 1000);
+        return () => window.clearInterval(timer);
+    }, [isTransfer, member.email]);
+
+    return (
+        <div className="candidateSendBackdrop rankModalBackdrop" role="dialog" aria-modal="true">
+            <section className="candidateSendModal rankModal">
+                <div className="modalHead">
+                    <div>
+                        <span className="eyebrow">Rank change</span>
+                        <h2>{member.name}</h2>
+                    </div>
+                    <button type="button" onClick={onClose}><X size={16} /> Close</button>
+                </div>
+                <div className="rankChangeSummary">
+                    <article>
+                        <span>Old rank</span>
+                        <strong>{oldRole}</strong>
+                    </article>
+                    <ArrowRight size={20} />
+                    <article>
+                        <span>New rank</span>
+                        <strong>{selectedRole}</strong>
+                    </article>
+                </div>
+                <label className="rankSelectField">
+                    Choose rank
+                    <select value={selectedRole} onChange={(event) => onChange({ selectedRole: event.target.value, countdown: 10, confirmText: '' })}>
+                        {ROLE_ORDER.filter((role) => role !== 'Custom' || oldRole === 'Custom').map((role) => <option key={role}>{role}</option>)}
+                    </select>
+                </label>
+                <p className="mutedPanelText">{roleDescription(selectedRole)}</p>
+                {isTransfer && (
+                    <div className="headAdminTransferBox">
+                        <strong>Head Admin transfer is protected</strong>
+                        <span>This will leave only one Head Admin. {currentUser?.email ? `${currentUser.email} will become Admin after transfer.` : 'Your account will become Admin after transfer.'}</span>
+                        <b>{countdown > 0 ? `Wait ${countdown}s before confirming` : 'Confirmation unlocked'}</b>
+                        <label>
+                            Type exactly: {phrase}
+                            <input value={confirmText} onChange={(event) => onChange({ confirmText: event.target.value })} placeholder={phrase} />
+                        </label>
+                    </div>
+                )}
+                <label className="notifyRoleToggle">
+                    <input type="checkbox" checked={notify} onChange={(event) => onChange({ notify: event.target.checked })} />
+                    <span>Notify them</span>
+                </label>
+                <div className="editActions">
+                    <button className="secondary" type="button" onClick={onClose}>Cancel</button>
+                    <button className="primary" disabled={!canApply} type="button" onClick={() => {
+                        if (window.confirm(`Apply rank change from ${oldRole} to ${selectedRole}?`)) {
+                            onApply();
+                        }
+                    }}>Apply rank</button>
+                </div>
+            </section>
         </div>
     );
 }
@@ -419,16 +518,6 @@ function roleDescription(role) {
 
 function isProtectedMember(member) {
     return member.protectedMember || member.role === 'Head Admin';
-}
-
-function promote(role) {
-    const promotable = ROLE_ORDER.filter((item) => item !== 'Custom');
-    return promotable[Math.min(promotable.length - 1, promotable.indexOf(role) + 1)] || 'Reviewer';
-}
-
-function demote(role) {
-    const promotable = ROLE_ORDER.filter((item) => item !== 'Custom');
-    return promotable[Math.max(0, promotable.indexOf(role) - 1)] || 'Viewer';
 }
 
 function readRoles(projectId) {
