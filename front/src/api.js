@@ -9,13 +9,8 @@ async function request(method, path, body, token) {
         body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) {
-        let msg = `${res.status} ${res.statusText}`;
-        try {
-            const payload = await res.json();
-            msg = payload.message || payload.detail || msg;
-        } catch {
-            // Keep HTTP fallback.
-        }
+        const msg = await errorMessage(res);
+        maybeReportAuthProblem(res.status, msg);
         throw new Error(msg);
     }
     if (res.status === 204) return null;
@@ -32,16 +27,28 @@ async function multipart(path, formData, token) {
         body: formData,
     });
     if (!res.ok) {
-        let msg = `${res.status} ${res.statusText}`;
-        try {
-            const payload = await res.json();
-            msg = payload.message || payload.detail || msg;
-        } catch {
-            // Keep HTTP fallback.
-        }
+        const msg = await errorMessage(res);
+        maybeReportAuthProblem(res.status, msg);
         throw new Error(msg);
     }
     return res.json();
+}
+
+async function errorMessage(res) {
+    let msg = `${res.status} ${res.statusText}`;
+    try {
+        const payload = await res.json();
+        msg = payload.message || payload.detail || msg;
+    } catch {
+        // Keep HTTP fallback.
+    }
+    return msg;
+}
+
+function maybeReportAuthProblem(status, message) {
+    if ((status === 401 || status === 403) && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('verdictAuthProblem', { detail: { status, message } }));
+    }
 }
 
 const get = (path, token) => request('GET', path, undefined, token);

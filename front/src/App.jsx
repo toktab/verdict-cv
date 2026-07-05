@@ -301,6 +301,7 @@ function App() {
     const [uploadingField, setUploadingField] = useState('');
     const [stage, setStage] = useState('');
     const [error, setError] = useState('');
+    const [authProblem, setAuthProblem] = useState('');
     const [historyError, setHistoryError] = useState('');
     const [projectsError, setProjectsError] = useState('');
     const [introVisible, setIntroVisible] = useState(() => shouldShowIntroOnBoot());
@@ -331,6 +332,19 @@ function App() {
     useEffect(() => {
         document.documentElement.lang = lang === 'ge' ? 'ka' : lang;
     }, [lang]);
+
+    useEffect(() => {
+        function handleAuthProblem() {
+            const message = 'User authentication problem. Please login. If this happened multiple times, please contact the support.';
+            localStorage.removeItem('verdictUserToken');
+            setUserToken('');
+            setUser(null);
+            setAuthProblem(message);
+            navigateTo(setRoute, 'login');
+        }
+        window.addEventListener('verdictAuthProblem', handleAuthProblem);
+        return () => window.removeEventListener('verdictAuthProblem', handleAuthProblem);
+    }, []);
 
     useEffect(() => {
         scrollToPageTop();
@@ -647,9 +661,9 @@ function App() {
     } else if (route === 'messages') {
         content = <MessagesPage Header={AppHeader} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} openCompose={openCompose} onProjectsChange={loadProjects} />;
     } else if (route === 'login') {
-        content = <AuthPage mode="login" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
+        content = <AuthPage mode="login" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} authProblem={authProblem} clearAuthProblem={() => setAuthProblem('')} />;
     } else if (route === 'register') {
-        content = <AuthPage mode="register" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} />;
+        content = <AuthPage mode="register" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} authProblem={authProblem} clearAuthProblem={() => setAuthProblem('')} />;
     } else if (route === 'home') {
         content = <HomePage Header={AppHeader} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
     } else {
@@ -1317,7 +1331,7 @@ function delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function AuthPage({ mode, setRoute, setUser, setUserToken }) {
+function AuthPage({ mode, setRoute, setUser, setUserToken, authProblem = '', clearAuthProblem = () => {} }) {
     const { t } = useLanguage();
     const isRegister = mode === 'register';
     const [form, setForm] = useState({
@@ -1344,6 +1358,7 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
 
     async function submit() {
         setError('');
+        clearAuthProblem();
         if (isRegister) {
             const invalidStep = registerSteps.findIndex((step) => step.checks.some((check) => !check.valid));
             if (invalidStep >= 0) {
@@ -1410,6 +1425,7 @@ function AuthPage({ mode, setRoute, setUser, setUserToken }) {
                 <form className="authCard" onSubmit={handleAuthSubmit}>
                     <span className="eyebrow">{isRegister ? t('createAccount') : t('welcomeBack')}</span>
                     <h1>{isRegister ? t('privateAuditWorkspace') : t('loginToContinue')}</h1>
+                    {authProblem && <div className="error compact">{authProblem}</div>}
                     {isRegister ? (
                         <div className="registerWizard">
                             <div className="registerProgress" aria-label={t('registrationProgress')}>
