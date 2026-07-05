@@ -6,6 +6,7 @@ import { CandidateDetailPage } from './pages/projects/CandidateDetailPage';
 import { CandidateProfilePage } from './pages/projects/CandidateProfilePage';
 import { HomePage } from './pages/HomePage';
 import { MessagesPage } from './pages/MessagesPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { AddCandidatePage } from './pages/projects/AddCandidatePage';
 import { NewJobPage } from './pages/projects/NewJobPage';
 import { ProjectDetailPage } from './pages/projects/ProjectDetailPage';
@@ -249,25 +250,6 @@ function DenseVerdictTable({ verdicts = [] }) {
     );
 }
 
-function ProfilePage({ Header, setRoute, user, userToken, setUser, setUserToken }) {
-    const { t } = useLanguage();
-    return (
-        <div className="shell">
-            <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-            <main className="profilePage">
-                <section className="profileHero">
-                    <div>
-                        <span className="eyebrow">{t('profile')}</span>
-                        <h1>{user?.fullName || user?.username || t('demoUser')}</h1>
-                        <p>{user?.email || t('createAccountToSave')}</p>
-                    </div>
-                    <Metric label={t('role')} value={user?.role || 'User'} />
-                </section>
-            </main>
-        </div>
-    );
-}
-
 function track(action, target = '', detail = '') {
     api.telemetry({ action, target, detail });
 }
@@ -344,7 +326,7 @@ function App() {
         }
         window.addEventListener('verdictAuthProblem', handleAuthProblem);
         return () => window.removeEventListener('verdictAuthProblem', handleAuthProblem);
-    }, []);
+    }, [setRoute]);
 
     useEffect(() => {
         scrollToPageTop();

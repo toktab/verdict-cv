@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
 import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMembers, apiLookupUser, apiSendMessage } from '../../api';
 import { appendMessage, createMessage } from '../../messageStore';
@@ -35,6 +35,12 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [rankModal, setRankModal] = useState(null);
     const [activityRows, setActivityRows] = useState(() => readActivity(project?.id));
     const members = useMemo(() => buildMembers(project, user, invites, roleOverrides, serverMembers), [project, user, invites, roleOverrides, serverMembers]);
+    const updateRankModal = useCallback((patch) => {
+        setRankModal((current) => {
+            if (!current) return current;
+            return { ...current, ...(typeof patch === 'function' ? patch(current) : patch) };
+        });
+    }, []);
     const myMember = members.find((member) => sameEmail(member.email, user?.email));
     const myRole = project?.myRole || myMember?.role || 'Viewer';
     const myPermissions = project?.myPermissions?.length ? project.myPermissions : permissionsFor(myRole, user?.email, customPermissions, myMember?.permissions);
@@ -46,6 +52,15 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         return (project?.candidates || []).filter((candidate) => [candidate.name, candidate.role, candidate.risk, candidate.state]
             .some((value) => String(value || '').toLowerCase().includes(needle)));
     }, [candidateSearch, project?.candidates]);
+    const loadTeamData = useCallback(async () => {
+        if (!project?.id || !userToken) return;
+        const [inviteRows, memberRows] = await Promise.all([
+            apiListProjectInvites(project.id, userToken).catch(() => []),
+            apiListProjectMembers(project.id, userToken).catch(() => []),
+        ]);
+        setInvites(inviteRows);
+        setServerMembers(memberRows);
+    }, [project?.id, userToken]);
 
     useEffect(() => {
         if (!project?.id || !userToken) return;
@@ -59,7 +74,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
             window.removeEventListener('focus', refreshOnFocus);
             window.clearInterval(timer);
         };
-    }, [project?.id, userToken]);
+    }, [loadTeamData, project?.id, userToken]);
 
     useEffect(() => {
         setRoleOverrides(readRoles(project?.id));
@@ -95,16 +110,6 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         setEmail('');
         setInviteLookup({ state: 'idle', user: null, query: '' });
         setMessage(`Invite token created for ${row.email}: ${row.token}`);
-    }
-
-    async function loadTeamData() {
-        if (!project?.id || !userToken) return;
-        const [inviteRows, memberRows] = await Promise.all([
-            apiListProjectInvites(project.id, userToken).catch(() => []),
-            apiListProjectMembers(project.id, userToken).catch(() => []),
-        ]);
-        setInvites(inviteRows);
-        setServerMembers(memberRows);
     }
 
     function applyRoleChange(emailAddress, role, notify = notifyRoleChange) {
@@ -345,7 +350,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                     confirmText={rankModal.confirmText}
                     countdown={rankModal.countdown}
                     notify={rankModal.notify}
-                    onChange={(patch) => setRankModal((current) => ({ ...current, ...(typeof patch === 'function' ? patch(current) : patch) }))}
+                    onChange={updateRankModal}
                     onClose={() => setRankModal(null)}
                     onApply={() => {
                         applyRoleChange(rankModal.member.email, rankModal.selectedRole, rankModal.notify);
@@ -393,7 +398,7 @@ function RankModal({ currentUser, member, selectedRole, confirmText, countdown, 
             onChange((current) => ({ countdown: Math.max(0, (current.countdown || 0) - 1) }));
         }, 1000);
         return () => window.clearInterval(timer);
-    }, [isTransfer, member.email]);
+    }, [isTransfer, member.email, onChange, selectedRole]);
 
     return (
         <div className="candidateSendBackdrop rankModalBackdrop" role="dialog" aria-modal="true">

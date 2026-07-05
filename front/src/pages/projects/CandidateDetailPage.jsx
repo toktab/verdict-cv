@@ -91,7 +91,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     useEffect(() => {
         if (!activeProject?.id || !activeCandidate?.id || !user) return;
         writeActivity(activeProject.id, user, activeCandidate, 'opened candidate profile');
-    }, [activeProject?.id, activeCandidate?.id, user]);
+    }, [activeProject?.id, activeCandidate?.id, activeCandidate, user]);
 
     if (!activeProject || !activeCandidate) {
         return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow="Candidate" title={activeProject ? 'Candidate not found' : 'Project not found'} message={activeProject ? 'This candidate is unavailable or was removed from the project.' : 'This candidate route points to a project that is unavailable or not shared with your account.'} />;

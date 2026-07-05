@@ -10,7 +10,7 @@ async function request(method, path, body, token) {
     });
     if (!res.ok) {
         const msg = await errorMessage(res);
-        maybeReportAuthProblem(res.status, msg);
+        maybeReportAuthProblem(res.status, msg, path, token);
         throw new Error(msg);
     }
     if (res.status === 204) return null;
@@ -28,7 +28,7 @@ async function multipart(path, formData, token) {
     });
     if (!res.ok) {
         const msg = await errorMessage(res);
-        maybeReportAuthProblem(res.status, msg);
+        maybeReportAuthProblem(res.status, msg, path, token);
         throw new Error(msg);
     }
     return res.json();
@@ -45,8 +45,9 @@ async function errorMessage(res) {
     return msg;
 }
 
-function maybeReportAuthProblem(status, message) {
-    if ((status === 401 || status === 403) && typeof window !== 'undefined') {
+function maybeReportAuthProblem(status, message, path = '', token = '') {
+    const authRoute = path.startsWith('/auth/login') || path.startsWith('/auth/register') || path.startsWith('/auth/refresh');
+    if ((status === 401 || status === 403) && token && !authRoute && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('verdictAuthProblem', { detail: { status, message } }));
     }
 }

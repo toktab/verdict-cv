@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Save } from 'lucide-react';
-import { api } from '../api';
+import { javaApi } from '../api';
 import { Input } from '../components/ui';
 
 export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUserToken }) {
@@ -31,7 +31,7 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
       });
       setNotificationSettings(readNotificationSettings(user));
     }
-  }, [user?.id]);
+  }, [user]);
 
   function updateNotifications(patch) {
     const next = { ...notificationSettings, ...patch };
@@ -50,7 +50,7 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
     }
     setLoading(true);
     try {
-      const updated = await api.updateMe(userToken, form);
+      const updated = await javaApi.updateMe(userToken, form);
       setUser(updated);
       setForm((current) => ({ ...current, password: '' }));
       setSaved('Profile saved.');

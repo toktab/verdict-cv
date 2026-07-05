@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, CornerUpLeft, Forward, Mail, MailOpen, RefreshCcw, Star, X } from 'lucide-react';
 import { apiAcceptProjectInvite, apiListMessages, apiUpdateMessage } from '../api';
 import { messageBelongsTo, readMessages, writeMessages } from '../messageStore';
@@ -17,28 +17,10 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         if (folder === 'sent') return messageBelongsTo(message, user, 'from');
         if (folder === 'starred') return message.starred;
         return messageBelongsTo(message, user, 'to');
-    }), [folder, messages, user?.email, user?.username, user?.fullName]);
+    }), [folder, messages, user]);
     const active = visible.find((message) => message.id === activeId) || null;
 
-    useEffect(() => {
-        setManualUnreadIds(readManualUnreadIds(user));
-        function refreshMessages() {
-            loadMessages();
-        }
-        loadMessages();
-        window.addEventListener('verdictMessagesChanged', refreshMessages);
-        return () => window.removeEventListener('verdictMessagesChanged', refreshMessages);
-    }, [user, userToken]);
-
-    useEffect(() => {
-        setActionMessage('');
-        const message = visible.find((row) => row.id === activeId);
-        if (message && !message.read && messageBelongsTo(message, user, 'to') && !manualUnreadIds.includes(String(message.id))) {
-            updateMessage(message.id, { read: true });
-        }
-    }, [activeId]);
-
-    async function loadMessages() {
+    const loadMessages = useCallback(async () => {
         let rows;
         setLoading(true);
         setLoadError('');
@@ -62,9 +44,9 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         }
         seenMessageIds.current = nextIds;
         setMessages(rows);
-    }
+    }, [user, userToken]);
 
-    function updateMessage(id, patch) {
+    const updateMessage = useCallback((id, patch) => {
         const updated = messages.map((message) => message.id === id ? { ...message, ...patch } : message);
         setMessages(updated);
         const message = messages.find((row) => row.id === id);
@@ -73,7 +55,25 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         } else {
             writeMessages(updated);
         }
-    }
+    }, [loadMessages, messages, userToken]);
+
+    useEffect(() => {
+        setManualUnreadIds(readManualUnreadIds(user));
+        function refreshMessages() {
+            loadMessages();
+        }
+        loadMessages();
+        window.addEventListener('verdictMessagesChanged', refreshMessages);
+        return () => window.removeEventListener('verdictMessagesChanged', refreshMessages);
+    }, [loadMessages, user]);
+
+    useEffect(() => {
+        setActionMessage('');
+        const message = visible.find((row) => row.id === activeId);
+        if (message && !message.read && messageBelongsTo(message, user, 'to') && !manualUnreadIds.includes(String(message.id))) {
+            updateMessage(message.id, { read: true });
+        }
+    }, [activeId, manualUnreadIds, updateMessage, user, visible]);
 
     function toggleStar(id) {
         const message = messages.find((row) => row.id === id);
@@ -97,11 +97,19 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         if (!unreadRows.length) {
             return;
         }
+        const unreadIds = new Set(unreadRows.map((message) => String(message.id)));
+        const updated = messages.map((message) => unreadIds.has(String(message.id)) ? { ...message, read: true } : message);
         unreadRows.forEach((message) => {
             rememberManualUnread(user, message.id, false);
-            updateMessage(message.id, { read: true });
         });
         setManualUnreadIds(readManualUnreadIds(user));
+        setMessages(updated);
+        writeMessages(updated);
+        Promise.all(unreadRows
+            .filter((message) => message.serverBacked)
+            .map((message) => apiUpdateMessage(message.id, serverPatch({ read: true }), userToken)))
+            .then(loadMessages)
+            .catch(() => writeMessages(updated));
     }
 
     async function acceptInvite(message) {

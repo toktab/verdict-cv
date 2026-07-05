@@ -7,8 +7,8 @@ export function CandidateTable({ project, setRoute, navigateTo }) {
     const { t } = useLanguage();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
-    const [votes, setVotes] = useState(() => readCandidateVotes(project.id));
-    const [statuses, setStatuses] = useState(() => readCandidateStatuses(project.id));
+    const [votes] = useState(() => readCandidateVotes(project.id));
+    const [statuses] = useState(() => readCandidateStatuses(project.id));
     const filteredCandidates = useMemo(() => {
         const needle = search.trim().toLowerCase();
         if (!needle) return project.candidates;
