@@ -10,6 +10,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     const [actionMessage, setActionMessage] = useState('');
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState('');
+    const [manualUnreadIds, setManualUnreadIds] = useState(() => readManualUnreadIds(user));
     const [highlightedId, setHighlightedId] = useState(null);
     const seenMessageIds = useRef(new Set());
     const visible = useMemo(() => messages.filter((message) => {
@@ -20,6 +21,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     const active = visible.find((message) => message.id === activeId) || null;
 
     useEffect(() => {
+        setManualUnreadIds(readManualUnreadIds(user));
         function refreshMessages() {
             loadMessages();
         }
@@ -31,7 +33,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     useEffect(() => {
         setActionMessage('');
         const message = visible.find((row) => row.id === activeId);
-        if (message && !message.read && messageBelongsTo(message, user, 'to')) {
+        if (message && !message.read && messageBelongsTo(message, user, 'to') && !manualUnreadIds.includes(String(message.id))) {
             updateMessage(message.id, { read: true });
         }
     }, [activeId]);
@@ -83,8 +85,23 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     function toggleRead(id) {
         const message = messages.find((row) => row.id === id);
         if (message) {
-            updateMessage(id, { read: !message.read });
+            const nextRead = !message.read;
+            rememberManualUnread(user, id, !nextRead);
+            setManualUnreadIds(readManualUnreadIds(user));
+            updateMessage(id, { read: nextRead });
         }
+    }
+
+    function markAllVisibleRead() {
+        const unreadRows = visible.filter((message) => !message.read);
+        if (!unreadRows.length) {
+            return;
+        }
+        unreadRows.forEach((message) => {
+            rememberManualUnread(user, message.id, false);
+            updateMessage(message.id, { read: true });
+        });
+        setManualUnreadIds(readManualUnreadIds(user));
     }
 
     async function acceptInvite(message) {
@@ -141,6 +158,9 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                         <div className="toolbarActions">
                             <button className="secondary" disabled={loading} onClick={loadMessages} type="button">
                                 <RefreshCcw size={15} /> {loading ? 'Refreshing...' : 'Refresh'}
+                            </button>
+                            <button className="secondary" disabled={loading || !visible.some((message) => !message.read)} onClick={markAllVisibleRead} type="button">
+                                <MailOpen size={15} /> Mark all read
                             </button>
                             <span>{visible.length} message{visible.length === 1 ? '' : 's'}</span>
                         </div>
@@ -285,4 +305,27 @@ function serverPatch(patch) {
     if (patch.starred !== undefined) next.starred = patch.starred;
     if (patch.meta?.inviteStatus) next.invite_status = patch.meta.inviteStatus;
     return next;
+}
+
+function manualUnreadKey(user) {
+    return `verdictManualUnread:${(user?.email || user?.username || 'guest').toLowerCase()}`;
+}
+
+function readManualUnreadIds(user) {
+    try {
+        return JSON.parse(localStorage.getItem(manualUnreadKey(user)) || '[]').map(String);
+    } catch {
+        return [];
+    }
+}
+
+function rememberManualUnread(user, id, keepUnread) {
+    const next = new Set(readManualUnreadIds(user));
+    const value = String(id);
+    if (keepUnread) {
+        next.add(value);
+    } else {
+        next.delete(value);
+    }
+    localStorage.setItem(manualUnreadKey(user), JSON.stringify([...next]));
 }

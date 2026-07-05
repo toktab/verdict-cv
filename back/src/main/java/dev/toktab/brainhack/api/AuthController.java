@@ -69,6 +69,17 @@ public class AuthController {
         return userMapper.toResponse(sessionService.me(tokenResolver.userToken(authorization, legacyToken, queryToken)));
     }
 
+    @GetMapping("/users/lookup")
+    public UserResponse lookupUser(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+            @RequestParam("q") String query) {
+        sessionService.me(tokenResolver.userToken(authorization, legacyToken, null));
+        return accountService.findActiveByUsernameOrEmail(query)
+                .map(userMapper::toResponse)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    }
+
     @PatchMapping("/me")
     public UserResponse updateMe(
             @RequestHeader(value = "Authorization", required = false) String authorization,

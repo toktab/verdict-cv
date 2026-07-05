@@ -1,5 +1,6 @@
 package dev.toktab.brainhack.messaging;
 
+import dev.toktab.brainhack.account.UserAccountService;
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageRequest;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageResponse;
@@ -13,10 +14,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class MessageService {
     private final AppMessageRepository messageRepository;
     private final MessageFileLogger messageFileLogger;
+    private final UserAccountService userAccountService;
 
-    public MessageService(AppMessageRepository messageRepository, MessageFileLogger messageFileLogger) {
+    public MessageService(AppMessageRepository messageRepository, MessageFileLogger messageFileLogger, UserAccountService userAccountService) {
         this.messageRepository = messageRepository;
         this.messageFileLogger = messageFileLogger;
+        this.userAccountService = userAccountService;
     }
 
     @Transactional(readOnly = true)
@@ -73,11 +76,16 @@ public class MessageService {
     }
 
     private AppMessage baseMessage(UserAccount actor, String to, String subject, String body) {
+        UserAccount recipient = userAccountService.findActiveByUsernameOrEmail(to).orElse(null);
+        String rawRecipient = defaulted(to, "").trim().toLowerCase(Locale.ROOT);
+        if (recipient == null && !rawRecipient.contains("@")) {
+            throw new IllegalArgumentException("Recipient user not found");
+        }
         AppMessage message = new AppMessage();
         message.setSender(actor);
         message.setSenderEmail(actor.getEmail());
         message.setSenderName(displayName(actor));
-        message.setRecipientEmail(defaulted(to, "").trim().toLowerCase(Locale.ROOT));
+        message.setRecipientEmail(recipient != null ? recipient.getEmail() : rawRecipient);
         message.setSubject(defaulted(subject, "No subject").trim());
         message.setBody(defaulted(body, "").trim());
         return message;

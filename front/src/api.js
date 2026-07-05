@@ -74,6 +74,10 @@ export async function apiLogout(token) {
     return post('/auth/logout', {}, token);
 }
 
+export async function apiLookupUser(query, token) {
+    return normaliseUser(await get(`/auth/users/lookup?q=${encodeURIComponent(query)}`, token));
+}
+
 export async function apiListProjects(token) {
     return get('/projects', token);
 }

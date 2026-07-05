@@ -13,7 +13,7 @@ import { ProjectTeamPage } from './pages/projects/ProjectTeamPage';
 import { ProjectsPage } from './pages/projects/ProjectsPage';
 import { SignalTracePage } from './pages/projects/SignalTracePage';
 import { LanguageContext, translate, useLanguage } from './i18n';
-import { apiLogin, apiRegister, apiMe, apiLogout, apiListMessages, apiListProjects, apiSendMessage, javaApi, normaliseProject, normaliseUser } from './api';
+import { apiLogin, apiRegister, apiMe, apiLogout, apiListMessages, apiListProjects, apiLookupUser, apiSendMessage, javaApi, normaliseProject, normaliseUser } from './api';
 import { appendMessage, createMessage, messageBelongsTo, readMessages } from './messageStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuditScoreExplainer } from './components/AuditScoreExplainer';
@@ -768,13 +768,32 @@ function App() {
 function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
     const [composeState, setComposeState] = useState('idle');
     const [composeError, setComposeError] = useState('');
+    const [recipientLookup, setRecipientLookup] = useState({ state: 'idle', user: null, query: '' });
 
     useEffect(() => {
         if (open) {
             setComposeState('idle');
             setComposeError('');
+            setRecipientLookup({ state: 'idle', user: null, query: '' });
         }
     }, [open]);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const query = (draft.to || '').trim();
+        const token = localStorage.getItem('verdictUserToken') || '';
+        if (!query || !token) {
+            setRecipientLookup({ state: 'idle', user: null, query });
+            return undefined;
+        }
+        const timeout = window.setTimeout(() => {
+            setRecipientLookup({ state: 'loading', user: null, query });
+            apiLookupUser(query, token)
+                .then((found) => setRecipientLookup({ state: 'found', user: found, query }))
+                .catch(() => setRecipientLookup({ state: query.includes('@') ? 'external' : 'missing', user: null, query }));
+        }, 240);
+        return () => window.clearTimeout(timeout);
+    }, [draft.to, open]);
 
     if (!open) {
         return null;
@@ -793,7 +812,7 @@ function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
         try {
             if (token) {
                 await apiSendMessage({
-                    to: draft.to.trim(),
+                    to: recipientLookup.user?.email || draft.to.trim(),
                     subject: draft.subject,
                     body: draft.body,
                     replyToMessageId: draft.replyToMessageId,
@@ -844,7 +863,11 @@ function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
             </div>
             <div className="composeSendTrack"><span /></div>
             {composeError && <div className="composeError">{composeError}</div>}
-            <input value={draft.to} disabled={!canEdit} onChange={(event) => setDraft({ ...draft, to: event.target.value })} placeholder="Recipients" required />
+            <label className="composeRecipientField">
+                <span>To</span>
+                <input value={draft.to} disabled={!canEdit} onChange={(event) => setDraft({ ...draft, to: event.target.value })} placeholder="Username or email" required />
+            </label>
+            <RecipientPreview lookup={recipientLookup} rawValue={draft.to} />
             <input value={draft.subject} disabled={!canEdit} onChange={(event) => setDraft({ ...draft, subject: event.target.value })} placeholder="Subject" />
             <textarea value={draft.body} disabled={!canEdit} onChange={(event) => setDraft({ ...draft, body: event.target.value })} placeholder="Description" required />
             <div className="composeActions">
@@ -853,6 +876,39 @@ function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
             </div>
         </form>
     );
+}
+
+function RecipientPreview({ lookup, rawValue }) {
+    const value = (rawValue || '').trim();
+    if (!value) {
+        return null;
+    }
+    if (lookup.state === 'loading') {
+        return <div className="recipientPreview loading"><span className="recipientAvatar">...</span><div><strong>Looking up recipient</strong><small>{value}</small></div></div>;
+    }
+    if (lookup.user) {
+        return (
+            <div className="recipientPreview found">
+                <span className="recipientAvatar">{userInitials(lookup.user)}</span>
+                <div>
+                    <strong>{lookup.user.fullName || lookup.user.username}</strong>
+                    <small>{lookup.user.username} / {lookup.user.email}</small>
+                </div>
+            </div>
+        );
+    }
+    if (lookup.state === 'external') {
+        return <div className="recipientPreview external"><span className="recipientAvatar">@</span><div><strong>External email</strong><small>{value}</small></div></div>;
+    }
+    if (lookup.state === 'missing') {
+        return <div className="recipientPreview missing"><span className="recipientAvatar">?</span><div><strong>No VERDICT user found</strong><small>Check the username or enter a full email address.</small></div></div>;
+    }
+    return null;
+}
+
+function userInitials(user) {
+    const source = user?.fullName || user?.username || user?.email || 'U';
+    return source.split(/\s+/).map((part) => part.charAt(0)).join('').slice(0, 2).toUpperCase();
 }
 
 function emptyComposeDraft() {

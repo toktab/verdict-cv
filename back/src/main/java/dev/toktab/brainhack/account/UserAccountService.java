@@ -5,6 +5,8 @@ import dev.toktab.brainhack.api.dto.UserProfileRequest;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -37,6 +39,15 @@ public class UserAccountService {
             return userRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(pageable);
         }
         return userRepository.search(needle, pageable);
+    }
+
+    public Optional<UserAccount> findActiveByUsernameOrEmail(String identifier) {
+        String value = clean(identifier).toLowerCase(Locale.ROOT);
+        if (value.isBlank()) {
+            return Optional.empty();
+        }
+        return userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase(value, value)
+                .filter(user -> user.getDeletedAt() == null);
     }
 
     @Transactional
