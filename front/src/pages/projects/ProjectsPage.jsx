@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, Database, RefreshCcw } from 'lucide-react';
+import { BriefcaseBusiness, Copy, Database, Plus, RefreshCcw, Save, ShieldCheck, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { apiImportJobPostings } from '../../api';
 import { useLanguage } from '../../i18n';
@@ -12,6 +12,7 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
     const [importing, setImporting] = useState(false);
     const [importMessage, setImportMessage] = useState('');
     const [importError, setImportError] = useState('');
+    const [atsOpen, setAtsOpen] = useState(false);
     const totals = projectTotals(projects);
     const filteredProjects = useMemo(() => {
         const needle = search.trim().toLowerCase();
@@ -67,6 +68,9 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
                         </button>
                         <button className="secondary" disabled={importing} onClick={importListings}>
                             <Database size={18} /> {importing ? 'Importing...' : 'Import listings'}
+                        </button>
+                        <button className="secondary" onClick={() => setAtsOpen(true)} type="button">
+                            <ShieldCheck size={18} /> ATS
                         </button>
                         <button className="primary" onClick={() => navigateTo(setRoute, 'newProject')}><BriefcaseBusiness size={18} /> {t('newJobDescription')}</button>
                     </div>
@@ -155,6 +159,113 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
                 </section>
                 {!projectsLoading && <Pagination page={currentPage} totalPages={pageCount(filteredProjects)} onPage={setPage} t={t} />}
             </main>
+            {atsOpen && <AtsTemplateModal user={user} onClose={() => setAtsOpen(false)} />}
+        </div>
+    );
+}
+
+function AtsTemplateModal({ user, onClose }) {
+    const [templates, setTemplates] = useState(() => readAtsTemplates(user));
+    const [activeId, setActiveId] = useState(() => readAtsTemplates(user)[0]?.id || defaultAtsTemplate().id);
+    const active = templates.find((template) => template.id === activeId) || templates[0] || defaultAtsTemplate();
+
+    function saveTemplates(next, nextActiveId = activeId) {
+        setTemplates(next);
+        setActiveId(nextActiveId);
+        writeAtsTemplates(user, next);
+    }
+
+    function updateActive(patch) {
+        saveTemplates(templates.map((template) => template.id === active.id ? { ...template, ...patch, verified: template.verified && template.id === defaultAtsTemplate().id } : template));
+    }
+
+    function addRule() {
+        updateActive({ rules: [...active.rules, { keyword: '', tone: 'Bad', severity: 'Medium', info: '' }] });
+    }
+
+    function updateRule(index, patch) {
+        updateActive({ rules: active.rules.map((rule, rowIndex) => rowIndex === index ? { ...rule, ...patch } : rule) });
+    }
+
+    function createTemplate(copyFrom = null) {
+        const source = copyFrom || { rules: [] };
+        const next = {
+            id: `ats-${Date.now()}`,
+            name: copyFrom ? `${copyFrom.name} copy` : 'New ATS template',
+            description: copyFrom?.description || '',
+            usage: copyFrom?.usage || 'Candidate screening',
+            role: copyFrom?.role || 'General role',
+            visibility: 'Private',
+            accessPeople: '',
+            verified: false,
+            rules: (source.rules || []).map((rule) => ({ ...rule })),
+        };
+        saveTemplates([next, ...templates], next.id);
+    }
+
+    return (
+        <div className="atsModalBackdrop" role="dialog" aria-modal="true">
+            <section className="atsModal">
+                <div className="modalHead">
+                    <div>
+                        <span className="eyebrow">ATS templates</span>
+                        <h2>Keyword detection builder</h2>
+                    </div>
+                    <button type="button" onClick={onClose}><X size={16} /> Close</button>
+                </div>
+                <aside className="atsTemplateRail">
+                    <button className="primary" type="button" onClick={() => createTemplate()}><Plus size={16} /> New template</button>
+                    {templates.map((template) => (
+                        <button className={template.id === active.id ? 'active' : ''} key={template.id} onClick={() => setActiveId(template.id)} type="button">
+                            <strong>{template.name}</strong>
+                            <span>{template.visibility}{template.verified ? ' / Verified' : ''}</span>
+                        </button>
+                    ))}
+                </aside>
+                <main className="atsEditor">
+                    <div className="atsEditorTop">
+                        <div>
+                            <span className="eyebrow">{active.verified ? 'Verified default' : active.visibility}</span>
+                            <h3>{active.name}</h3>
+                            <p>{active.description}</p>
+                        </div>
+                        <div className="heroActions">
+                            <button className="secondary" type="button" onClick={() => createTemplate(active)}><Copy size={16} /> Copy template</button>
+                            <button className="primary" type="button" onClick={() => writeAtsTemplates(user, templates)}><Save size={16} /> Save template</button>
+                        </div>
+                    </div>
+                    <div className="atsFormGrid">
+                        <label>Name<input disabled={active.verified} value={active.name} onChange={(event) => updateActive({ name: event.target.value })} /></label>
+                        <label>Description<input disabled={active.verified} value={active.description} onChange={(event) => updateActive({ description: event.target.value })} /></label>
+                        <label>Usage<input disabled={active.verified} value={active.usage} onChange={(event) => updateActive({ usage: event.target.value })} /></label>
+                        <label>Role<input disabled={active.verified} value={active.role} onChange={(event) => updateActive({ role: event.target.value })} /></label>
+                        <label>Visibility<select disabled={active.verified} value={active.visibility} onChange={(event) => updateActive({ visibility: event.target.value })}>
+                            <option>Private</option>
+                            <option>Protected</option>
+                            <option>Project</option>
+                            <option>Public</option>
+                        </select></label>
+                        <label>Specific people<input disabled={active.verified || active.visibility !== 'Private'} value={active.accessPeople} onChange={(event) => updateActive({ accessPeople: event.target.value })} placeholder="email or username, comma separated" /></label>
+                    </div>
+                    <div className="atsRulesHead">
+                        <div>
+                            <span className="eyebrow">Words and evidence meanings</span>
+                            <strong>{active.rules.length} detection rules</strong>
+                        </div>
+                        <button className="secondary" disabled={active.verified} type="button" onClick={addRule}><Plus size={16} /> Add word</button>
+                    </div>
+                    <div className="atsRuleRows">
+                        {active.rules.map((rule, index) => (
+                            <article key={`${rule.keyword}-${index}`}>
+                                <input disabled={active.verified} value={rule.keyword} onChange={(event) => updateRule(index, { keyword: event.target.value })} placeholder="word or phrase" />
+                                <select disabled={active.verified} value={rule.tone} onChange={(event) => updateRule(index, { tone: event.target.value })}><option>Good</option><option>Bad</option><option>Neutral</option></select>
+                                <select disabled={active.verified} value={rule.severity} onChange={(event) => updateRule(index, { severity: event.target.value })}><option>Low</option><option>Medium</option><option>High</option></select>
+                                <textarea disabled={active.verified} value={rule.info} onChange={(event) => updateRule(index, { info: event.target.value })} placeholder="What does this word mean when detected?" />
+                            </article>
+                        ))}
+                    </div>
+                </main>
+            </section>
         </div>
     );
 }
@@ -168,6 +279,46 @@ function projectAccessLabel(project, user) {
         return { kind: 'owner', label: 'Owner / Head Admin' };
     }
     return { kind: 'invited', label: `Invited / ${role}` };
+}
+
+function atsStorageKey(user) {
+    return `verdictAtsTemplates:${(user?.email || user?.username || 'guest').toLowerCase()}`;
+}
+
+function readAtsTemplates(user) {
+    try {
+        const saved = JSON.parse(localStorage.getItem(atsStorageKey(user)) || '[]');
+        const rows = Array.isArray(saved) ? saved : [];
+        const hasDefault = rows.some((template) => template.id === defaultAtsTemplate().id);
+        return hasDefault ? rows : [defaultAtsTemplate(), ...rows];
+    } catch {
+        return [defaultAtsTemplate()];
+    }
+}
+
+function writeAtsTemplates(user, templates) {
+    localStorage.setItem(atsStorageKey(user), JSON.stringify(templates));
+}
+
+function defaultAtsTemplate() {
+    return {
+        id: 'verified-default-ats',
+        name: 'Verified CV hiring template',
+        description: 'Current VERDICT keyword and phrase detector used for risky CV wording, proof gaps, and strong evidence signals.',
+        usage: 'Default candidate screening',
+        role: 'All hiring projects',
+        visibility: 'Public',
+        accessPeople: '',
+        verified: true,
+        rules: [
+            { keyword: 'expert', tone: 'Bad', severity: 'High', info: 'Inflated seniority claim. Require concrete projects, role history, or measurable proof.' },
+            { keyword: 'senior', tone: 'Bad', severity: 'High', info: 'Seniority pressure word. Check years, ownership scope, and production responsibility.' },
+            { keyword: 'led', tone: 'Bad', severity: 'Medium', info: 'Leadership claim. Look for team size, decision authority, delivery outcome, and artifacts.' },
+            { keyword: 'GitHub', tone: 'Good', severity: 'Medium', info: 'Potential source evidence. Confirm repositories support the exact skills or projects claimed.' },
+            { keyword: 'production', tone: 'Bad', severity: 'Medium', info: 'Production claim needs deployment, users, environment, monitoring, or employer evidence.' },
+            { keyword: 'certificate', tone: 'Good', severity: 'Low', info: 'Credential evidence. Confirm issuer, date, and relevance to the role.' },
+        ],
+    };
 }
 
 function stateComparisonRows(t) {
