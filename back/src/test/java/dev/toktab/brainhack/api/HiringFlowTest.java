@@ -296,6 +296,36 @@ class HiringFlowTest {
     }
 
     @Test
+    void candidatesCanBeListedWithOffsetLimitAndTotal() throws Exception {
+        String token = register("hiring_candidate_page");
+        long projectId = createProject(token, "Paged Candidate Role", "Requirements:\n- Java", "[\"Java\"]");
+
+        for (int i = 1; i <= 3; i++) {
+            mockMvc.perform(post("/api/projects/" + projectId + "/candidates")
+                            .header("X-User-Token", token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "name":"Candidate %s",
+                                      "role":"Engineer",
+                                      "cv_text":"Java backend work."
+                                    }
+                                    """.formatted(i)))
+                    .andExpect(status().isOk());
+        }
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/candidates")
+                        .param("offset", "1")
+                        .param("limit", "1")
+                        .header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.offset").value(1))
+                .andExpect(jsonPath("$.limit").value(1))
+                .andExpect(jsonPath("$.total").value(3))
+                .andExpect(jsonPath("$.items.length()").value(1));
+    }
+
+    @Test
     void projectAndCandidateReadsAreScopedToOwner() throws Exception {
         String ownerToken = register("hiring_owner");
         String otherToken = register("hiring_other");

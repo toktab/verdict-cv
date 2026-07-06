@@ -102,6 +102,14 @@ public class HiringDtos {
     ) {
     }
 
+    public record CandidatePageResponse(
+            List<CandidateResponse> items,
+            int offset,
+            int limit,
+            long total
+    ) {
+    }
+
     public record InviteRequest(
             @NotBlank @Size(max = 160) String email,
             @Size(max = 80) String role

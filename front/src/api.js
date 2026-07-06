@@ -110,6 +110,14 @@ export async function apiAddCandidate(projectId, { name, role, cvText }, token) 
     return post(`/projects/${projectId}/candidates`, { name, role, cv_text: cvText || '' }, token);
 }
 
+export async function apiListCandidates(projectId, token, { offset = 0, limit = 25 } = {}) {
+    const page = await get(`/projects/${projectId}/candidates?offset=${offset}&limit=${limit}`, token);
+    return {
+        ...page,
+        items: (page.items || []).map(normaliseCandidate),
+    };
+}
+
 export async function apiUploadCandidateResume(projectId, { name, role, resume }, token) {
     const formData = new FormData();
     formData.append('name', name || '');

@@ -5,6 +5,7 @@ import dev.toktab.brainhack.account.UserAccountService;
 import dev.toktab.brainhack.ats.AtsKeywordCatalog;
 import dev.toktab.brainhack.audit.CheckStateIds;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
+import dev.toktab.brainhack.hiring.HiringDtos.CandidatePageResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateStatusRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateWorkflowResponse;
@@ -45,6 +46,8 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -178,6 +181,19 @@ public class HiringService {
     @Transactional
     public CandidateResponse candidate(UserAccount owner, Long projectId, Long candidateId) {
         return mapper.candidate(candidateEntity(owner, projectId, candidateId));
+    }
+
+    @Transactional
+    public CandidatePageResponse candidates(UserAccount owner, Long projectId, int offset, int limit) {
+        projectEntity(owner, projectId);
+        int safeOffset = Math.max(0, offset);
+        int safeLimit = Math.max(1, Math.min(100, limit));
+        Pageable pageable = new OffsetLimitPageable(safeOffset, safeLimit, Sort.by(Sort.Direction.DESC, "createdAt"));
+        List<CandidateResponse> items = candidateRepository.findAccessibleByProjectId(projectId, owner.getId(), pageable).stream()
+                .map(mapper::candidate)
+                .toList();
+        long total = candidateRepository.countAccessibleByProjectId(projectId, owner.getId());
+        return new CandidatePageResponse(items, safeOffset, safeLimit, total);
     }
 
     @Transactional

@@ -4,6 +4,7 @@ import dev.toktab.brainhack.account.AuthTokenResolver;
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.account.UserSessionService;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
+import dev.toktab.brainhack.hiring.HiringDtos.CandidatePageResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateStatusRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateWorkflowResponse;
@@ -78,6 +79,15 @@ public class HiringController {
                        @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
                        @PathVariable Long projectId) {
         hiringService.deleteProject(owner(authorization, legacyToken), projectId);
+    }
+
+    @GetMapping("/{projectId}/candidates")
+    public CandidatePageResponse candidates(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                            @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                            @PathVariable Long projectId,
+                                            @RequestParam(defaultValue = "0") int offset,
+                                            @RequestParam(defaultValue = "25") int limit) {
+        return hiringService.candidates(owner(authorization, legacyToken), projectId, offset, limit);
     }
 
     @PostMapping("/{projectId}/candidates")
