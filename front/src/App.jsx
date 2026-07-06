@@ -364,6 +364,25 @@ function App() {
     }, [userToken]);
 
     useEffect(() => {
+        if (!userToken) return undefined;
+        let cancelled = false;
+        const refreshProjectsQuietly = () => {
+            if (!cancelled) {
+                loadProjects({ silent: true });
+            }
+        };
+        const timer = window.setInterval(refreshProjectsQuietly, 3500);
+        window.addEventListener('focus', refreshProjectsQuietly);
+        document.addEventListener('visibilitychange', refreshProjectsQuietly);
+        return () => {
+            cancelled = true;
+            window.clearInterval(timer);
+            window.removeEventListener('focus', refreshProjectsQuietly);
+            document.removeEventListener('visibilitychange', refreshProjectsQuietly);
+        };
+    }, [userToken]);
+
+    useEffect(() => {
         let cancelled = false;
         async function refreshUnreadMessages() {
             if (!user) {
@@ -461,23 +480,30 @@ function App() {
         }
     }
 
-    async function loadProjects() {
+    async function loadProjects(options = {}) {
         if (!userToken) {
             setProjects([]);
             setProjectsError('');
             setProjectsLoading(false);
             return;
         }
-        setProjectsLoading(true);
-        setProjectsError('');
+        const silent = Boolean(options.silent);
+        if (!silent) {
+            setProjectsLoading(true);
+            setProjectsError('');
+        }
         try {
             const rows = await apiListProjects(userToken);
             setProjects(rows.map(normaliseProject));
         } catch (err) {
-            setProjects([]);
-            setProjectsError(err.message || 'Could not load projects.');
+            if (!silent) {
+                setProjects([]);
+                setProjectsError(err.message || 'Could not load projects.');
+            }
         } finally {
-            setProjectsLoading(false);
+            if (!silent) {
+                setProjectsLoading(false);
+            }
         }
     }
 

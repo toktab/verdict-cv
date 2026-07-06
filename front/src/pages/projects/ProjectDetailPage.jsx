@@ -73,7 +73,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
     }
 
     if (!project) {
-        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} title="Project not found" message="This project is unavailable, deleted, or not shared with your account." />;
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} />;
 
     }
     const totals = candidateTotals(project.candidates);

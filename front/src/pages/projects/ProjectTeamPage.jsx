@@ -101,7 +101,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     }, [email, userToken]);
 
     if (!project) {
-        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow="Team" title="Project team not found" message="This team route is unavailable, deleted, or not shared with your account." />;
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} />;
 
     }
 

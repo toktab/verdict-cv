@@ -100,7 +100,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     }, [activeProject?.id, activeCandidate?.id, activeCandidate, user]);
 
     if (!activeProject || !activeCandidate) {
-        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow="Candidate" title={activeProject ? 'Candidate not found' : 'Project not found'} message={activeProject ? 'This candidate is unavailable or was removed from the project.' : 'This candidate route points to a project that is unavailable or not shared with your account.'} />;
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow={activeProject ? 'Candidate' : undefined} title={activeProject ? 'Candidate not found' : undefined} message={activeProject ? 'This candidate is unavailable or was removed from the project.' : undefined} />;
 
     }
 

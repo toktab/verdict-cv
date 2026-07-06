@@ -23,7 +23,7 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
     const mediumRiskCount = detectedMatches.filter((match) => match.risk === 'Medium').length;
 
     if (!project) {
-        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} title="Project not found" message="Choose an existing project before adding a candidate." />;
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} />;
 
     }
 

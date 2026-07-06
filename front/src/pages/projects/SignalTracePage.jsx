@@ -185,7 +185,7 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
     }, [activeProject, activeCandidate, activeStateId, selectedStateInitialized, signalTraceUnlocked]);
 
     if (!activeProject || !activeCandidate) {
-        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow="SignalTrace" title={activeProject ? 'Candidate signal route not found' : 'Project not found'} message={activeProject ? 'This SignalTrace route points to a candidate that is unavailable.' : 'This SignalTrace route points to a project that is unavailable or not shared with your account.'} />;
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow={activeProject ? 'SignalTrace' : undefined} title={activeProject ? 'Candidate signal route not found' : undefined} message={activeProject ? 'This SignalTrace route points to a candidate that is unavailable.' : undefined} />;
 
     }
 

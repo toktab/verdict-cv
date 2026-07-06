@@ -54,7 +54,7 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
     }, [deleteOpen]);
 
     if (!project) {
-        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow="Settings" title="Project settings not found" message="This settings route is unavailable, deleted, or not shared with your account." />;
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} />;
     }
 
     function saveSettings() {

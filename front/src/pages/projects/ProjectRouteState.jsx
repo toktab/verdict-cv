@@ -1,4 +1,4 @@
-import { ArrowRight, FolderPlus, RefreshCcw } from 'lucide-react';
+import { ArrowRight, Home, RefreshCcw } from 'lucide-react';
 
 export function ProjectRouteState({
     Header,
@@ -9,9 +9,9 @@ export function ProjectRouteState({
     setUserToken,
     navigateTo,
     loading = false,
-    eyebrow = 'Project',
-    title = 'Project not found',
-    message = 'This route no longer points to an available project.',
+    eyebrow = 'Route error',
+    title = 'Error',
+    message = "You're trying to reach a page that doesn't exist or doesn't exist anymore.",
 }) {
     return (
         <div className="shell">
@@ -29,11 +29,11 @@ export function ProjectRouteState({
                             </button>
                         ) : (
                             <>
+                                <button className="primary" type="button" onClick={() => navigateTo(setRoute, 'home')}>
+                                    <Home size={16} /> Home
+                                </button>
                                 <button className="secondary" type="button" onClick={() => navigateTo(setRoute, 'projects')}>
                                     <ArrowRight size={16} /> All projects
-                                </button>
-                                <button className="primary" type="button" onClick={() => navigateTo(setRoute, 'newProject')}>
-                                    <FolderPlus size={16} /> New project
                                 </button>
                             </>
                         )}

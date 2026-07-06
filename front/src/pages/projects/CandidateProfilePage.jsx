@@ -16,7 +16,7 @@ export function CandidateProfilePage({ Header, Metric, navigateTo, setRoute, use
     const wordStats = useMemo(() => importantWordStats(profileText, profileItems), [profileText, profileItems]);
 
     if (!activeProject || !activeCandidate) {
-        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow="Profiling" title={activeProject ? 'Candidate profile not found' : 'Project not found'} message={activeProject ? 'This profiling route points to a candidate that is unavailable.' : 'This profile route points to a project that is unavailable or not shared with your account.'} />;
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow={activeProject ? 'Profiling' : undefined} title={activeProject ? 'Candidate profile not found' : undefined} message={activeProject ? 'This profiling route points to a candidate that is unavailable.' : undefined} />;
 
     }
 
