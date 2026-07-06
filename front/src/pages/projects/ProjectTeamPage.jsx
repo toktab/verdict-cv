@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
-import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMembers, apiLookupUser, apiSendMessage } from '../../api';
+import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMembers, apiLookupUser, apiSendMessage, apiUpdateProjectMemberRole } from '../../api';
 import { appendMessage, createMessage } from '../../messageStore';
 import { readProjectActivity, recordProjectActivity } from './projectActivity';
 import { findProjectFromPath } from './projectPageUtils';
@@ -19,7 +19,7 @@ const ROLE_PERMISSIONS = {
     Custom: ['canView'],
 };
 
-export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false, openCompose }) {
+export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false, openCompose, onProjectsChange }) {
     const project = findProjectFromPath(projects);
     const [invites, setInvites] = useState([]);
     const [serverMembers, setServerMembers] = useState(null);
@@ -125,22 +125,22 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         setActivityRows(readProjectActivity(project.id));
     }
 
-    function applyRoleChange(emailAddress, role, notify = notifyRoleChange) {
+    async function applyRoleChange(emailAddress, role, notify = notifyRoleChange) {
         const member = members.find((row) => row.email === emailAddress);
         if (!member) return;
         const previousRole = member.role;
         if (previousRole === role) return;
-        const next = { ...roleOverrides };
-        if (role === 'Head Admin') {
-            members.forEach((row) => {
-                if (row.role === 'Head Admin' && !sameEmail(row.email, emailAddress)) {
-                    next[row.email] = 'Admin';
-                }
-            });
+        try {
+            const memberRows = await apiUpdateProjectMemberRole(project.id, { email: emailAddress, role }, userToken);
+            setServerMembers(memberRows);
+            setRoleOverrides({});
+            writeRoles(project.id, {});
+            await loadTeamData();
+            await onProjectsChange?.();
+        } catch (error) {
+            setMessage(error.message || 'Could not update member role.');
+            return;
         }
-        next[emailAddress] = role;
-        setRoleOverrides(next);
-        writeRoles(project.id, next);
         if (role === 'Custom' && !customPermissions[emailAddress]) {
             const nextCustom = { ...customPermissions, [emailAddress]: ROLE_PERMISSIONS.Viewer };
             setCustomPermissions(nextCustom);

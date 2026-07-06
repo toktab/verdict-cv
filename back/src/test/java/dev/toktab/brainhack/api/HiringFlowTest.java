@@ -8,6 +8,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -541,6 +542,63 @@ class HiringFlowTest {
                 .contains("--- MESSAGE UPDATED ---")
                 .contains("read=true")
                 .contains("starred=true");
+    }
+
+    @Test
+    void transferredHeadAdminCanDeleteProject() throws Exception {
+        String ownerToken = register("transfer_owner");
+        String reviewerEmail = "transfer_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10) + "@example.com";
+        String reviewerToken = registerWithEmail("transfer_reviewer", reviewerEmail);
+        long projectId = createProject(ownerToken, "Transfer Delete Role", "Requirements:\n- Java", "[\"Java\"]");
+
+        MvcResult invite = mockMvc.perform(post("/api/projects/" + projectId + "/invites")
+                        .header("X-User-Token", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email":%s,
+                                  "role":"REVIEWER"
+                                }
+                                """.formatted(objectMapper.writeValueAsString(reviewerEmail))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        mockMvc.perform(post("/api/projects/invites/accept")
+                        .header("X-User-Token", reviewerToken)
+                        .param("token", objectMapper.readTree(invite.getResponse().getContentAsString()).get("token").asText()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/projects/" + projectId)
+                        .header("X-User-Token", reviewerToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Project Head Admin permissions required"));
+
+        mockMvc.perform(patch("/api/projects/" + projectId + "/members/role")
+                        .header("X-User-Token", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email":%s,
+                                  "role":"Head Admin"
+                                }
+                                """.formatted(objectMapper.writeValueAsString(reviewerEmail))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.email == '" + reviewerEmail + "')].role").value(hasItem("Head Admin")))
+                .andExpect(jsonPath("$[?(@.email == '" + reviewerEmail + "')].protected_member").value(hasItem(true)));
+
+        mockMvc.perform(get("/api/projects").header("X-User-Token", reviewerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value((int) projectId))
+                .andExpect(jsonPath("$[0].my_role").value("Head Admin"))
+                .andExpect(jsonPath("$[0].my_permissions", hasItem("protectedAccount")));
+
+        mockMvc.perform(delete("/api/projects/" + projectId)
+                        .header("X-User-Token", reviewerToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/projects/" + projectId).header("X-User-Token", reviewerToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Project not found"));
     }
 
     @Test

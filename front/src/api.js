@@ -150,6 +150,10 @@ export async function apiListProjectMembers(projectId, token) {
     return get(`/projects/${projectId}/members`, token);
 }
 
+export async function apiUpdateProjectMemberRole(projectId, { email, role }, token) {
+    return patch(`/projects/${projectId}/members/role`, { email, role }, token);
+}
+
 export async function apiCreateProjectInvite(projectId, { email, role }, token) {
     return post(`/projects/${projectId}/invites`, { email, role }, token);
 }

@@ -12,6 +12,7 @@ import dev.toktab.brainhack.hiring.HiringDtos.CandidateWorkflowResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ImportResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.InviteRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.InviteResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.MemberRoleRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.NoteRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.NoteResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ActivityResponse;
@@ -156,7 +157,7 @@ public class HiringService {
     @Transactional
     public void deleteProject(UserAccount owner, Long id) {
         HiringProject project = projectEntity(owner, id);
-        if (!permissionsFor(owner, project).contains("protectedAccount")) {
+        if (!hasHeadAdminAccess(owner, project)) {
             throw new IllegalArgumentException("Project Head Admin permissions required");
         }
         project.setDeletedAt(Instant.now());
@@ -337,6 +338,47 @@ public class HiringService {
             ));
         }
         return rows;
+    }
+
+    @Transactional
+    public List<ProjectMemberResponse> updateMemberRole(UserAccount actor, Long projectId, MemberRoleRequest request) {
+        HiringProject project = projectEntity(actor, projectId);
+        requirePermission(actor, project, "canChangePermissions");
+        String role = canonicalRole(request.role());
+        String targetEmail = defaulted(request.email(), "").trim().toLowerCase(Locale.ROOT);
+        UserAccount target = userAccountService.findActiveByUsernameOrEmail(targetEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Member user not found"));
+        if (project.getOrganization() == null) {
+            throw new IllegalArgumentException("Project organization not found");
+        }
+        TeamMembership targetMembership = membershipRepository.findByOrganizationIdAndUserId(project.getOrganization().getId(), target.getId())
+                .orElseGet(() -> {
+                    TeamMembership membership = new TeamMembership();
+                    membership.setOrganization(project.getOrganization());
+                    membership.setUser(target);
+                    return membership;
+                });
+
+        if ("ORGANIZATION_ADMIN".equals(role)) {
+            UserAccount previousOwner = project.getOwner();
+            project.setOwner(target);
+            if (!previousOwner.getId().equals(target.getId())) {
+                TeamMembership previousMembership = membershipRepository.findByOrganizationIdAndUserId(project.getOrganization().getId(), previousOwner.getId())
+                        .orElseGet(() -> {
+                            TeamMembership membership = new TeamMembership();
+                            membership.setOrganization(project.getOrganization());
+                            membership.setUser(previousOwner);
+                            return membership;
+                        });
+                previousMembership.setRole("ADMIN");
+                membershipRepository.save(previousMembership);
+            }
+        }
+
+        targetMembership.setRole(role);
+        membershipRepository.save(targetMembership);
+        projectRepository.save(project);
+        return members(actor, projectId);
     }
 
     @Transactional
@@ -883,6 +925,10 @@ public class HiringService {
         }
     }
 
+    private boolean hasHeadAdminAccess(UserAccount actor, HiringProject project) {
+        return project.getOwner().getId().equals(actor.getId()) || permissionsFor(actor, project).contains("protectedAccount");
+    }
+
     private void requirePermission(UserAccount actor, HiringProject project, String permission) {
         if (!permissionsFor(actor, project).contains(permission)) {
             throw new IllegalArgumentException("Project permission required: " + permission);
@@ -1065,6 +1111,20 @@ public class HiringService {
         return rolePermissions(actorRole(actor, project));
     }
 
+    private String canonicalRole(String role) {
+        String normalized = defaulted(role, "Reviewer").replace('_', ' ').replace('-', ' ').trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "viewer" -> "VIEWER";
+            case "voter" -> "VOTER";
+            case "reviewer" -> "REVIEWER";
+            case "screener" -> "SCREENER";
+            case "coordinator" -> "COORDINATOR";
+            case "admin" -> "ADMIN";
+            case "head admin", "organization admin" -> "ORGANIZATION_ADMIN";
+            default -> throw new IllegalArgumentException("Unsupported member role");
+        };
+    }
+
     private List<String> rolePermissions(String role) {
         String normalized = displayRole(role).toLowerCase(Locale.ROOT);
         List<String> permissions = new ArrayList<>();
@@ -1100,6 +1160,9 @@ public class HiringService {
 
     private String displayRole(String role) {
         String normalized = defaulted(role, "Reviewer").replace('_', ' ').replace('-', ' ').toLowerCase(Locale.ROOT);
+        if (normalized.contains("head admin")) {
+            return "Head Admin";
+        }
         if (normalized.contains("organization admin")) {
             return "Head Admin";
         }

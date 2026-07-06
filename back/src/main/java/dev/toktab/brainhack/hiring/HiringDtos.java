@@ -140,6 +140,12 @@ public class HiringDtos {
     ) {
     }
 
+    public record MemberRoleRequest(
+            @NotBlank @Size(max = 160) String email,
+            @NotBlank @Size(max = 80) String role
+    ) {
+    }
+
     public record NoteRequest(
             @Size(max = 40) String type,
             @Size(max = 80) String decision,
