@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, Bell, Database, FileText, Lock, RotateCcw, Save, Settings, ShieldCheck, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
 import { apiDeleteProject } from '../../api';
 import { findProjectFromPath } from './projectPageUtils';
+import './ProjectSettingsPage.css';
 import { ProjectRouteState } from './ProjectRouteState';
 
 const defaultSettings = {

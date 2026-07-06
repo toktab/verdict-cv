@@ -1,0 +1,139 @@
+.projectSettingsPage {
+    width: min(1180px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 28px 0 72px;
+    display: grid;
+    gap: 18px;
+}
+
+.settingsHero {
+    align-items: center;
+}
+
+.settingsGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.settingsCard {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.018)),
+            var(--panel);
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 12px;
+    min-height: 190px;
+}
+
+.settingsCardIcon {
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    color: #ffd0d0;
+    background: rgba(255, 59, 59, 0.11);
+}
+
+.settingsCard h2 {
+    margin: 4px 0 6px;
+    font-size: 18px;
+}
+
+.settingsCard p {
+    min-height: 48px;
+    margin: 0 0 12px;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.settingsCard select,
+.settingsCard input[type="range"],
+.deleteConfirmBox input {
+    width: 100%;
+}
+
+.settingsRange {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 54px;
+    gap: 10px;
+    align-items: center;
+}
+
+.settingsRange strong {
+    color: #fff;
+    text-align: right;
+}
+
+.settingsDangerPanel,
+.settingsActionBar {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.035);
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+}
+
+.settingsDangerPanel {
+    border-color: rgba(255, 99, 99, 0.28);
+    background: rgba(255, 59, 59, 0.075);
+}
+
+.settingsDangerPanel h2 {
+    margin: 4px 0;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.settingsDangerPanel p {
+    margin: 0;
+    color: var(--muted);
+    max-width: 760px;
+}
+
+.settingsActionBar {
+    position: sticky;
+    bottom: 12px;
+    justify-content: flex-end;
+    background: rgba(12, 13, 17, 0.92);
+    backdrop-filter: blur(12px);
+}
+
+.settingsDeleteModal {
+    width: min(520px, calc(100vw - 32px));
+}
+
+.deleteConfirmBox {
+    border: 1px solid rgba(255, 99, 99, 0.26);
+    border-radius: 8px;
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+    background: rgba(255, 59, 59, 0.08);
+}
+
+.deleteConfirmBox svg {
+    color: #ff8b8b;
+}
+
+@media (max-width: 640px) {
+    .projectSettingsPage {
+        margin-top: 12px;
+        margin-bottom: 42px;
+    }
+
+    .settingsDangerPanel,
+    .settingsActionBar {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+}

@@ -19,6 +19,7 @@ import { apiLogin, apiRegister, apiMe, apiLogout, apiListMessages, apiListProjec
 import { appendMessage, createMessage, messageBelongsTo, readMessages } from './messageStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuditScoreExplainer } from './components/AuditScoreExplainer';
+import { navigateTo, routeFromPath } from './navigation';
 import { auditScoreLevel } from './utils/auditScore';
 import defaultAts from './data/default-ats.json';
 import './styles.css';
@@ -1003,45 +1004,6 @@ function userInitials(user) {
 
 function emptyComposeDraft() {
     return { to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null };
-}
-
-function routeFromPath() {
-    if (window.location.pathname === '/admin') return { route: 'admin' };
-    if (window.location.pathname === '/dashboard') return { route: 'dashboard' };
-    if (window.location.pathname === '/history') return { route: 'history' };
-    if (window.location.pathname === '/messages') return { route: 'messages' };
-    if (window.location.pathname === '/profile') return { route: 'profile' };
-    if (window.location.pathname === '/projects') return { route: 'projects' };
-    if (window.location.pathname === '/projects/new') return { route: 'newProject' };
-    if (window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/new$/)) return { route: 'addCandidate' };
-    if (window.location.pathname.match(/^\/projects\/([^/]+)\/team$/)) return { route: 'projectTeam' };
-    if (window.location.pathname.match(/^\/projects\/([^/]+)\/settings$/)) return { route: 'projectSettings' };
-    if (window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)\/signaltrace$/)) return { route: 'signalTrace' };
-    if (window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)\/profile$/)) return { route: 'candidateProfile' };
-    if (window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)$/)) return { route: 'candidateDetail' };
-    if (window.location.pathname.match(/^\/projects\/([^/]+)$/)) return { route: 'projectDetail' };
-    const profileMatch = window.location.pathname.match(/^\/audit\/(\d+)\/profile$/);
-    if (profileMatch) return { route: 'auditProfile', auditId: Number(profileMatch[1]) };
-    const auditMatch = window.location.pathname.match(/^\/audit\/(\d+)$/);
-    if (auditMatch) return { route: 'auditDetail', auditId: Number(auditMatch[1]) };
-    if (window.location.pathname === '/audit') return { route: 'app' };
-    if (window.location.pathname === '/login') return { route: 'login' };
-    if (window.location.pathname === '/register') return { route: 'register' };
-    return { route: 'home' };
-}
-
-function navigateTo(setRoute, next, id, childId) {
-    setRoute(next);
-    const path = next === 'admin' ? '/admin' : next === 'dashboard' ? '/dashboard' : next === 'history' ? '/history' : next === 'messages' ? '/messages' : next === 'projects' ? '/projects' : next === 'newProject' ? '/projects/new' : next === 'projectDetail' ? `/projects/${id}` : next === 'projectTeam' ? `/projects/${id}/team` : next === 'projectSettings' ? `/projects/${id}/settings` : next === 'addCandidate' ? `/projects/${id}/candidates/new` : next === 'signalTrace' ? `/projects/${id}/candidates/${childId}/signaltrace` : next === 'candidateProfile' ? `/projects/${id}/candidates/${childId}/profile` : next === 'candidateDetail' ? `/projects/${id}/candidates/${childId}` : next === 'profile' ? '/profile' : next === 'auditProfile' ? `/audit/${id}/profile` : next === 'auditDetail' ? `/audit/${id}` : next === 'app' ? '/projects' : next === 'login' ? '/login' : next === 'register' ? '/register' : '/';
-    window.history.replaceState(null, '', path);
-    scrollToPageTop();
-}
-
-function scrollToPageTop() {
-    window.requestAnimationFrame(() => {
-        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-        document.scrollingElement?.scrollTo?.({ top: 0, left: 0, behavior: 'auto' });
-    });
 }
 
 function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessages = 0 }) {
