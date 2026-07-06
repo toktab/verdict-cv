@@ -94,7 +94,7 @@ public class AdminController {
 
     @GetMapping("/audits/{id}")
     public AuditResponse audit(@PathVariable Long id) {
-        return auditMapper.toResponse(auditService.get(id));
+        return auditMapper.toResponse(auditService.getWithVerdicts(id));
     }
 
     @PostMapping("/audits")

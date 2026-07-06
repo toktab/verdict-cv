@@ -23,6 +23,23 @@ public interface AuditRepository extends JpaRepository<Audit, Long> {
 
     Optional<Audit> findByIdAndOwnerIdAndDeletedAtIsNull(Long id, Long ownerId);
 
+    @Query("""
+            select distinct audit from Audit audit
+            left join fetch audit.verdicts
+            where audit.id = :id
+              and audit.deletedAt is null
+            """)
+    Optional<Audit> findWithVerdictsByIdAndDeletedAtIsNull(@Param("id") Long id);
+
+    @Query("""
+            select distinct audit from Audit audit
+            left join fetch audit.verdicts
+            where audit.id = :id
+              and audit.owner.id = :ownerId
+              and audit.deletedAt is null
+            """)
+    Optional<Audit> findWithVerdictsByIdAndOwnerIdAndDeletedAtIsNull(@Param("id") Long id, @Param("ownerId") Long ownerId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select audit from Audit audit
@@ -49,4 +66,5 @@ public interface AuditRepository extends JpaRepository<Audit, Long> {
             order by audit.createdAt desc
             """)
     List<Audit> search(@Param("search") String search, Pageable pageable);
+
 }

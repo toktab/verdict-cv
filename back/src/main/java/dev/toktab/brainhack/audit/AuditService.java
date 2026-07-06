@@ -187,8 +187,16 @@ public class AuditService {
         return auditRepository.findByIdAndDeletedAtIsNull(id).orElseThrow(() -> new IllegalArgumentException("Audit not found: " + id));
     }
 
+    public Audit getWithVerdicts(Long id) {
+        return auditRepository.findWithVerdictsByIdAndDeletedAtIsNull(id).orElseThrow(() -> new IllegalArgumentException("Audit not found: " + id));
+    }
+
     public Audit getForUser(Long id, UserAccount owner) {
         return auditRepository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner.getId()).orElseThrow(() -> new IllegalArgumentException("Audit not found: " + id));
+    }
+
+    public Audit getForUserWithVerdicts(Long id, UserAccount owner) {
+        return auditRepository.findWithVerdictsByIdAndOwnerIdAndDeletedAtIsNull(id, owner.getId()).orElseThrow(() -> new IllegalArgumentException("Audit not found: " + id));
     }
 
     public List<Audit> history() {

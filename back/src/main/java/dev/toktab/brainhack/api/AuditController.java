@@ -99,13 +99,13 @@ public class AuditController {
     @GetMapping("/{id}")
     public AuditResponse get(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorization, @RequestHeader(value = "X-User-Token", required = false) String token) {
         UserAccount user = userTokenService.requireUser(tokenResolver.userToken(authorization, token, null));
-        return auditMapper.toResponse(auditService.getForUser(id, user));
+        return auditMapper.toResponse(auditService.getForUserWithVerdicts(id, user));
     }
 
     @GetMapping("/{id}/summary")
     public AuditSummaryResponse summary(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String authorization, @RequestHeader(value = "X-User-Token", required = false) String token) {
         UserAccount user = userTokenService.requireUser(tokenResolver.userToken(authorization, token, null));
-        return auditMapper.toSummary(auditService.getForUser(id, user));
+        return auditMapper.toSummary(auditService.getForUserWithVerdicts(id, user));
     }
 
     @GetMapping("/{id}/progress")
@@ -150,7 +150,7 @@ public class AuditController {
     @GetMapping("/{id}/export")
     public ResponseEntity<byte[]> export(@PathVariable Long id, @RequestParam(defaultValue = "txt") String format, @RequestHeader(value = "Authorization", required = false) String authorization, @RequestHeader(value = "X-User-Token", required = false) String token) {
         UserAccount user = userTokenService.requireUser(tokenResolver.userToken(authorization, token, null));
-        ExportService.ExportFile file = exportService.export(auditService.getForUser(id, user), format);
+        ExportService.ExportFile file = exportService.export(auditService.getForUserWithVerdicts(id, user), format);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(file.contentType()))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + file.filename())

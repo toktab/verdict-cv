@@ -6,6 +6,7 @@ import dev.toktab.brainhack.api.dto.AuditSummaryResponse;
 import dev.toktab.brainhack.api.dto.VerdictResponse;
 import java.util.Comparator;
 import java.util.List;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -43,17 +44,17 @@ public class AuditMapper {
                 audit.getCheckStateName(),
                 audit.getCheckStateDescription(),
                 audit.getCreatedAt(),
-                audit.getVerdicts().stream().map(this::toVerdictResponse).toList()
+                verdictResponses(audit)
         );
     }
 
     public AuditSummaryResponse toSummary(Audit audit) {
-        List<VerdictResponse> topProblems = audit.getVerdicts().stream()
+        List<VerdictResponse> topProblems = Hibernate.isInitialized(audit.getVerdicts()) ? audit.getVerdicts().stream()
                 .filter(v -> v.getStatus() == VerdictStatus.UNSUPPORTED || v.getStatus() == VerdictStatus.STRETCHED || v.getStatus() == VerdictStatus.GAP)
                 .sorted(Comparator.comparing(Verdict::getStatus).reversed())
                 .limit(3)
                 .map(this::toVerdictResponse)
-                .toList();
+                .toList() : List.of();
         return new AuditSummaryResponse(
                 audit.getId(),
                 audit.getClaimTitle(),
@@ -118,5 +119,12 @@ public class AuditMapper {
                 verdict.getPromptVersion(),
                 verdict.getManualOverrideReason()
         );
+    }
+
+    private List<VerdictResponse> verdictResponses(Audit audit) {
+        if (!Hibernate.isInitialized(audit.getVerdicts())) {
+            return List.of();
+        }
+        return audit.getVerdicts().stream().map(this::toVerdictResponse).toList();
     }
 }

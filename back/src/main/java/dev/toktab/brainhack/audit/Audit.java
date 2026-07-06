@@ -167,7 +167,7 @@ public class Audit {
     @JoinColumn(name = "owner_id")
     private UserAccount owner;
 
-    @OneToMany(mappedBy = "audit", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "audit", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("sentenceIndex ASC")
     private List<Verdict> verdicts = new ArrayList<>();
 
