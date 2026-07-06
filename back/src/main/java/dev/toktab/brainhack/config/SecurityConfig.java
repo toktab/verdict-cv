@@ -35,7 +35,9 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/register",
+                                "/api/auth/refresh",
                                 "/api/admin/login",
+                                "/api/admin/**",
                                 "/api/docs/**",
                                 "/api/docs",
                                 "/api/docs/ui/**",
@@ -48,7 +50,7 @@ public class SecurityConfig {
                                 "/assets/**",
                                 "/favicon.svg")
                         .permitAll()
-                        .requestMatchers("/api/**").permitAll()
+                        .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(userAuthPresenceFilter, UsernamePasswordAuthenticationFilter.class)

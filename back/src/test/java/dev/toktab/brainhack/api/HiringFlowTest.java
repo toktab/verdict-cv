@@ -45,6 +45,11 @@ class HiringFlowTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("User authentication required"));
 
+        mockMvc.perform(get("/api/projects")
+                        .header("Authorization", "Bearer fake-session-token"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("User authentication required"));
+
         String token = register("hiring_bearer");
 
         mockMvc.perform(post("/api/projects")
