@@ -5,8 +5,10 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
 
 public interface AuditRepository extends JpaRepository<Audit, Long> {
     List<Audit> findByDeletedAtIsNullOrderByCreatedAtDesc();
@@ -20,6 +22,15 @@ public interface AuditRepository extends JpaRepository<Audit, Long> {
     Optional<Audit> findByIdAndDeletedAtIsNull(Long id);
 
     Optional<Audit> findByIdAndOwnerIdAndDeletedAtIsNull(Long id, Long ownerId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select audit from Audit audit
+            where audit.id = :id
+              and audit.owner.id = :ownerId
+              and audit.deletedAt is null
+            """)
+    Optional<Audit> findByIdAndOwnerIdAndDeletedAtIsNullForUpdate(@Param("id") Long id, @Param("ownerId") Long ownerId);
 
     long countByOwnerIdAndCheckStateIdAndCreatedAtAfterAndDeletedAtIsNull(Long ownerId, String checkStateId, Instant createdAt);
 

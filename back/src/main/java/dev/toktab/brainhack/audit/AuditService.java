@@ -225,7 +225,11 @@ public class AuditService {
 
     @Transactional
     public Audit cancel(Long id, UserAccount owner) {
-        Audit audit = getForUser(id, owner);
+        if (owner == null) {
+            throw new IllegalArgumentException("User authentication required");
+        }
+        Audit audit = auditRepository.findByIdAndOwnerIdAndDeletedAtIsNullForUpdate(id, owner.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Audit not found"));
         if (audit.getStatus() == AuditStatus.COMPLETED || audit.getStatus() == AuditStatus.FAILED || audit.getStatus() == AuditStatus.CANCELLED) {
             return audit;
         }
@@ -235,7 +239,7 @@ public class AuditService {
         audit.setFinishedAt(Instant.now());
         audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
         setProgress(audit, "cancelled", 100, "Audit cancelled by user.");
-        audit.setProcessingMillis(audit.getProcessingMillis());
+        audit.setProcessingMillis(processingMillis(audit));
         Audit saved = auditRepository.save(audit);
         rabbitEventPublisher.publish("audit.cancelled", Map.of("auditId", saved.getId()));
         logService.recordSystem("AUDIT_CANCELLED", "auditId=" + saved.getId());
@@ -588,6 +592,7 @@ public class AuditService {
         audit.setFinishedAt(Instant.now());
         audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
         setProgress(audit, "cancelled", 100, "Audit cancelled by user.");
+        audit.setProcessingMillis(processingMillis(audit));
         auditRepository.save(audit);
         rabbitEventPublisher.publish("audit.cancelled", Map.of("auditId", audit.getId()));
         logService.recordSystem("AUDIT_ASYNC_CANCELLED", "auditId=" + audit.getId());
@@ -693,6 +698,13 @@ public class AuditService {
         audit.setProgressStage(stage);
         audit.setProgressPercent(percent);
         audit.setProgressMessage(trim(message, 160));
+    }
+
+    private long processingMillis(Audit audit) {
+        if (audit.getStartedAt() == null || audit.getFinishedAt() == null) {
+            return audit.getProcessingMillis();
+        }
+        return Math.max(0, Duration.between(audit.getStartedAt(), audit.getFinishedAt()).toMillis());
     }
 
     private void clearFailure(Audit audit) {

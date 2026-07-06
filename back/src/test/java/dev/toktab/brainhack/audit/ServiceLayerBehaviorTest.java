@@ -7,6 +7,7 @@ import dev.toktab.brainhack.api.dto.LoginRequest;
 import dev.toktab.brainhack.api.dto.RegisterRequest;
 import dev.toktab.brainhack.api.dto.VerdictOverrideRequest;
 import jakarta.transaction.Transactional;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -89,6 +90,7 @@ class ServiceLayerBehaviorTest {
         assertThat(cancelled.getProgressStage()).isEqualTo("cancelled");
         assertThat(cancelled.getProgressPercent()).isEqualTo(100);
         assertThat(cancelled.getFinishedAt()).isNotNull();
+        assertThat(cancelled.getProcessingMillis()).isGreaterThanOrEqualTo(500);
         assertThatThrownBy(() -> auditService.cancel(auditId, other))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Audit not found");
@@ -258,6 +260,8 @@ class ServiceLayerBehaviorTest {
         audit.setProcessingMillis(0);
         audit.setEngine("queued");
         audit.setStatus(AuditStatus.RUNNING);
+        audit.setStartedAt(Instant.now().minusMillis(500));
+        audit.setLastWorkerHeartbeatAt(audit.getStartedAt());
         audit.setProgressStage("queued");
         audit.setProgressPercent(0);
         audit.setProgressMessage("Queued for analysis.");
