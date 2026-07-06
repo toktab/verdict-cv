@@ -1,5 +1,6 @@
 package dev.toktab.brainhack.audit;
 
+import dev.toktab.brainhack.ats.AtsKeywordCatalog;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -16,6 +17,11 @@ public class LocalAuditAnalyzer {
             "could", "should", "their", "there", "than", "then", "they", "them", "your", "ours", "also",
             "and", "the", "for", "are", "was", "but", "not", "you", "our", "can", "all", "any");
     private static final Pattern NUMBER = Pattern.compile("\\b\\d+(?:[.,]\\d+)?%?\\b");
+    private final AtsKeywordCatalog atsKeywordCatalog;
+
+    public LocalAuditAnalyzer(AtsKeywordCatalog atsKeywordCatalog) {
+        this.atsKeywordCatalog = atsKeywordCatalog;
+    }
 
     public AuditAnalysisResult analyze(List<String> sentences, String evidenceText) {
         List<EvidenceChunk> evidenceChunks = chunks(evidenceText);
@@ -33,7 +39,7 @@ public class LocalAuditAnalyzer {
         if (isMetadata(normalized)) {
             return verdict(index, sentence, VerdictStatus.NOT_A_CLAIM, Confidence.HIGH, "metadata", "This line is document structure, not an auditable factual claim.", "No evidence required.");
         }
-        boolean risky = containsAny(normalized, "expert", "advanced", "proven", "led", "optimized", "guaranteed", "best", "senior");
+        boolean risky = atsKeywordCatalog.localAuditRiskyWords().stream().anyMatch(normalized::contains);
         boolean numeric = NUMBER.matcher(normalized).find();
         EvidenceMatch match = bestMatch(normalized, evidenceChunks);
         boolean exactNumber = !numeric || numbers(normalized).stream().allMatch(number -> evidence.contains(number));

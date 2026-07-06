@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Activity, ArrowRight, History, MessageSquarePlus, Radar, RefreshCcw, ScanText, ShieldCheck, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { apiCreateCandidateNote, apiGetCandidateWorkflow, apiListCandidateNotes, apiReanalyzeCandidate, apiUpdateCandidateStatus, apiVoteCandidate } from '../../api';
+import defaultAts from '../../data/default-ats.json';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
 import { findCandidateFromPath, scorePercent, scoreTone } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
@@ -1204,8 +1205,8 @@ function cvSentences(text) {
 
 function localVerdictForSentence(sentence) {
     const normalized = normalizeLocal(sentence);
-    const risky = ['expert', 'senior', 'led', 'advanced', 'proven', 'guaranteed', 'best', 'deep'].some((word) => normalized.includes(word));
-    const concrete = /\b(\d+|spring|java|react|sql|docker|api|github|postgres|mysql|kubernetes|aws|azure|gcp|node|python|typescript)\b/.test(normalized);
+    const risky = (defaultAts.analyzers?.riskyWords || []).some((word) => normalized.includes(word));
+    const concrete = /\b\d+\b/.test(normalized) || (defaultAts.analyzers?.techTerms || []).some((term) => normalized.includes(term));
     if (risky) {
         return {
             claim: sentence,

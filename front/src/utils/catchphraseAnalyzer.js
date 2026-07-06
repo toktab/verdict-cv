@@ -1,9 +1,9 @@
-import catchphraseRules from '../data/catchphraseRules.json';
+import defaultAts from '../data/default-ats.json';
 
 export function findCatchphraseMatches(text) {
     if (!text) return [];
     const matches = [];
-    catchphraseRules.rules.forEach((rule) => {
+    defaultAts.rules.forEach((rule) => {
         keywordPatterns(rule).forEach((pattern) => collectMatches(text, pattern, rule, matches));
         (rule.patterns || []).forEach((pattern) => collectMatches(text, pattern, rule, matches));
     });

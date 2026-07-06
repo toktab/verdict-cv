@@ -33,6 +33,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
     const [activityMember, setActivityMember] = useState(null);
     const [rankModal, setRankModal] = useState(null);
+    const [memberModal, setMemberModal] = useState(null);
     const [activityRows, setActivityRows] = useState(() => readActivity(project?.id));
     const members = useMemo(() => buildMembers(project, user, invites, roleOverrides, serverMembers), [project, user, invites, roleOverrides, serverMembers]);
     const updateRankModal = useCallback((patch) => {
@@ -259,52 +260,59 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                     {canTeamManage && <div className="teamShortcutBar">
                         <button className="secondary" type="button" onClick={() => setCandidateSenderOpen(true)}><Plus size={16} /> Send Candidate(s)</button>
                     </div>}
-                    <div className="teamMemberRows">
+                    <div className="teamMemberTable">
+                        <div className="teamMemberTableHead">
+                            <span>Member</span>
+                            <span>Email</span>
+                            <span>Role</span>
+                            <span>Status</span>
+                            <span>Source</span>
+                            <span>Permissions</span>
+                        </div>
                         {members.filter((member) => member.role !== 'Kicked').map((member) => {
                             const protectedMember = isProtectedMember(member);
                             const memberPermissions = permissionsFor(member.role, member.email, customPermissions, member.permissions);
                             return (
-                                <article key={member.email} className={protectedMember ? 'protectedMember' : ''}>
-                                    <div>
-                                        <strong>{member.name}</strong>
-                                        <small>{member.email}</small>
-                                        <small>{member.status || 'ACTIVE'} / {member.source || 'MEMBER'}</small>
-                                        {member.role === 'Custom' && <small>Custom permissions: {memberPermissions.length}</small>}
-                                    </div>
-                                    {canTeamManage ? (
-                                        <>
-                                            <div className="teamActionRow">
-                                                <button className="secondary" type="button" disabled={!myPermissions.includes('canMessage')} onClick={() => openCompose?.({ to: member.email, subject: `Message about ${project.title}` })}><Mail size={15} /> Message</button>
-                                                <button className="secondary" type="button" disabled={!myPermissions.includes('canViewActivityLog')} onClick={() => { setActivityRows(readActivity(project.id)); setActivityMember(member); }}><Activity size={15} /> Activity</button>
-                                                <button className="secondary" type="button" disabled={!myPermissions.includes('canChangePermissions') || sameEmail(member.email, user?.email)} onClick={() => setRankModal({ member, selectedRole: member.role, confirmText: '', countdown: 10, notify: notifyRoleChange })}><UserCog size={15} /> Rank</button>
-                                                <button className="destructive" type="button" disabled={protectedMember || !myPermissions.includes('canKickMembers')} onClick={() => removeMember(member.email)}><Trash2 size={15} /> Kick</button>
-                                                {protectedMember && <span className="protectedBadge"><Lock size={14} /> Protected</span>}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <span className={`memberStatusPill ${(member.status || 'active').toLowerCase()}`}>{member.role} / {member.status || 'ACTIVE'}</span>
-                                    )}
-                                    {canTeamManage && member.role === 'Custom' && (
-                                        <div className="customPermissionGrid">
-                                            {PERMISSION_ATOMS.map((permission) => (
-                                                <label key={permission}>
-                                                    <input
-                                                        checked={memberPermissions.includes(permission)}
-                                                        disabled={!myPermissions.includes('canChangePermissions') || permission === 'canView'}
-                                                        type="checkbox"
-                                                        onChange={() => toggleCustomPermission(member.email, permission)}
-                                                    />
-                                                    <span>{permission}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    )}
-                                </article>
+                                <button key={member.email} type="button" className={`teamMemberRecord ${protectedMember ? 'protectedMember' : ''}`} onClick={() => setMemberModal(member)}>
+                                    <span><strong>{member.name}</strong></span>
+                                    <span>{member.email}</span>
+                                    <span><b>{member.role}</b></span>
+                                    <span><i>{member.status || 'ACTIVE'}</i></span>
+                                    <span>{member.source || 'MEMBER'}</span>
+                                    <span>{protectedMember ? <em><Lock size={13} /> Protected</em> : `${memberPermissions.length} permissions`}</span>
+                                </button>
                             );
                         })}
                     </div>
                 </section>
             </main>
+            {memberModal && (
+                <MemberActionModal
+                    member={memberModal}
+                    project={project}
+                    user={user}
+                    canTeamManage={canTeamManage}
+                    myPermissions={myPermissions}
+                    customPermissions={customPermissions}
+                    openCompose={openCompose}
+                    notifyRoleChange={notifyRoleChange}
+                    onClose={() => setMemberModal(null)}
+                    onActivity={(member) => {
+                        setActivityRows(readActivity(project.id));
+                        setActivityMember(member);
+                        setMemberModal(null);
+                    }}
+                    onRank={(member) => {
+                        setRankModal({ member, selectedRole: member.role, confirmText: '', countdown: 10, notify: notifyRoleChange });
+                        setMemberModal(null);
+                    }}
+                    onKick={(member) => {
+                        removeMember(member.email);
+                        setMemberModal(null);
+                    }}
+                    onTogglePermission={toggleCustomPermission}
+                />
+            )}
             {candidateSenderOpen && (
                 <div className="candidateSendBackdrop" role="dialog" aria-modal="true">
                     <section className="candidateSendModal">
@@ -385,6 +393,72 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     );
 }
 
+function MemberActionModal({ member, project, user, canTeamManage, myPermissions, customPermissions, openCompose, notifyRoleChange, onClose, onActivity, onRank, onKick, onTogglePermission }) {
+    const protectedMember = isProtectedMember(member);
+    const memberPermissions = permissionsFor(member.role, member.email, customPermissions, member.permissions);
+    const canMessage = canTeamManage && myPermissions.includes('canMessage');
+    const canActivity = canTeamManage && myPermissions.includes('canViewActivityLog');
+    const canRank = canTeamManage && myPermissions.includes('canChangePermissions') && !sameEmail(member.email, user?.email);
+    const canKick = canTeamManage && myPermissions.includes('canKickMembers') && !protectedMember;
+
+    return (
+        <div className="candidateSendBackdrop memberActionBackdrop" role="dialog" aria-modal="true">
+            <section className="candidateSendModal memberActionModal">
+                <div className="modalHead">
+                    <div>
+                        <span className="eyebrow">Team member</span>
+                        <h2>{member.name}</h2>
+                    </div>
+                    <button type="button" onClick={onClose}><X size={16} /> Close</button>
+                </div>
+                <div className="memberProfileGrid">
+                    <div className="memberAvatarLarge">{initials(member.name || member.email)}</div>
+                    <div>
+                        <strong>{member.role}</strong>
+                        <span>{member.email}</span>
+                        <small>{member.status || 'ACTIVE'} / {member.source || 'MEMBER'}</small>
+                    </div>
+                    {protectedMember && <span className="protectedBadge"><Lock size={14} /> Protected</span>}
+                </div>
+                <div className="memberActionGrid">
+                    <button className="primary" disabled={!canMessage} type="button" onClick={() => openCompose?.({ to: member.email, subject: `Message about ${project.title}` })}><Mail size={16} /> Message</button>
+                    <button className="secondary" disabled={!canActivity} type="button" onClick={() => onActivity(member)}><Activity size={16} /> Activity</button>
+                    <button className="secondary" disabled={!canRank} type="button" onClick={() => onRank(member)}><UserCog size={16} /> Rank</button>
+                    <button className="destructive" disabled={!canKick} type="button" onClick={() => onKick(member)}><Trash2 size={16} /> Kick</button>
+                </div>
+                <div className="memberPermissionSummary">
+                    <div>
+                        <span className="eyebrow">Permissions</span>
+                        <strong>{memberPermissions.length} enabled</strong>
+                    </div>
+                    <label className="notifyRoleToggle">
+                        <input type="checkbox" checked={notifyRoleChange} readOnly />
+                        <span>Role changes notify members</span>
+                    </label>
+                </div>
+                <div className="permissionChips memberPermissionChips">
+                    {memberPermissions.map((permission) => <span key={permission}>{permission}</span>)}
+                </div>
+                {canTeamManage && member.role === 'Custom' && (
+                    <div className="customPermissionGrid modalPermissionGrid">
+                        {PERMISSION_ATOMS.map((permission) => (
+                            <label key={permission}>
+                                <input
+                                    checked={memberPermissions.includes(permission)}
+                                    disabled={!myPermissions.includes('canChangePermissions') || permission === 'canView'}
+                                    type="checkbox"
+                                    onChange={() => onTogglePermission(member.email, permission)}
+                                />
+                                <span>{permission}</span>
+                            </label>
+                        ))}
+                    </div>
+                )}
+            </section>
+        </div>
+    );
+}
+
 function RankModal({ currentUser, member, selectedRole, confirmText, countdown, notify, onChange, onClose, onApply }) {
     const oldRole = member.role;
     const isTransfer = selectedRole === 'Head Admin' && oldRole !== 'Head Admin';
@@ -454,6 +528,11 @@ function RankModal({ currentUser, member, selectedRole, confirmText, countdown, 
             </section>
         </div>
     );
+}
+
+function initials(value = '') {
+    const parts = String(value).replace(/@.*$/, '').split(/\s+|[._-]+/).filter(Boolean);
+    return `${parts[0]?.[0] || 'V'}${parts[1]?.[0] || ''}`.toUpperCase();
 }
 
 function buildMembers(project, user, invites, overrides, serverMembers = []) {

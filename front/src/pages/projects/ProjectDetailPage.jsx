@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, CheckCircle2, ClipboardCheck, FileSearch, ShieldCheck, UserPlus, Users } from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, ClipboardCheck, FileSearch, Settings, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import { apiAcceptProjectInvite, apiCreateProjectInvite, apiListProjectInvites, apiListProjectMembers } from '../../api';
 import { useLanguage } from '../../i18n';
 import { CandidateTable } from './components/CandidateTable';
@@ -89,6 +89,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
     const myPermissions = project.myPermissions?.length ? project.myPermissions : permissionsForProjectRole(myMember?.role || project.myRole || (project.ownerId === user?.id ? 'Head Admin' : 'Viewer'));
     const canTeamManage = myPermissions.includes('canTeamManage') || myPermissions.includes('protectedAccount');
     const canInvite = myPermissions.includes('canInvite') || myPermissions.includes('protectedAccount');
+    const canSettings = myPermissions.includes('protectedAccount') || project.myRole === 'Head Admin' || project.ownerId === user?.id;
     const reviewSteps = [
         ['01', t('jobDescription'), t('jobDescriptionFixed')],
         ['02', t('addCvs'), t('addCandidateText')],
@@ -113,6 +114,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                     <div className="detailHeroActions">
                         <button className="secondary compactHeroButton" onClick={() => navigateTo(setRoute, 'projects')}><ArrowRight size={16} /> {t('allProjects')}</button>
                         <button className="secondary compactHeroButton" onClick={() => navigateTo(setRoute, 'projectTeam', project.id)}><Users size={18} /> {canTeamManage ? 'Team' : 'Members'}</button>
+                        {canSettings && <button className="secondary iconHeroButton" title="Project settings" aria-label="Project settings" onClick={() => navigateTo(setRoute, 'projectSettings', project.id)}><Settings size={18} /></button>}
                         <button className="primary compactHeroButton" onClick={() => navigateTo(setRoute, 'addCandidate', project.id)}><UserPlus size={18} /> {t('addCandidate')}</button>
                     </div>
                 </section>

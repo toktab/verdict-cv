@@ -1,6 +1,7 @@
 import { BriefcaseBusiness, Copy, Database, Plus, RefreshCcw, Save, ShieldCheck, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { apiImportJobPostings } from '../../api';
+import defaultAts from '../../data/default-ats.json';
 import { useLanguage } from '../../i18n';
 import { ProjectScoreStrip } from './components/ProjectScoreStrip';
 import { formatShortDate, pageCount, pageItems, projectTotals, workModeInfo } from './projectPageUtils';
@@ -289,8 +290,7 @@ function readAtsTemplates(user) {
     try {
         const saved = JSON.parse(localStorage.getItem(atsStorageKey(user)) || '[]');
         const rows = Array.isArray(saved) ? saved : [];
-        const hasDefault = rows.some((template) => template.id === defaultAtsTemplate().id);
-        return hasDefault ? rows : [defaultAtsTemplate(), ...rows];
+        return [defaultAtsTemplate(), ...rows.filter((template) => template.id !== defaultAtsTemplate().id)];
     } catch {
         return [defaultAtsTemplate()];
     }
@@ -302,23 +302,33 @@ function writeAtsTemplates(user, templates) {
 
 function defaultAtsTemplate() {
     return {
-        id: 'verified-default-ats',
-        name: 'Verified CV hiring template',
-        description: 'Current VERDICT keyword and phrase detector used for risky CV wording, proof gaps, and strong evidence signals.',
-        usage: 'Default candidate screening',
-        role: 'All hiring projects',
-        visibility: 'Public',
-        accessPeople: '',
-        verified: true,
-        rules: [
-            { keyword: 'expert', tone: 'Bad', severity: 'High', info: 'Inflated seniority claim. Require concrete projects, role history, or measurable proof.' },
-            { keyword: 'senior', tone: 'Bad', severity: 'High', info: 'Seniority pressure word. Check years, ownership scope, and production responsibility.' },
-            { keyword: 'led', tone: 'Bad', severity: 'Medium', info: 'Leadership claim. Look for team size, decision authority, delivery outcome, and artifacts.' },
-            { keyword: 'GitHub', tone: 'Good', severity: 'Medium', info: 'Potential source evidence. Confirm repositories support the exact skills or projects claimed.' },
-            { keyword: 'production', tone: 'Bad', severity: 'Medium', info: 'Production claim needs deployment, users, environment, monitoring, or employer evidence.' },
-            { keyword: 'certificate', tone: 'Good', severity: 'Low', info: 'Credential evidence. Confirm issuer, date, and relevance to the role.' },
-        ],
+        id: defaultAts.id,
+        name: defaultAts.name,
+        description: defaultAts.description,
+        usage: defaultAts.usage,
+        role: defaultAts.role,
+        visibility: defaultAts.visibility,
+        accessPeople: defaultAts.accessPeople || '',
+        verified: Boolean(defaultAts.verified),
+        rules: defaultAtsTemplateRules(),
     };
+}
+
+function defaultAtsTemplateRules() {
+    return defaultAts.rules.flatMap((rule) => [
+        ...(rule.keywords || []).map((keyword) => ({
+            keyword,
+            tone: rule.risk === 'Low' || rule.label === 'EVIDENCE_FIELD' ? 'Good' : rule.risk === 'Medium' ? 'Neutral' : 'Bad',
+            severity: rule.risk || 'Medium',
+            info: `${rule.category}: ${rule.why} ${rule.safer}`,
+        })),
+        ...(rule.patterns || []).map((pattern) => ({
+            keyword: `Pattern: ${pattern}`,
+            tone: 'Bad',
+            severity: rule.risk || 'High',
+            info: `${rule.category}: ${rule.why} ${rule.safer}`,
+        })),
+    ]);
 }
 
 function stateComparisonRows(t) {

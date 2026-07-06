@@ -2436,9 +2436,9 @@ mark {
 
 .projectCardBadges {
     position: absolute;
-    top: 12px;
-    right: 12px;
-    left: 12px;
+    top: 14px;
+    right: 14px;
+    left: 14px;
     display: flex;
     justify-content: space-between;
     gap: 8px;
@@ -2452,13 +2452,20 @@ mark {
 .projectAccessBadge {
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 999px;
-    padding: 6px 9px;
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
     color: var(--muted);
     font-size: 11px;
     font-weight: 800;
-    letter-spacing: 0.02em;
+    letter-spacing: 0;
     text-transform: uppercase;
     background: rgba(0, 0, 0, 0.34);
+    max-width: 48%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .projectAccessBadge.owner {
@@ -2684,9 +2691,11 @@ mark {
 .projectCard {
     display: grid;
     gap: 16px;
-    padding: 18px;
+    min-height: 132px;
+    padding: 54px 18px 18px;
     color: var(--text);
     text-align: left;
+    overflow: hidden;
 }
 
 .projectCard:hover,
@@ -2700,10 +2709,13 @@ mark {
 .projectCardHead {
     display: grid;
     gap: 6px;
+    min-width: 0;
 }
 
 .projectCardHead strong {
-    font-size: 24px;
+    font-size: clamp(18px, 2vw, 23px);
+    line-height: 1.12;
+    overflow-wrap: anywhere;
 }
 
 .projectCardHead small,
@@ -2719,6 +2731,145 @@ mark {
     gap: 8px;
     flex-wrap: wrap;
     font-size: 12px;
+}
+
+.iconHeroButton {
+    width: 42px;
+    min-width: 42px;
+    padding: 0;
+    justify-content: center;
+}
+
+.projectSettingsPage {
+    width: min(1180px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 28px 0 72px;
+    display: grid;
+    gap: 18px;
+}
+
+.settingsHero {
+    align-items: center;
+}
+
+.settingsGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.settingsCard {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.018)),
+            var(--panel);
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 12px;
+    min-height: 190px;
+}
+
+.settingsCardIcon {
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    color: #ffd0d0;
+    background: rgba(255, 59, 59, 0.11);
+}
+
+.settingsCard h2 {
+    margin: 4px 0 6px;
+    font-size: 18px;
+}
+
+.settingsCard p {
+    min-height: 48px;
+    margin: 0 0 12px;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.settingsCard select,
+.settingsCard input[type="range"],
+.deleteConfirmBox input {
+    width: 100%;
+}
+
+.settingsRange {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 54px;
+    gap: 10px;
+    align-items: center;
+}
+
+.settingsRange strong {
+    color: #fff;
+    text-align: right;
+}
+
+.settingsDangerPanel,
+.settingsActionBar {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.035);
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+}
+
+.settingsDangerPanel {
+    border-color: rgba(255, 99, 99, 0.28);
+    background: rgba(255, 59, 59, 0.075);
+}
+
+.settingsDangerPanel h2 {
+    margin: 4px 0;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.settingsDangerPanel p {
+    margin: 0;
+    color: var(--muted);
+    max-width: 760px;
+}
+
+.settingsActionBar {
+    position: sticky;
+    bottom: 12px;
+    justify-content: flex-end;
+    background: rgba(12, 13, 17, 0.92);
+    backdrop-filter: blur(12px);
+}
+
+.settingsDeleteModal {
+    width: min(520px, calc(100vw - 32px));
+}
+
+.deleteConfirmBox {
+    border: 1px solid rgba(255, 99, 99, 0.26);
+    border-radius: 8px;
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+    background: rgba(255, 59, 59, 0.08);
+}
+
+.deleteConfirmBox svg {
+    color: #ff8b8b;
+}
+
+.deleteConfirmBox p {
+    margin: 0;
+    color: var(--soft);
 }
 
 .projectMeta span,
@@ -3455,46 +3606,50 @@ mark {
     display: flex;
     justify-content: flex-end;
     align-items: stretch;
-    padding: 18px;
-    background: rgba(0, 0, 0, 0.48);
-    backdrop-filter: blur(10px);
+    padding: 16px;
+    background:
+            radial-gradient(circle at 10% 10%, rgba(255, 59, 59, 0.16), transparent 34%),
+            rgba(0, 0, 0, 0.62);
+    backdrop-filter: blur(16px);
     animation: modalBackdropIn 0.22s ease both;
 }
 
 .messageModal {
-    width: min(980px, calc(100vw - 36px));
-    height: calc(100vh - 36px);
+    width: min(940px, calc(100vw - 32px));
+    height: calc(100vh - 32px);
     overflow: hidden;
-    border: 1px solid var(--line-strong);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 8px;
     padding: 0;
     background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 246, 248, 0.96)),
+            linear-gradient(180deg, rgba(23, 24, 29, 0.98), rgba(9, 10, 13, 0.99) 180px, rgba(248, 250, 252, 0.98) 181px),
             #f8fafc;
-    box-shadow: 0 26px 90px rgba(0, 0, 0, 0.62);
+    box-shadow: 0 28px 100px rgba(0, 0, 0, 0.72);
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
     animation: mailReaderIn 0.34s cubic-bezier(0.2, 0.85, 0.25, 1) both;
 }
 
 .messageModalHead {
     display: grid;
-    grid-template-columns: 56px 1fr;
-    gap: 14px;
+    grid-template-columns: minmax(0, 1fr) 54px;
+    gap: 18px;
     align-items: start;
-    padding: 18px;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.12);
-    background: rgba(255, 255, 255, 0.82);
+    padding: 24px 24px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background:
+            linear-gradient(135deg, rgba(255, 59, 59, 0.22), rgba(255, 255, 255, 0.02) 44%),
+            rgba(8, 9, 12, 0.86);
 }
 
 .messageCloseButton {
-    width: 48px;
-    height: 48px;
+    width: 46px;
+    height: 46px;
     padding: 0;
     border-radius: 8px;
-    border-color: rgba(255, 99, 99, 0.7);
-    background: rgba(255, 59, 59, 0.16);
-    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
     transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
 }
 
@@ -3504,11 +3659,33 @@ mark {
     border-color: rgba(255, 145, 145, 0.95);
 }
 
+.messageTypePill {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    border: 1px solid rgba(255, 92, 92, 0.5);
+    border-radius: 999px;
+    padding: 5px 10px;
+    color: #ffb4b4;
+    background: rgba(255, 59, 59, 0.12);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
 .messageModalHead h2 {
-    margin: 6px 0 0;
-    font-size: clamp(24px, 4vw, 38px);
-    line-height: 1.04;
-    color: #0f172a;
+    max-width: 760px;
+    margin: 10px 0 0;
+    font-size: clamp(24px, 3vw, 34px);
+    line-height: 1.08;
+    color: #fff;
+}
+
+.messageModalHead p {
+    margin: 8px 0 0;
+    color: rgba(255, 255, 255, 0.62);
+    font-weight: 700;
 }
 
 .messageModalToolbar,
@@ -3516,33 +3693,61 @@ mark {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
-    padding: 12px 18px;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.1);
-    background: rgba(248, 250, 252, 0.9);
+    padding: 12px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(12, 13, 17, 0.92);
+}
+
+.messageModalToolbar .secondary {
+    color: rgba(255, 255, 255, 0.78);
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .messageModalScroll {
     overflow-y: auto;
-    padding: 18px;
+    padding: 18px 24px 24px;
     display: grid;
     align-content: start;
-    gap: 14px;
+    gap: 12px;
+    background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.96), #f6f7f9 58%, #eef1f5);
 }
 
 .messagePeopleCard {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 12px;
 }
 
 .messagePeopleCard div,
 .messageBodyCard,
 .messageInfoCard {
-    border: 1px solid rgba(15, 23, 42, 0.1);
+    border: 1px solid rgba(15, 23, 42, 0.09);
     border-radius: 8px;
-    background: #fff;
-    padding: 14px;
+    background: rgba(255, 255, 255, 0.92);
+    padding: 16px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
     animation: detailCardIn 0.32s ease both;
+}
+
+.messagePeopleCard div {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    column-gap: 12px;
+    align-items: center;
+}
+
+.messagePeopleCard b {
+    grid-row: span 3;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    background: linear-gradient(135deg, #ef4444, #111827);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24), 0 8px 18px rgba(239, 68, 68, 0.22);
 }
 
 .messagePeopleCard div:nth-child(2),
@@ -3574,22 +3779,28 @@ mark {
 .messageMetaGrid span {
     border: 1px solid rgba(15, 23, 42, 0.1);
     border-radius: 8px;
-    padding: 10px;
+    padding: 11px 12px;
     color: #64748b;
-    background: #fff;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+}
+
+.messageMetaGrid strong {
+    color: #111827;
 }
 
 .messageBodyCard p {
     white-space: pre-wrap;
     color: #111827;
-    line-height: 1.65;
-    margin: 10px 0 0;
-    font-size: 16px;
+    line-height: 1.72;
+    margin: 12px 0 0;
+    font-size: 17px;
 }
 
 .messageInfoCard {
     display: grid;
     gap: 7px;
+    background: rgba(248, 250, 252, 0.92);
 }
 
 .messageInfoCard strong {
@@ -3825,6 +4036,86 @@ mark {
     gap: 10px;
 }
 
+.teamMemberTable {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(4, 5, 8, 0.38);
+}
+
+.teamMemberTableHead,
+.teamMemberRecord {
+    display: grid;
+    grid-template-columns: 1.35fr 1.5fr 0.95fr 0.75fr 0.85fr 0.95fr;
+    gap: 10px;
+    align-items: center;
+    min-height: 46px;
+    padding: 0 14px;
+}
+
+.teamMemberTableHead {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.045);
+    border-bottom: 1px solid var(--line);
+}
+
+.teamMemberRecord {
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 0;
+    color: var(--soft);
+    text-align: left;
+    background: transparent;
+    transition: background 0.16s ease, color 0.16s ease;
+}
+
+.teamMemberRecord:last-child {
+    border-bottom: 0;
+}
+
+.teamMemberRecord:hover,
+.teamMemberRecord:focus-visible {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.teamMemberRecord.protectedMember {
+    background: linear-gradient(90deg, rgba(240, 184, 90, 0.12), transparent 48%);
+}
+
+.teamMemberRecord span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.teamMemberRecord strong,
+.teamMemberRecord b {
+    color: #fff;
+}
+
+.teamMemberRecord i {
+    border: 1px solid rgba(102, 217, 145, 0.38);
+    border-radius: 999px;
+    padding: 4px 8px;
+    color: #d7ffe4;
+    font-style: normal;
+    background: rgba(102, 217, 145, 0.1);
+}
+
+.teamMemberRecord em {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #ffe4b5;
+    font-style: normal;
+}
+
 .teamMemberRows article {
     display: grid;
     grid-template-columns: minmax(180px, 1fr) 180px auto;
@@ -3871,6 +4162,88 @@ mark {
 .teamShortcutBar {
     display: flex;
     justify-content: flex-end;
+}
+
+.memberActionModal {
+    width: min(760px, calc(100vw - 28px));
+}
+
+.memberProfileGrid {
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+    background:
+            linear-gradient(135deg, rgba(255, 59, 59, 0.12), transparent 38%),
+            rgba(255, 255, 255, 0.035);
+}
+
+.memberAvatarLarge {
+    width: 64px;
+    height: 64px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 950;
+    background: linear-gradient(135deg, #ef4444, #111827);
+}
+
+.memberProfileGrid strong,
+.memberProfileGrid span,
+.memberProfileGrid small {
+    display: block;
+}
+
+.memberProfileGrid strong {
+    font-size: 20px;
+}
+
+.memberProfileGrid span,
+.memberProfileGrid small {
+    color: var(--muted);
+}
+
+.memberActionGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.memberActionGrid button {
+    justify-content: center;
+}
+
+.memberPermissionSummary {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.memberPermissionSummary strong {
+    display: block;
+    margin-top: 3px;
+}
+
+.memberPermissionChips {
+    max-height: 150px;
+    overflow: auto;
+    align-content: start;
+}
+
+.modalPermissionGrid {
+    max-height: 230px;
+    overflow: auto;
 }
 
 .rolePanelHead,
@@ -4249,6 +4622,19 @@ mark {
     .messageRows span,
     .messageRows small {
         grid-column: 2;
+    }
+
+    .teamMemberTable {
+        overflow-x: auto;
+    }
+
+    .teamMemberTableHead,
+    .teamMemberRecord {
+        min-width: 820px;
+    }
+
+    .memberActionGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -7398,9 +7784,26 @@ select {
     .workspace,
     .dashboard,
     .profilePage,
-    .detailPage {
+    .detailPage,
+    .projectSettingsPage {
         margin-top: 12px;
         margin-bottom: 42px;
+    }
+
+    .memberProfileGrid,
+    .memberPermissionSummary,
+    .settingsDangerPanel,
+    .settingsActionBar {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .memberActionGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .memberProfileGrid .protectedBadge {
+        width: fit-content;
     }
 
     .home {

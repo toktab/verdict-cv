@@ -10,6 +10,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { AddCandidatePage } from './pages/projects/AddCandidatePage';
 import { NewJobPage } from './pages/projects/NewJobPage';
 import { ProjectDetailPage } from './pages/projects/ProjectDetailPage';
+import { ProjectSettingsPage } from './pages/projects/ProjectSettingsPage';
 import { ProjectTeamPage } from './pages/projects/ProjectTeamPage';
 import { ProjectsPage } from './pages/projects/ProjectsPage';
 import { SignalTracePage } from './pages/projects/SignalTracePage';
@@ -19,6 +20,7 @@ import { appendMessage, createMessage, messageBelongsTo, readMessages } from './
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuditScoreExplainer } from './components/AuditScoreExplainer';
 import { auditScoreLevel } from './utils/auditScore';
+import defaultAts from './data/default-ats.json';
 import './styles.css';
 
 const auditModes = {
@@ -624,6 +626,8 @@ function App() {
         content = <NewJobPage Header={AppHeader} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} onProjectsChange={loadProjects} />;
     } else if (route === 'projectDetail') {
         content = <ProjectDetailPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} />;
+    } else if (route === 'projectSettings') {
+        content = <ProjectSettingsPage Header={AppHeader} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} onProjectsChange={loadProjects} />;
     } else if (route === 'projectTeam') {
         content = <ProjectTeamPage Header={AppHeader} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} openCompose={openCompose} />;
     } else if (route === 'addCandidate') {
@@ -1011,6 +1015,7 @@ function routeFromPath() {
     if (window.location.pathname === '/projects/new') return { route: 'newProject' };
     if (window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/new$/)) return { route: 'addCandidate' };
     if (window.location.pathname.match(/^\/projects\/([^/]+)\/team$/)) return { route: 'projectTeam' };
+    if (window.location.pathname.match(/^\/projects\/([^/]+)\/settings$/)) return { route: 'projectSettings' };
     if (window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)\/signaltrace$/)) return { route: 'signalTrace' };
     if (window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)\/profile$/)) return { route: 'candidateProfile' };
     if (window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)$/)) return { route: 'candidateDetail' };
@@ -1027,7 +1032,7 @@ function routeFromPath() {
 
 function navigateTo(setRoute, next, id, childId) {
     setRoute(next);
-    const path = next === 'admin' ? '/admin' : next === 'dashboard' ? '/dashboard' : next === 'history' ? '/history' : next === 'messages' ? '/messages' : next === 'projects' ? '/projects' : next === 'newProject' ? '/projects/new' : next === 'projectDetail' ? `/projects/${id}` : next === 'projectTeam' ? `/projects/${id}/team` : next === 'addCandidate' ? `/projects/${id}/candidates/new` : next === 'signalTrace' ? `/projects/${id}/candidates/${childId}/signaltrace` : next === 'candidateProfile' ? `/projects/${id}/candidates/${childId}/profile` : next === 'candidateDetail' ? `/projects/${id}/candidates/${childId}` : next === 'profile' ? '/profile' : next === 'auditProfile' ? `/audit/${id}/profile` : next === 'auditDetail' ? `/audit/${id}` : next === 'app' ? '/projects' : next === 'login' ? '/login' : next === 'register' ? '/register' : '/';
+    const path = next === 'admin' ? '/admin' : next === 'dashboard' ? '/dashboard' : next === 'history' ? '/history' : next === 'messages' ? '/messages' : next === 'projects' ? '/projects' : next === 'newProject' ? '/projects/new' : next === 'projectDetail' ? `/projects/${id}` : next === 'projectTeam' ? `/projects/${id}/team` : next === 'projectSettings' ? `/projects/${id}/settings` : next === 'addCandidate' ? `/projects/${id}/candidates/new` : next === 'signalTrace' ? `/projects/${id}/candidates/${childId}/signaltrace` : next === 'candidateProfile' ? `/projects/${id}/candidates/${childId}/profile` : next === 'candidateDetail' ? `/projects/${id}/candidates/${childId}` : next === 'profile' ? '/profile' : next === 'auditProfile' ? `/audit/${id}/profile` : next === 'auditDetail' ? `/audit/${id}` : next === 'app' ? '/projects' : next === 'login' ? '/login' : next === 'register' ? '/register' : '/';
     window.history.replaceState(null, '', path);
     scrollToPageTop();
 }
@@ -1775,243 +1780,34 @@ function EvidenceHighlights({ evidenceText, verdicts }) {
     );
 }
 
-const suspiciousWordRules = [
-    ['expert', 'Signals seniority without proof.', 'Specify years, systems, scope, or credentials.'],
-    ['led', 'Can overstate ownership if the evidence only shows participation.', 'Use managed, coordinated, contributed to, or supported with team size.'],
-    ['optimized', 'Needs a measurable before/after baseline.', 'Add metric, timeframe, and method.'],
-    ['proven', 'Sounds absolute unless backed by repeatable evidence.', 'Replace with demonstrated, tested, or documented.'],
-    ['advanced', 'Vague level claim without a standard.', 'Name the technique, tool, or measurable complexity.'],
-    ['strategic', 'Often hides unclear responsibility.', 'State the decision, audience, and outcome.'],
-    ['scalable', 'Requires load, growth, or architecture evidence.', 'Add traffic, volume, latency, or capacity numbers.'],
-    ['innovative', 'Subjective without external validation.', 'Describe what changed and why it was different.'],
-];
+const suspiciousWordRules = (defaultAts.analyzers?.localAuditRiskyWords || defaultAts.analyzers?.riskyWords || []).map((word) => [
+    word,
+    `The default ATS template flags "${word}" as wording that needs stronger evidence.`,
+    'Add concrete scope, artifact, metric, team size, date, repo, or source evidence.',
+]);
 
-const profilingPhraseRules = [
-    ...suspiciousWordRules.map(([word, risk, safer]) => ({
-        pattern: new RegExp(`\\b${escapeRegExp(word)}\\b`, 'ig'),
-        role: 'Confidence signal',
-        level: word === 'led' || word === 'expert' || word === 'proven' ? 'high' : 'medium',
-        risk,
-        safer,
+const profilingPhraseRules = defaultAts.rules.flatMap((rule) => [
+    ...(rule.keywords || []).map((keyword) => ({
+        pattern: new RegExp(`\\b${escapeRegExp(keyword)}\\b`, 'ig'),
+        role: rule.label || rule.category || 'ATS_RULE',
+        level: riskToProfileLevel(rule.risk),
+        risk: rule.why,
+        safer: rule.safer,
     })),
-    {
-        pattern: /\b\d+(?:\.\d+)?\s?(?:%|percent|x|times|k|m|million|billion)\b/ig,
-        role: 'Quantified claim',
-        level: 'high',
-        risk: 'Numbers create a concrete promise. They need direct evidence, baseline, and timeframe.',
-        safer: 'Keep the number only when the evidence shows the same metric and context.',
-    },
-    {
-        pattern: /\b(?:best|first|only|largest|fastest|highest|top|world-class)\b/ig,
-        role: 'Superlative claim',
-        level: 'high',
-        risk: 'Absolute ranking language implies comparison against a wider market or peer group.',
-        safer: 'Replace with the exact award, ranking source, or a narrower factual description.',
-    },
-    {
-        pattern: /\b(?:responsible for|owned|managed|delivered|built|launched)\b/ig,
-        role: 'Ownership claim',
-        level: 'medium',
-        risk: 'Ownership verbs can overstate personal responsibility if the evidence shows team contribution.',
-        safer: 'Name the scope, team size, and your exact contribution.',
-    },
-    {
-        pattern: /\b(?:certified|licensed|degree|award|publication|patent)\b/ig,
-        role: 'Credential claim',
-        level: 'high',
-        risk: 'Credential words matter because they are usually externally verifiable.',
-        safer: 'Attach issuer, date, certificate ID, publication link, or source document.',
-    },
-    {
-        pattern: /\b(?:Java|Spring Boot|Spring Data JPA|Hibernate|REST APIs?|SQL|MySQL|PostgreSQL|GitHub?|Postman|Selenium|Playwright|JUnit|TestNG|Docker|JWT|Spring Security|HTML|CSS|JavaScript|CI\/CD)\b/ig,
-        role: 'Technical skill claim',
-        level: 'medium',
-        risk: 'Tool and technology names imply practical ability. They should connect to projects, work history, or demonstrable usage.',
-        safer: 'Keep the skill and show where it was used: project, repo, test suite, endpoint, database, or deployment.',
-    },
-    {
-        pattern: /\b(?:basic knowledge|basic experience|understanding of|familiarity with|knowledge of|comfortable working with|strong understanding)\b/ig,
-        role: 'Skill-depth qualifier',
-        level: 'medium',
-        risk: 'Skill-depth wording is useful, but vague unless the evidence shows the actual level.',
-        safer: 'Pair the level with a concrete example, course, project, internship task, or repo.',
-    },
-    {
-        pattern: /\b(?:motivated|fast learner|detail-oriented|responsible|good communication skills|problem-solving mindset|willingness to learn|friendly|supportive)\b/ig,
-        role: 'Soft-skill claim',
-        level: 'medium',
-        risk: 'Soft skills are easy to claim and hard to verify without examples.',
-        safer: 'Support it with a situation, feedback, deadline, team responsibility, or result.',
-    },
-    {
-        pattern: /\b(?:develop(?:ed)?|maintain(?:ed)?|create(?:d)?|update(?:d)?|fix(?:ed)?|improve(?:d)?|write|test(?:ed)?|debug|communicate|participate(?:d)?|implemented|verified|worked with|created automated|built)\b/ig,
-        role: 'Responsibility/action claim',
-        level: 'medium',
-        risk: 'Action verbs claim contribution. The reviewer needs scope, ownership, and outcome.',
-        safer: 'Add what you built or tested, with scale, feature, tool, or measurable result.',
-    },
-    {
-        pattern: /\b(?:real projects?|real project experience|mentorship|career growth|paid training|learning resources|hybrid work environment|full-time|entry-level|junior)\b/ig,
-        role: 'Job-offer promise',
-        level: 'low',
-        risk: 'Offer and role terms set expectations. They matter when comparing candidate fit.',
-        safer: 'Keep offer terms precise and consistent with job title, level, and employment conditions.',
-    },
-    {
-        pattern: /\b(?:Bachelor of Computer Science|Computer Science student|Georgian Technical University|2023\s?[–-]\s?Present|June 2025\s?[–-]\s?September 2025|Intern)\b/ig,
-        role: 'Education/experience record',
-        level: 'high',
-        risk: 'Dates, institutions, and internships are externally checkable facts.',
-        safer: 'Verify dates, organization names, enrollment status, and internship responsibilities.',
-    },
-    {
-        pattern: /\b(?:Junior Java Developer|QA Automation Engineer|Software Tester Intern|backend development team|project managers|frontend developers|testers)\b/ig,
-        role: 'Role/position claim',
-        level: 'medium',
-        risk: 'Role titles frame seniority and fit. They should match actual experience and responsibilities.',
-        safer: 'Use the title exactly as listed in the job, internship, or project context.',
-    },
-    {
-        pattern: /\b(?:Tbilisi|Georgia|Georgian|English|Russian|Native|Fluent|Conversational|Hybrid|Full-time)\b/ig,
-        role: 'Context/profile fact',
-        level: 'low',
-        risk: 'Location, language, and work-mode facts are usually not risky, but still affect fit.',
-        safer: 'Keep context facts accurate and consistent across CV, application, and profile links.',
-    },
-    {
-        pattern: /\b(?:\+?\d[\d\s()-]{7,}|[\w.-]+@[\w.-]+\.\w+|linkedin\.com\/[^\s]+|github\.com\/[^\s]+)\b/ig,
-        role: 'Contact/profile evidence',
-        level: 'low',
-        risk: 'Contact and profile links are not achievement claims, but they should be valid and relevant.',
-        safer: 'Ensure the email, phone, LinkedIn, and GitHub links are real and match the candidate.',
-    },
-    {
-        pattern: /\b(?:\d{1,3}(?:,\d{3})?\s?[–-]\s?\d{1,3}(?:,\d{3})?\s?GEL|GEL net per month|depending on skills|interview results)\b/ig,
-        role: 'Compensation claim',
-        level: 'high',
-        risk: 'Salary ranges and conditions are concrete terms that should be clear and not misleading.',
-        safer: 'Keep currency, net/gross status, range, and dependency conditions explicit.',
-    },
-    {
-        pattern: /\b(?:Online Shop Backend|Booking Website QA Testing Project|Token-Based Authorization System|product, user, and order management|role-based access control|test cases|bug reports)\b/ig,
-        role: 'Project evidence claim',
-        level: 'high',
-        risk: 'Project descriptions are evidence anchors. They should be backed by code, tests, docs, or demos.',
-        safer: 'Link the repository or describe exact endpoints, entities, tests, and your contribution.',
-    },
-    {
-        pattern: /\b(?:Junior|Junior Developer|Junior QA Engineer|Junior Java Developer|Mid-level|Mid-level Developer|Middle Developer|Middle QA Engineer|Senior|Senior Developer|Senior QA Engineer|Senior Software Engineer|Lead|Team Lead|Technical Lead|Lead Developer|Principal|Principal Engineer|Staff Engineer|Staff Software Engineer|Intern|Software Intern|QA Intern|Entry-level|Entry-level Developer|Associate|Associate Engineer|Trainee|Graduate Trainee|Specialist|QA Specialist|Security Specialist|Manager|Engineering Manager|Project Manager|Product Manager|Head of|Head of Engineering|Head of QA|Architect|Software Architect|Solution Architect|Cloud Architect|Data Architect|Enterprise Architect)\b/ig,
-        role: 'SENIORITY_CLAIM',
-        level: 'high',
-        risk: 'Seniority titles set expectations for independence, ownership, leadership, and evidence depth.',
-        safer: 'Match the title to years, responsibilities, team scope, architecture decisions, projects, and outcomes.',
-    },
-    {
-        pattern: /\b(?:Python|TypeScript|C#|C\+\+|Go|Golang|Rust|PHP|Ruby|Kotlin|Swift|Dart|Scala|MATLAB|Bash|PowerShell|GraphQL|ASP\.NET Core|Entity Framework|Django|Flask|FastAPI|Node\.js|Express\.js|NestJS|React|Next\.js|Vue\.js|Nuxt|Angular|Svelte|Tailwind CSS|Bootstrap|Material UI|Redux|Zustand|RxJS|Laravel|Symfony|Ruby on Rails|Flutter|React Native|Android SDK|iOS SDK|TensorFlow|PyTorch|scikit-learn|Pandas|NumPy|OpenCV|LangChain|Hugging Face|Cypress|Mockito|RestAssured|Swagger|OpenAPI|Allure Reports|JMeter|Gatling|k6)\b/ig,
-        role: 'TECH_SKILL_CLAIM',
-        level: 'medium',
-        risk: 'Technology names imply usable skill. Depth varies widely and should be tied to real tasks.',
-        safer: 'Show where the tool was used: repo, project, endpoint, test suite, deployment, report, or coursework.',
-    },
-    {
-        pattern: /\b(?:SQL Server|Oracle Database|SQLite|MongoDB|Redis|Elasticsearch|Cassandra|DynamoDB|Firebase Firestore|Supabase|Prisma|Liquibase|Flyway|Kafka|RabbitMQ|Spark|Airflow|dbt|Snowflake|BigQuery|Redshift)\b/ig,
-        role: 'TECH_SKILL_CLAIM',
-        level: 'high',
-        risk: 'Data, messaging, and infrastructure tools often imply system complexity or production exposure.',
-        safer: 'Add schema, query, pipeline, topic, dashboard, migration, benchmark, or architecture evidence.',
-    },
-    {
-        pattern: /\b(?:AWS|Azure|Google Cloud|GCP|Docker Compose|Kubernetes|Helm|Terraform|Ansible|Jenkins|GitHub Actions|GitLab CI|Azure DevOps|CircleCI|Travis CI|Nginx|Apache HTTP Server|Linux|Ubuntu|Bash scripting|Monitoring|Prometheus|Grafana|ELK Stack|Sentry|Datadog|Cloudflare|Vercel|Netlify|Render|Heroku|Railway|Clever Cloud|DigitalOcean)\b/ig,
-        role: 'TECH_SKILL_CLAIM',
-        level: 'high',
-        risk: 'Cloud and DevOps claims can imply deployment, ownership, reliability, and operational responsibility.',
-        safer: 'Name exact services, configs, workflows, dashboards, deployment links, or environment scope.',
-    },
-    {
-        pattern: /\b(?:OAuth2|OpenID Connect|RBAC|Encryption|Hashing|bcrypt|HTTPS|TLS|OWASP Top 10|Penetration testing|Vulnerability scanning|Burp Suite|SonarQube|SAST|DAST|Dependency scanning|Secrets management|HashiCorp Vault)\b/ig,
-        role: 'SECURITY_CLAIM',
-        level: 'high',
-        risk: 'Security claims are high-trust and can be misleading without implementation or audit evidence.',
-        safer: 'Add auth flow, permission model, tool report, certificate, legal scope, or code reference.',
-    },
-    {
-        pattern: /\b(?:Beginner knowledge|Introductory knowledge|Some experience with|Exposure to|Working knowledge of|Practical knowledge of|Practical experience with|Hands-on experience with|Commercial experience with|Production experience with|Professional experience with|Deep understanding of|Solid understanding of|Good knowledge of|Excellent knowledge of|Advanced knowledge of|Proficient in|Highly proficient in|Expert in|Specialist in|Experienced in|Skilled in|Comfortable with|Able to work with|Capable of|Confident in|Mastery of|Strong command of|End-to-end experience|Full lifecycle experience|Cross-functional experience|Enterprise-level experience|Real-world experience|Industry experience)\b/ig,
-        role: 'SKILL_DEPTH_CLAIM',
-        level: 'high',
-        risk: 'Skill-depth phrases change how strongly a reader trusts the claim.',
-        safer: 'Use the weakest accurate level and add project, date, task, repo, work context, or measurable proof.',
-    },
-    {
-        pattern: /\b(?:Built from scratch|Architected|Co-led|Designed|Automated|Migrated|Refactored|Reviewed|Mentored|Trained|Coordinated|Collaborated|Supported|Troubleshot|Resolved|Analyzed|Researched|Planned|Prioritized|Monitored|Documented|Validated|Audited|Assessed|Investigated|Launched|Released|Shipped|Scaled|Secured|Configured|Set up|Established|Standardized|Streamlined)\b/ig,
-        role: 'LEADERSHIP_CLAIM',
-        level: 'high',
-        risk: 'Responsibility verbs can overstate ownership, leadership, production maturity, or technical scope.',
-        safer: 'State exact responsibility, supervision level, team size, artifact, before/after, and final outcome.',
-    },
-    {
-        pattern: /\b(?:Increased|Increased revenue|Increased conversion|Increased user engagement|Increased retention|Reduced|Reduced costs|Reduced bugs|Reduced latency|Reduced load time|Reduced manual work|Improved|Improved performance|Improved reliability|Improved security|Improved UX|Improved maintainability|Optimized database queries|Optimized API response time|Accelerated|Saved time|Saved money|Cut processing time|Boosted|Enhanced|Strengthened|Modernized|Transformed|Revolutionized|World-class|Best-in-class|High-performance|Robust|Secure|Reliable|Maintainable|User-friendly|Production-ready|Enterprise-ready)\b/ig,
-        role: 'IMPACT_CLAIM',
-        level: 'high',
-        risk: 'Impact language implies measurable change or quality. It should not stand alone.',
-        safer: 'Add baseline, metric, timeframe, benchmark, source, test method, or release evidence.',
-    },
-    {
-        pattern: /\b(?:\d+(?:\.\d+)?%|\d+\+?\s*(?:years?|yrs?|months?|weeks?|users?|customers?|clients?|projects?|features?|APIs?|endpoints?|test cases?|bug reports?|tickets?|commits?|pull requests?|deployments?|releases?|microservices?|databases?|servers?|RPS|ms|seconds?|minutes?)|team of \d+|managed \d+|\d+\+?\s*(?:GEL|USD|EUR)|\$[\d,]+|€[\d,]+|₾[\d,]+|\d+k\b|\d+M\b|\d+x\b|\d+ times faster|under \d+ ms|99\.9% uptime|24\/7|7 days a week|up to \d+%|starting from\b.*\d+|\d+[-–]\d+\s*(?:GEL|USD|EUR))\b/ig,
-        role: 'QUANTIFIED_CLAIM',
-        level: 'high',
-        risk: 'Numbers look factual and require a source, calculation, timeframe, or benchmark.',
-        safer: 'Add exact source, before/after, formula, date range, logs, analytics, transcript, or salary terms.',
-    },
-    {
-        pattern: /\b(?:Quick learner|Highly motivated|Team player|Strong team player|Leadership skills|Excellent communication skills|Strong problem-solving skills|Works independently|Proactive|Self-starter|Adaptable|Flexible|Organized|Creative|Analytical|Critical thinker|Strategic thinker|Growth mindset|Passionate|Hardworking|Dedicated|Disciplined|Results-driven|Customer-focused|Ownership mindset|High attention to detail|Works well under pressure|Time management|Conflict resolution|Negotiation skills|Presentation skills|Mentoring mindset|Positive attitude|Professional attitude)\b/ig,
-        role: 'VAGUE_CLAIM',
-        level: 'medium',
-        risk: 'Soft-skill phrases are common but subjective without a concrete situation.',
-        safer: 'Support with a story, deadline, defect found, documentation, team interaction, or delivered result.',
-    },
-    {
-        pattern: /\b(?:Bachelor|Bachelor’s degree|BSc|BA|Master|Master’s degree|MSc|MBA|PhD|Diploma|Certification|Bootcamp|University|College|Online course|GPA|GPA 4\.0|Honors|Scholarship|Erasmus|Exchange student|Dean’s List|Graduated|Currently studying|Expected graduation|Completed course|Coursera|Udemy|edX|AWS Certified|Azure Certified|Google Cloud Certified|ISTQB|Scrum Master|PMP)\b/ig,
-        role: 'CREDENTIAL_CLAIM',
-        level: 'high',
-        risk: 'Education and credential claims are externally verifiable and should be precise.',
-        safer: 'Add issuer, institution, date, credential ID, transcript, certificate link, or expected graduation date.',
-    },
-    {
-        pattern: /\b(?:Internship|Full-time|Part-time|Freelance|Contract|Remote|On-site|Temporary|Seasonal|Volunteer|Promoted|Hired|Onboarded|Trained employees|Supervised|Reported to|Worked with clients|Stakeholder management|Cross-functional team|Agile team|Scrum|Kanban|Jira|Daily standups|Sprint planning|Code reviews|Pull requests|Production support|On-call|Release management|Incident response|Customer support|Technical support|Manual testing|Automation testing|Regression testing|Integration testing|Functional testing|API testing|Performance testing|Load testing|Security testing)\b/ig,
-        role: 'WORK_EXPERIENCE_CLAIM',
-        level: 'medium',
-        risk: 'Work-experience phrases imply role scope, process exposure, and sometimes production responsibility.',
-        safer: 'Add company, dates, hours, system scope, tools, reports, tickets, releases, or team context.',
-    },
-    {
-        pattern: /\b(?:GitLab|Bitbucket|Personal website|Live demo|Deployed project|Production environment|README|API documentation|Test plan|Test strategy|Checklist|Defect reports|Jira tickets|Trello board|Screenshots|Video demo|Case study|Architecture diagram|ER diagram|Database schema|Migrations|Seed data|API endpoints|Authentication flow|Authorization roles|CI\/CD pipeline|Dockerfile|docker-compose\.yml|Kubernetes manifests|Environment variables|\.env\.example|Logs|Monitoring dashboard|Analytics|Benchmark|Load test report|Coverage report|Release notes|Changelog|Version tag|Commit history|Pull request|Code review|Issue tracker|License file|NPM package|Maven package|PyPI package|App Store|Google Play)\b/ig,
-        role: 'EVIDENCE_FIELD',
-        level: 'medium',
-        risk: 'Evidence fields help prove technical claims, but links/artifacts should be real and consistent.',
-        safer: 'Check the link or artifact and connect it to the exact claim being made.',
-    },
-    {
-        pattern: /\b(?:E-mail|Mobile|Website|Remote availability|Languages|English\s?[–-]\s?(?:Fluent|B2|C1)|Georgian\s?[–-]\s?Native|Russian\s?[–-]\s?Conversational|Spanish\s?[–-]\s?Intermediate|Citizenship|Work permit|Visa sponsorship|Relocation|Availability|Notice period|Open to work|Salary expectation|References|Date of birth|Marital status|Photo)\b/ig,
-        role: 'CONTACT_FIELD',
-        level: 'low',
-        risk: 'Profile/contact fields affect hiring context and may include sensitive or verifiable data.',
-        safer: 'Validate links and formats; avoid sensitive personal fields unless legally required.',
-    },
-    {
-        pattern: /\b(?:Growth opportunities|Training provided|Hands-on projects|Flexible schedule|Flexible hours|Remote work|Work from anywhere|Competitive salary|Attractive salary|Salary negotiable|Benefits|Full benefits package|Health insurance|Paid vacation|Paid leave|Bonus|Annual bonus|Performance bonus|Stock options|Equity|Relocation support|Modern office|Free snacks|Team events|Learning budget|Conference budget|Certification support|Equipment provided|Laptop provided|Paid internship|Unpaid internship|Trial period|Probation period|Fast-paced environment|Dynamic environment|Startup culture|Work-life balance|No overtime|Occasional overtime|International team|Global company|Industry leader|Cutting-edge technology|Latest technologies|Real impact)\b/ig,
-        role: 'JOB_PROMISE',
-        level: 'high',
-        risk: 'Job-posting promises affect candidate expectations and should be concrete.',
-        safer: 'Add salary range, net/gross, policy, schedule, eligibility, office days, budget amount, or benefit details.',
-    },
-    {
-        pattern: /\b(?:junior\b.*\bexpert|entry[- ]level\b.*\b5\+?\s*years|intern\b.*\bowned|senior\b.*\bbasic knowledge|lead\b.*\bteam of \d+|head of\b.*\bdepartment|production experience\b.*(?:no work|no project)|production\b(?!.*(?:company|link|users?|deployment)))\b/ig,
-        role: 'POSSIBLE_MISMATCH',
-        level: 'high',
-        risk: 'This phrase combination may contradict expected seniority, experience, or evidence level.',
-        safer: 'Clarify true level, reduce exaggerated wording, or add direct evidence for the stronger claim.',
-    },
-];
+    ...(rule.patterns || []).map((pattern) => ({
+        pattern: new RegExp(pattern, 'ig'),
+        role: rule.label || rule.category || 'ATS_RULE',
+        level: riskToProfileLevel(rule.risk),
+        risk: rule.why,
+        safer: rule.safer,
+    })),
+]);
+
+function riskToProfileLevel(risk) {
+    if (risk === 'High') return 'high';
+    if (risk === 'Medium') return 'medium';
+    return 'low';
+}
 
 function ProfilingModePanel({ audit, verdicts, setRoute }) {
     const rows = (verdicts || []).map((verdict) => ({

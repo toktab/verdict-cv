@@ -970,3 +970,66 @@ starred=false
 reply_to_message_id=
 forwarded_from_message_id=
 
+--- MESSAGE SENT ---
+logged_at=2026-07-06T06:20:27.013009900Z
+message_id=10
+type=PROJECT_INVITE
+sent_at=2026-07-06T06:20:27.008604300Z
+from_user_id=3
+from_username=toko2
+from_email=toko2@gmail.com
+from_name=Toko Tabagari
+to_email=toko1@gmail.com
+subject=Invitation to JOB TITLE: Junior Java Backend Developer
+body=Toko Tabagari invited you to join JOB TITLE: Junior Java Backend Developer. Open this message and choose Accept or Decline.
+project_id=2
+project_title=JOB TITLE: Junior Java Backend Developer
+invite_token=KFetZQZb-tJf4BXf0aUrgk6aVhWN61YBMCc2zomBWFarcR0R
+invite_status=PENDING
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-06T06:20:41.528539600Z
+message_id=10
+type=PROJECT_INVITE
+sent_at=2026-07-06T06:20:27.008604Z
+from_user_id=2
+from_username=toko1
+from_email=toko2@gmail.com
+from_name=Toko Tabagari
+to_email=toko1@gmail.com
+subject=Invitation to JOB TITLE: Junior Java Backend Developer
+body=Toko Tabagari invited you to join JOB TITLE: Junior Java Backend Developer. Open this message and choose Accept or Decline.
+project_id=2
+project_title=JOB TITLE: Junior Java Backend Developer
+invite_token=KFetZQZb-tJf4BXf0aUrgk6aVhWN61YBMCc2zomBWFarcR0R
+invite_status=PENDING
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-06T06:20:46.448929700Z
+message_id=10
+type=PROJECT_INVITE
+sent_at=2026-07-06T06:20:27.008604Z
+from_user_id=2
+from_username=toko1
+from_email=toko2@gmail.com
+from_name=Toko Tabagari
+to_email=toko1@gmail.com
+subject=Invitation to JOB TITLE: Junior Java Backend Developer
+body=Toko Tabagari invited you to join JOB TITLE: Junior Java Backend Developer. Open this message and choose Accept or Decline.
+project_id=2
+project_title=JOB TITLE: Junior Java Backend Developer
+invite_token=KFetZQZb-tJf4BXf0aUrgk6aVhWN61YBMCc2zomBWFarcR0R
+invite_status=ACCEPTED
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+

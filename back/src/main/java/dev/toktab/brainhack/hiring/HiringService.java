@@ -2,6 +2,7 @@ package dev.toktab.brainhack.hiring;
 
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.account.UserAccountService;
+import dev.toktab.brainhack.ats.AtsKeywordCatalog;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateStatusRequest;
@@ -56,18 +57,10 @@ public class HiringService {
     );
     private static final Set<String> REQUIREMENT_SECTIONS = Set.of("RESPONSIBILITIES", "REQUIRED QUALIFICATIONS", "NICE TO HAVE", "TECH STACK", "IDEAL CANDIDATE PROFILE");
     private static final Set<String> STOP_REQUIREMENT_SECTIONS = Set.of("WHAT WE OFFER", "ABOUT THE ROLE", "LOCATION", "EMPLOYMENT TYPE", "LEVEL");
-    private static final Set<String> TECH_TERMS = Set.of(
-            "java", "spring", "boot", "security", "rest", "api", "apis", "sql", "mysql", "postgresql", "postgres",
-            "jpa", "hibernate", "jwt", "authentication", "authorization", "git", "github", "docker", "compose",
-            "postman", "swagger", "junit", "restassured", "testing", "oop", "object-oriented", "backend",
-            "controller", "service", "repository", "debugging", "linux", "cicd", "ci/cd", "kafka", "websockets",
-            "websocket", "maven", "database", "databases", "relational", "deployment", "cloud", "role-based"
-    );
     private static final Pattern SENTENCE = Pattern.compile("(?<=[.!?])\\s+|\\R+");
     private static final Pattern URL = Pattern.compile("https?://[^\\s)>,]+", Pattern.CASE_INSENSITIVE);
     private static final Pattern HANDLE = Pattern.compile("(?<![\\w.])@([a-zA-Z0-9][a-zA-Z0-9_.-]{2,38})");
     private static final Pattern GITHUB_URL = Pattern.compile("https?://(?:www\\.)?github\\.com/([a-zA-Z0-9-]{1,39})(?:[/\\s?#]|$)", Pattern.CASE_INSENSITIVE);
-    private static final List<String> RISKY_WORDS = List.of("expert", "senior", "led", "advanced", "proven", "guaranteed", "best", "deep");
 
     private final HiringProjectRepository projectRepository;
     private final HiringCandidateRepository candidateRepository;
@@ -78,6 +71,7 @@ public class HiringService {
     private final CandidateReviewNoteRepository noteRepository;
     private final MessageService messageService;
     private final UserAccountService userAccountService;
+    private final AtsKeywordCatalog atsKeywordCatalog;
     private final SecureRandom secureRandom = new SecureRandom();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(java.time.Duration.ofSeconds(4))
@@ -92,7 +86,8 @@ public class HiringService {
             ProjectInviteRepository inviteRepository,
             CandidateReviewNoteRepository noteRepository,
             MessageService messageService,
-            UserAccountService userAccountService) {
+            UserAccountService userAccountService,
+            AtsKeywordCatalog atsKeywordCatalog) {
         this.projectRepository = projectRepository;
         this.candidateRepository = candidateRepository;
         this.mapper = mapper;
@@ -102,6 +97,7 @@ public class HiringService {
         this.noteRepository = noteRepository;
         this.messageService = messageService;
         this.userAccountService = userAccountService;
+        this.atsKeywordCatalog = atsKeywordCatalog;
     }
 
     @Transactional
@@ -156,6 +152,9 @@ public class HiringService {
     @Transactional
     public void deleteProject(UserAccount owner, Long id) {
         HiringProject project = projectEntity(owner, id);
+        if (!permissionsFor(owner, project).contains("protectedAccount")) {
+            throw new IllegalArgumentException("Project Head Admin permissions required");
+        }
         project.setDeletedAt(Instant.now());
         projectRepository.save(project);
     }
@@ -488,7 +487,7 @@ public class HiringService {
                 continue;
             }
             String lower = normalize(clean);
-            boolean risky = RISKY_WORDS.stream().anyMatch(lower::contains);
+            boolean risky = atsKeywordCatalog.riskyWords().stream().anyMatch(lower::contains);
             int requirementHits = keywordHits(clean, normalizedRequirements);
             if (risky) {
                 addClaim(rows, seen, clean, "Stretched", "The wording raises the proof burden and should be backed by concrete project, duration, team, or production evidence.");
@@ -629,7 +628,7 @@ public class HiringService {
         if (normalizedText.matches(".*\\b\\d+\\b.*")) {
             return true;
         }
-        return TECH_TERMS.stream().anyMatch(term -> normalizedText.matches(".*\\b" + Pattern.quote(term) + "\\b.*"));
+        return atsKeywordCatalog.techTerms().stream().anyMatch(term -> normalizedText.matches(".*\\b" + Pattern.quote(term) + "\\b.*"));
     }
 
     private boolean isNeutralCvLine(String text) {
@@ -665,7 +664,7 @@ public class HiringService {
     private List<Map<String, Object>> riskyMatches(String text) {
         List<Map<String, Object>> matches = new ArrayList<>();
         String lower = defaulted(text, "").toLowerCase(Locale.ROOT);
-        for (String word : RISKY_WORDS) {
+        for (String word : atsKeywordCatalog.riskyWords()) {
             int index = lower.indexOf(word);
             if (index >= 0) {
                 Map<String, Object> match = new LinkedHashMap<>();
@@ -769,8 +768,8 @@ public class HiringService {
         }
 
         int hits = keywordHits(requirement, normalizedCv);
-        long requiredTechTerms = TECH_TERMS.stream().filter(normalizedRequirement::contains).count();
-        long matchedTechTerms = TECH_TERMS.stream()
+        long requiredTechTerms = atsKeywordCatalog.techTerms().stream().filter(normalizedRequirement::contains).count();
+        long matchedTechTerms = atsKeywordCatalog.techTerms().stream()
                 .filter(normalizedRequirement::contains)
                 .filter(term -> normalizedCv.matches(".*\\b" + Pattern.quote(term) + "\\b.*"))
                 .count();
@@ -796,7 +795,7 @@ public class HiringService {
         if (normalizedRequirement.length() < 4) {
             return false;
         }
-        return TECH_TERMS.stream()
+        return atsKeywordCatalog.techTerms().stream()
                 .filter(normalizedRequirement::contains)
                 .anyMatch(term -> normalizedCv.matches(".*\\b" + Pattern.quote(term) + "\\b.*"));
     }

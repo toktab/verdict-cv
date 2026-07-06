@@ -34,6 +34,9 @@ build/
 
 ### H2 Database ###
 data/
+!front/src/data/
+front/src/data/*
+!front/src/data/default-ats.json
 
 ### Frontend ###
 node_modules/

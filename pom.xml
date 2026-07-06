@@ -99,6 +99,12 @@
 			<resource>
 				<directory>back/src/main/resources</directory>
 			</resource>
+			<resource>
+				<directory>front/src/data</directory>
+				<includes>
+					<include>default-ats.json</include>
+				</includes>
+			</resource>
 		</resources>
 		<testResources>
 			<testResource>

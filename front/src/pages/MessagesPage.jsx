@@ -214,11 +214,12 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                 <div className="messageModalBackdrop" role="dialog" aria-modal="true">
                     <article className="messageModal">
                         <div className="messageModalHead">
-                            <button className="messageCloseButton" aria-label="Close message" type="button" onClick={() => setActiveId(null)}><X size={28} /></button>
                             <div>
-                                <span className="eyebrow">{active.type === 'projectInvite' ? 'Project invite' : folder === 'sent' ? 'Sent message' : 'Inbox message'}</span>
+                                <span className="messageTypePill">{active.type === 'projectInvite' ? 'Project invite' : folder === 'sent' ? 'Sent message' : 'Inbox message'}</span>
                                 <h2>{active.subject}</h2>
+                                <p>{active.fromName || active.from} to {recipientName(active.to, user)}</p>
                             </div>
+                            <button className="messageCloseButton" aria-label="Close message" type="button" onClick={() => setActiveId(null)}><X size={28} /></button>
                         </div>
                         <div className="messageModalToolbar">
                             <button className="primary" type="button" onClick={() => replyTo(active)}><CornerUpLeft size={16} /> Reply</button>
@@ -229,11 +230,13 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                         <div className="messageModalScroll">
                         <div className="messagePeopleCard">
                             <div>
+                                <b>{initials(active.fromName || active.from)}</b>
                                 <span>From</span>
                                 <strong>{active.fromName || 'Unknown sender'}</strong>
                                 <small>{active.from}</small>
                             </div>
                             <div>
+                                <b>{initials(recipientName(active.to, user) || active.to)}</b>
                                 <span>To</span>
                                 <strong>{recipientName(active.to, user)}</strong>
                                 <small>{active.to}</small>
@@ -269,11 +272,6 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                             <span>Title: {active.subject}</span>
                         </section>
                         </div>
-                        <div className="messageModalActions">
-                            <button className="primary" type="button" onClick={() => replyTo(active)}><CornerUpLeft size={15} /> Reply</button>
-                            <button className="secondary" type="button" onClick={() => forwardMessage(active)}><Forward size={15} /> Forward</button>
-                            <button className="secondary" type="button" onClick={() => setActiveId(null)}><X size={15} /> Close</button>
-                        </div>
                     </article>
                 </div>
             )}
@@ -305,6 +303,11 @@ function recipientName(email, user) {
         return user?.fullName || user?.username || 'You';
     }
     return email?.split('@')[0] || 'Recipient';
+}
+
+function initials(value = '') {
+    const parts = String(value).replace(/@.*$/, '').split(/\s+|[._-]+/).filter(Boolean);
+    return `${parts[0]?.[0] || 'V'}${parts[1]?.[0] || ''}`.toUpperCase();
 }
 
 function serverPatch(patch) {
