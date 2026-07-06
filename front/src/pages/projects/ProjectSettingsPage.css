@@ -217,6 +217,11 @@
     color: #ff8b8b;
 }
 
+.confirmHint {
+    color: #ffb4b4;
+    font-weight: 700;
+}
+
 @media (max-width: 640px) {
     .projectSettingsPage {
         margin-top: 12px;

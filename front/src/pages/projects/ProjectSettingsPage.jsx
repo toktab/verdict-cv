@@ -30,6 +30,7 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
     const [deleteCountdown, setDeleteCountdown] = useState(3);
     const [deletePhrase, setDeletePhrase] = useState('');
     const [deleteBusy, setDeleteBusy] = useState(false);
+    const [deleteFeedback, setDeleteFeedback] = useState('');
     const [logsOpen, setLogsOpen] = useState(false);
     const [logsMode, setLogsMode] = useState('visual');
     const [activityRows, setActivityRows] = useState(() => readProjectActivity(project?.id));
@@ -45,6 +46,7 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
         if (!deleteOpen) return undefined;
         setDeleteCountdown(3);
         setDeletePhrase('');
+        setDeleteFeedback('');
         const timer = window.setInterval(() => {
             setDeleteCountdown((current) => Math.max(0, current - 1));
         }, 1000);
@@ -85,8 +87,16 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
     }
 
     async function deleteProject() {
-        if (!deleteReady) return;
+        if (deleteCountdown > 0) {
+            setDeleteFeedback(`Wait ${deleteCountdown}s before deleting.`);
+            return;
+        }
+        if (!deleteReady) {
+            setDeleteFeedback('Type exactly "I confirm" without extra letters.');
+            return;
+        }
         setDeleteBusy(true);
+        setDeleteFeedback('');
         try {
             recordProjectActivity(project.id, user, {
                 type: 'project_delete',
@@ -99,7 +109,7 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
             await onProjectsChange?.();
             navigateTo(setRoute, 'projects');
         } catch (error) {
-            setSaved(error.message || 'Could not delete project.');
+            setDeleteFeedback(error.message || 'Could not delete project.');
         } finally {
             setDeleteBusy(false);
         }
@@ -170,10 +180,15 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
                         <div className="deleteConfirmBox">
                             <AlertTriangle size={32} />
                             <p>Wait {deleteCountdown > 0 ? `${deleteCountdown}s` : 'complete'}, then type exactly <strong>I confirm</strong>.</p>
-                            <input value={deletePhrase} onChange={(event) => setDeletePhrase(event.target.value)} placeholder="I confirm" />
+                            <input value={deletePhrase} onChange={(event) => {
+                                setDeletePhrase(event.target.value);
+                                setDeleteFeedback('');
+                            }} placeholder="I confirm" />
+                            {deletePhrase && !deleteReady && deleteCountdown <= 0 && <small className="confirmHint">Current text does not match. Expected: I confirm</small>}
+                            {deleteFeedback && <div className="error compact">{deleteFeedback}</div>}
                         </div>
-                        <button className="destructive" disabled={!deleteReady || deleteBusy} type="button" onClick={deleteProject}>
-                            <Trash2 size={16} /> {deleteBusy ? 'Deleting...' : 'Delete project'}
+                        <button className="destructive" disabled={deleteBusy} type="button" onClick={deleteProject}>
+                            <Trash2 size={16} /> {deleteBusy ? 'Deleting...' : deleteReady ? 'Delete project' : 'Confirm phrase required'}
                         </button>
                     </section>
                 </div>
