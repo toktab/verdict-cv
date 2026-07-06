@@ -132,36 +132,12 @@ public class AuditService {
         audit = saveNewAuditWithQuota(audit, owner);
         try {
             AuditAnalysisResult analysis = analyze(audit, sentences, evidenceText);
-            List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(applyUnimportantRules(audit, analysis.verdicts()), evidenceText);
-            audit.setEngine(analysis.engine());
-            applyUsage(audit, analysis.usage());
-            setProgress(audit, "scoring", 70, "Scoring verdicts.");
-            audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
-            audit.setProcessingMillis(System.currentTimeMillis() - started);
-            for (AnalyzedVerdict analyzed : normalizedVerdicts) {
-                audit.addVerdict(toEntity(analyzed));
-            }
-            countStatuses(audit);
-            audit.setStatus(AuditStatus.COMPLETED);
-            clearFailure(audit);
-            audit.setFinishedAt(Instant.now());
-            audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
-            setProgress(audit, "completed", 100, "Audit completed.");
-            Audit saved = auditRepository.save(audit);
-            snapshot(saved);
-            rabbitEventPublisher.publish("audit.completed", Map.of("auditId", saved.getId(), "score", saved.getCredibilityScore(), "engine", saved.getEngine()));
+            Audit saved = completeAnalyzedAudit(audit, analysis, evidenceText, started, false);
             String actor = owner == null ? "visitor" : owner.getUsername();
             logService.record("AUDIT_RUN", httpRequest, 200, saved.getProcessingMillis(), actor, "auditId=" + saved.getId() + "; status=" + saved.getStatus() + "; score=" + saved.getCredibilityScore() + "; engine=" + saved.getEngine());
             return saved;
         } catch (RuntimeException exception) {
-            audit.setStatus(AuditStatus.FAILED);
-            audit.setProcessingMillis(System.currentTimeMillis() - started);
-            applyFailure(audit, exception);
-            audit.setFinishedAt(Instant.now());
-            audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
-            setProgress(audit, "failed", 100, "Audit failed: " + exception.getClass().getSimpleName());
-            auditRepository.save(audit);
-            rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
+            failAudit(audit, exception, started);
             throw exception;
         }
     }
@@ -539,36 +515,10 @@ public class AuditService {
                 markCancelled(auditRepository.findByIdAndDeletedAtIsNull(auditId).orElse(audit));
                 return;
             }
-            List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(applyUnimportantRules(audit, analysis.verdicts()), audit.getEvidenceText());
-            audit.setEngine(analysis.engine());
-            applyUsage(audit, analysis.usage());
-            setProgress(audit, "scoring", 70, "Scoring verdicts.");
-            audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
-            audit.setProcessingMillis(System.currentTimeMillis() - started);
-            audit.getVerdicts().clear();
-            for (AnalyzedVerdict analyzed : normalizedVerdicts) {
-                audit.addVerdict(toEntity(analyzed));
-            }
-            countStatuses(audit);
-            setProgress(audit, "snapshotting", 90, "Saving audit snapshot.");
-            audit.setStatus(AuditStatus.COMPLETED);
-            clearFailure(audit);
-            audit.setFinishedAt(Instant.now());
-            audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
-            setProgress(audit, "completed", 100, "Audit completed.");
-            Audit saved = auditRepository.save(audit);
-            snapshot(saved);
-            rabbitEventPublisher.publish("audit.completed", Map.of("auditId", saved.getId(), "score", saved.getCredibilityScore(), "engine", saved.getEngine()));
+            Audit saved = completeAnalyzedAudit(audit, analysis, audit.getEvidenceText(), started, true);
             logService.recordSystem("AUDIT_ASYNC_COMPLETED", "auditId=" + saved.getId() + "; score=" + saved.getCredibilityScore() + "; engine=" + saved.getEngine());
         } catch (RuntimeException exception) {
-            audit.setStatus(AuditStatus.FAILED);
-            audit.setProcessingMillis(System.currentTimeMillis() - started);
-            applyFailure(audit, exception);
-            audit.setFinishedAt(Instant.now());
-            audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
-            setProgress(audit, "failed", 100, "Audit failed: " + exception.getClass().getSimpleName());
-            auditRepository.save(audit);
-            rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
+            failAudit(audit, exception, started);
             logService.recordSystem("AUDIT_ASYNC_FAILED", "auditId=" + audit.getId() + "; error=" + exception.getClass().getSimpleName());
         }
     }
@@ -674,6 +624,43 @@ public class AuditService {
             }
         }
         return bestScore >= 2 ? best : "";
+    }
+
+    private Audit completeAnalyzedAudit(Audit audit, AuditAnalysisResult analysis, String evidenceText, long started, boolean replaceVerdicts) {
+        List<AnalyzedVerdict> normalizedVerdicts = normalizeEvidencePointers(applyUnimportantRules(audit, analysis.verdicts()), evidenceText);
+        audit.setEngine(analysis.engine());
+        applyUsage(audit, analysis.usage());
+        setProgress(audit, "scoring", 70, "Scoring verdicts.");
+        audit.setCredibilityScore(scoringService.score(normalizedVerdicts));
+        audit.setProcessingMillis(System.currentTimeMillis() - started);
+        if (replaceVerdicts) {
+            audit.getVerdicts().clear();
+        }
+        for (AnalyzedVerdict analyzed : normalizedVerdicts) {
+            audit.addVerdict(toEntity(analyzed));
+        }
+        countStatuses(audit);
+        setProgress(audit, "snapshotting", 90, "Saving audit snapshot.");
+        audit.setStatus(AuditStatus.COMPLETED);
+        clearFailure(audit);
+        audit.setFinishedAt(Instant.now());
+        audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
+        setProgress(audit, "completed", 100, "Audit completed.");
+        Audit saved = auditRepository.save(audit);
+        snapshot(saved);
+        rabbitEventPublisher.publish("audit.completed", Map.of("auditId", saved.getId(), "score", saved.getCredibilityScore(), "engine", saved.getEngine()));
+        return saved;
+    }
+
+    private void failAudit(Audit audit, RuntimeException exception, long started) {
+        audit.setStatus(AuditStatus.FAILED);
+        audit.setProcessingMillis(System.currentTimeMillis() - started);
+        applyFailure(audit, exception);
+        audit.setFinishedAt(Instant.now());
+        audit.setLastWorkerHeartbeatAt(audit.getFinishedAt());
+        setProgress(audit, "failed", 100, "Audit failed: " + exception.getClass().getSimpleName());
+        auditRepository.save(audit);
+        rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
     }
 
     private Verdict toEntity(AnalyzedVerdict analyzed) {
