@@ -282,11 +282,11 @@ public class AuditService {
     }
 
     private AuditAnalysisResult analyze(Audit audit, List<String> sentences, String evidenceText) {
-        String stateId = audit.getCheckStateId() == null ? "war" : audit.getCheckStateId();
+        String stateId = audit.getCheckStateId() == null ? CheckStateIds.WAR : audit.getCheckStateId();
         return switch (stateId) {
-            case "person" -> llmOrLocal(sentences, evidenceText, "PERSON_STATE_LLM_FALLBACK");
-            case "strict-war-ai" -> strictWarAi(sentences, evidenceText);
-            case "light" -> lightLocal(sentences, evidenceText);
+            case CheckStateIds.PERSON -> llmOrLocal(sentences, evidenceText, "PERSON_STATE_LLM_FALLBACK");
+            case CheckStateIds.STRICT_WAR_AI -> strictWarAi(sentences, evidenceText);
+            case CheckStateIds.LIGHT -> lightLocal(sentences, evidenceText);
             default -> localAuditAnalyzer.analyze(sentences, evidenceText);
         };
     }
@@ -473,7 +473,7 @@ public class AuditService {
     }
 
     private Audit saveNewAuditWithQuota(Audit audit, UserAccount owner) {
-        if (owner == null || !"war".equals(audit.getCheckStateId())) {
+        if (owner == null || !CheckStateIds.WAR.equals(audit.getCheckStateId())) {
             return auditRepository.saveAndFlush(audit);
         }
         Object lock = warQuotaLocks.computeIfAbsent(owner.getId(), ignored -> new Object());
@@ -484,11 +484,11 @@ public class AuditService {
     }
 
     private void enforceWarWeeklyLimit(UserAccount owner, String checkStateId) {
-        if (owner == null || !"war".equals(checkStateId)) {
+        if (owner == null || !CheckStateIds.WAR.equals(checkStateId)) {
             return;
         }
         Instant weekStart = Instant.now().minus(Duration.ofDays(7));
-        long used = auditRepository.countByOwnerIdAndCheckStateIdAndCreatedAtAfterAndDeletedAtIsNull(owner.getId(), "war", weekStart);
+        long used = auditRepository.countByOwnerIdAndCheckStateIdAndCreatedAtAfterAndDeletedAtIsNull(owner.getId(), CheckStateIds.WAR, weekStart);
         if (used >= 5) {
             throw new IllegalArgumentException("WAR-State can be used 5 times per week for a single account.");
         }
@@ -557,20 +557,20 @@ public class AuditService {
     }
 
     private String analyzerVersionFor(String checkStateId) {
-        if ("person".equals(checkStateId)) {
+        if (CheckStateIds.PERSON.equals(checkStateId)) {
             return "llm-preferred-v1";
         }
-        if ("strict-war-ai".equals(checkStateId)) {
+        if (CheckStateIds.STRICT_WAR_AI.equals(checkStateId)) {
             return LOCAL_ANALYZER_VERSION + "+llm-crosscheck-v1";
         }
-        if ("light".equals(checkStateId)) {
+        if (CheckStateIds.LIGHT.equals(checkStateId)) {
             return "local-light-v1";
         }
         return LOCAL_ANALYZER_VERSION;
     }
 
     private String promptVersionFor(String checkStateId) {
-        if ("person".equals(checkStateId) || "strict-war-ai".equals(checkStateId)) {
+        if (CheckStateIds.PERSON.equals(checkStateId) || CheckStateIds.STRICT_WAR_AI.equals(checkStateId)) {
             return LLM_PROMPT_VERSION;
         }
         return "none-local-deterministic";

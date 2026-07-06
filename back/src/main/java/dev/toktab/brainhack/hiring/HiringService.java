@@ -3,6 +3,7 @@ package dev.toktab.brainhack.hiring;
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.account.UserAccountService;
 import dev.toktab.brainhack.ats.AtsKeywordCatalog;
+import dev.toktab.brainhack.audit.CheckStateIds;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateStatusRequest;
@@ -200,8 +201,8 @@ public class HiringService {
     @Transactional
     public OsintRunResponse runOsint(UserAccount owner, Long projectId, Long candidateId, OsintRunRequest request) {
         HiringCandidate candidate = candidateEntity(owner, projectId, candidateId);
-        String state = defaulted(request == null ? "" : request.state(), "strict-war-ai");
-        if (!"strict-war-ai".equals(state)) {
+        String state = defaulted(request == null ? "" : request.state(), CheckStateIds.STRICT_WAR_AI);
+        if (!CheckStateIds.STRICT_WAR_AI.equals(state)) {
             throw new IllegalArgumentException("SignalTrace OSINT is only available in WAR_AI State.");
         }
 
