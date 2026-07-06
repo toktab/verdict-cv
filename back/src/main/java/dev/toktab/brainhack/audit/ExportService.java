@@ -112,14 +112,14 @@ public class ExportService {
         try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             PDPage page = new PDPage(PDRectangle.LETTER);
             document.addPage(page);
-            try (PDPageContentStream content = new PDPageContentStream(document, page)) {
-                drawBackground(content);
-                drawHeader(content, audit);
-                drawScoreCard(content, audit);
-                drawStatusChart(content, audit);
-                drawMetadata(content, audit);
-                drawVerdictPreview(content, audit);
-            }
+            PDPageContentStream content = new PDPageContentStream(document, page);
+            drawBackground(content);
+            drawHeader(content, audit);
+            drawScoreCard(content, audit);
+            drawStatusChart(content, audit);
+            drawMetadata(content, audit);
+            content = drawVerdicts(document, content, audit);
+            content.close();
             document.save(output);
             return output.toByteArray();
         } catch (IOException ex) {
@@ -210,23 +210,31 @@ public class ExportService {
         text(content, "Evidence hash: " + shortHash(audit.getEvidenceFingerprint()), x + 304, y + 18, 9, PDType1Font.HELVETICA, MUTED);
     }
 
-    private void drawVerdictPreview(PDPageContentStream content, Audit audit) throws IOException {
+    private PDPageContentStream drawVerdicts(PDDocument document, PDPageContentStream content, Audit audit) throws IOException {
         float y = 220;
-        text(content, "Claim preview", 42, y, 14, PDType1Font.HELVETICA_BOLD, INK);
-        int rendered = 0;
+        PDPageContentStream activeContent = content;
+        text(activeContent, "Claim verdicts", 42, y, 14, PDType1Font.HELVETICA_BOLD, INK);
         for (Verdict verdict : audit.getVerdicts()) {
-            if (rendered >= 5) {
-                text(content, "+" + (audit.getVerdicts().size() - rendered) + " more rows in Word/Excel exports", 42, y - 10, 9, PDType1Font.HELVETICA_BOLD, MUTED);
-                break;
+            if (y < 76) {
+                activeContent.close();
+                PDPage page = new PDPage(PDRectangle.LETTER);
+                document.addPage(page);
+                activeContent = new PDPageContentStream(document, page);
+                drawBackground(activeContent);
+                text(activeContent, "VERDICT", 42, 754, 24, PDType1Font.HELVETICA_BOLD, Color.WHITE);
+                text(activeContent, "Audit #" + audit.getId() + " / continued verdicts", 42, 706, 12, PDType1Font.HELVETICA_BOLD, MUTED);
+                y = 686;
+                text(activeContent, "Claim verdicts continued", 42, y, 14, PDType1Font.HELVETICA_BOLD, INK);
             }
-            y -= 36;
-            content.setNonStrokingColor(statusColor(verdict));
-            content.addRect(42, y + 10, 8, 24);
-            content.fill();
-            text(content, "#" + (verdict.getSentenceIndex() + 1) + " " + verdict.getStatus() + " / " + verdict.getConfidence(), 60, y + 25, 9, PDType1Font.HELVETICA_BOLD, statusColor(verdict));
-            text(content, trim(verdict.getSentence(), 92), 60, y + 10, 9, PDType1Font.HELVETICA, INK);
-            rendered++;
+            y -= 42;
+            activeContent.setNonStrokingColor(statusColor(verdict));
+            activeContent.addRect(42, y + 10, 8, 28);
+            activeContent.fill();
+            text(activeContent, "#" + (verdict.getSentenceIndex() + 1) + " " + verdict.getStatus() + " / " + verdict.getConfidence(), 60, y + 28, 9, PDType1Font.HELVETICA_BOLD, statusColor(verdict));
+            text(activeContent, trim(verdict.getSentence(), 92), 60, y + 15, 9, PDType1Font.HELVETICA, INK);
+            text(activeContent, trim(verdict.getExplanation(), 110), 60, y + 2, 8, PDType1Font.HELVETICA, MUTED);
         }
+        return activeContent;
     }
 
     private void roundedBox(PDPageContentStream content, float x, float y, float width, float height, Color fill, Color stroke) throws IOException {
