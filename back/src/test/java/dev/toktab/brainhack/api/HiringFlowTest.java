@@ -140,7 +140,7 @@ class HiringFlowTest {
                 Built Spring Boot REST APIs with controller-service-repository structure and SQL persistence.
                 """;
 
-        mockMvc.perform(post("/api/projects/" + projectId + "/candidates")
+        MvcResult created = mockMvc.perform(post("/api/projects/" + projectId + "/candidates")
                         .header("X-User-Token", token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -154,7 +154,21 @@ class HiringFlowTest {
                 .andExpect(jsonPath("$.score", greaterThan(75)))
                 .andExpect(jsonPath("$.match", greaterThan(85)))
                 .andExpect(jsonPath("$.supported", greaterThan(8)))
-                .andExpect(jsonPath("$.unsupported").value(0));
+                .andExpect(jsonPath("$.unsupported").value(0))
+                .andReturn();
+
+        JsonNode saved = objectMapper.readTree(created.getResponse().getContentAsString());
+        long candidateId = saved.get("id").asLong();
+        int savedScore = saved.get("score").asInt();
+        int savedMatch = saved.get("match").asInt();
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/candidates/" + candidateId)
+                        .header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.score").value(savedScore))
+                .andExpect(jsonPath("$.match").value(savedMatch))
+                .andExpect(jsonPath("$.risk").value(saved.get("risk").asText()))
+                .andExpect(jsonPath("$.claims.length()", greaterThan(8)));
     }
 
     @Test
@@ -246,14 +260,27 @@ class HiringFlowTest {
                 MediaType.TEXT_PLAIN_VALUE,
                 "Java Spring Boot React GitHub @candidate_handle".getBytes(StandardCharsets.UTF_8));
 
-        mockMvc.perform(multipart("/api/projects/" + projectId + "/candidates/upload")
+        MvcResult uploadResult = mockMvc.perform(multipart("/api/projects/" + projectId + "/candidates/upload")
                         .file(resume)
                         .param("name", "Upload Candidate")
                         .param("role", "Full Stack Engineer")
                         .header("X-User-Token", token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resume_filename").value("candidate.txt"))
-                .andExpect(jsonPath("$.cv_text").value(containsString("Spring Boot")));
+                .andExpect(jsonPath("$.cv_text").value(containsString("Spring Boot")))
+                .andExpect(jsonPath("$.score", greaterThan(8)))
+                .andExpect(jsonPath("$.match", greaterThan(12)))
+                .andReturn();
+
+        JsonNode uploaded = objectMapper.readTree(uploadResult.getResponse().getContentAsString());
+        mockMvc.perform(get("/api/projects/" + projectId + "/candidates/" + uploaded.get("id").asLong())
+                        .header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.score").value(uploaded.get("score").asInt()))
+                .andExpect(jsonPath("$.match").value(uploaded.get("match").asInt()))
+                .andExpect(jsonPath("$.risk").value(uploaded.get("risk").asText()))
+                .andExpect(jsonPath("$.supported").value(uploaded.get("supported").asInt()))
+                .andExpect(jsonPath("$.claims.length()", greaterThan(0)));
 
         MockMultipartFile unsupported = new MockMultipartFile(
                 "resume",

@@ -163,7 +163,7 @@ public class HiringService {
     public CandidateResponse addCandidate(UserAccount owner, Long projectId, CandidateRequest request) {
         HiringProject project = projectEntity(owner, projectId);
         HiringCandidate candidate = buildCandidate(project, defaulted(request.name(), "Unnamed candidate"), defaulted(request.role(), project.getTitle()), defaulted(request.cvText(), ""), "");
-        return mapper.candidate(candidateRepository.save(candidate));
+        return mapper.candidate(saveAnalyzedCandidate(candidate));
     }
 
     @Transactional
@@ -171,7 +171,7 @@ public class HiringService {
         HiringProject project = projectEntity(owner, projectId);
         String cvText = extractResumeText(resume);
         HiringCandidate candidate = buildCandidate(project, defaulted(name, "Unnamed candidate"), defaulted(role, project.getTitle()), cvText, resume == null ? "" : resume.getOriginalFilename());
-        return mapper.candidate(candidateRepository.save(candidate));
+        return mapper.candidate(saveAnalyzedCandidate(candidate));
     }
 
     @Transactional
@@ -194,7 +194,7 @@ public class HiringService {
         candidate.setSummary(refreshed.getSummary());
         candidate.setClaimsJson(refreshed.getClaimsJson());
         candidate.setAuditPhraseMatchesJson(refreshed.getAuditPhraseMatchesJson());
-        return mapper.candidate(candidateRepository.save(candidate));
+        return mapper.candidate(saveAnalyzedCandidate(candidate));
     }
 
     @Transactional
@@ -465,6 +465,13 @@ public class HiringService {
         candidate.setClaimsJson(mapper.json(claims));
         candidate.setAuditPhraseMatchesJson(mapper.json(riskyMatches(cvText)));
         return candidate;
+    }
+
+    private HiringCandidate saveAnalyzedCandidate(HiringCandidate candidate) {
+        if (candidate.getScore() <= 0 || candidate.getMatchScore() <= 0 || candidate.getRisk() == null || candidate.getRisk().isBlank()) {
+            throw new IllegalStateException("Candidate scoring must run before saving");
+        }
+        return candidateRepository.saveAndFlush(candidate);
     }
 
     private List<List<String>> claims(String cvText, List<String> requirements) {
