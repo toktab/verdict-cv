@@ -38,7 +38,7 @@ public class AuditService {
     private final AuditRepository auditRepository;
     private final SentenceSplitter sentenceSplitter;
     private final LlmAuditAnalyzer llmAuditAnalyzer;
-    private final LocalAuditAnalyzer localAuditAnalyzer;
+    private final ClaimAnalyzer localClaimAnalyzer;
     private final ScoringService scoringService;
     private final FingerprintService fingerprintService;
     private final RabbitEventPublisher rabbitEventPublisher;
@@ -78,7 +78,7 @@ public class AuditService {
         this.auditRepository = auditRepository;
         this.sentenceSplitter = sentenceSplitter;
         this.llmAuditAnalyzer = llmAuditAnalyzer;
-        this.localAuditAnalyzer = localAuditAnalyzer;
+        this.localClaimAnalyzer = localAuditAnalyzer;
         this.scoringService = scoringService;
         this.fingerprintService = fingerprintService;
         this.rabbitEventPublisher = rabbitEventPublisher;
@@ -287,7 +287,7 @@ public class AuditService {
             case CheckStateIds.PERSON -> llmOrLocal(sentences, evidenceText, "PERSON_STATE_LLM_FALLBACK");
             case CheckStateIds.STRICT_WAR_AI -> strictWarAi(sentences, evidenceText);
             case CheckStateIds.LIGHT -> lightLocal(sentences, evidenceText);
-            default -> localAuditAnalyzer.analyze(sentences, evidenceText);
+            default -> localAnalyze(sentences, evidenceText);
         };
     }
 
@@ -304,7 +304,7 @@ public class AuditService {
     }
 
     private AuditAnalysisResult strictWarAi(List<String> sentences, String evidenceText) {
-        AuditAnalysisResult local = localAuditAnalyzer.analyze(sentences, evidenceText);
+        AuditAnalysisResult local = localAnalyze(sentences, evidenceText);
         if (!llmAuditAnalyzer.configured()) {
             return new AuditAnalysisResult("LOCAL_HEURISTIC_STRICT_NO_LLM", local.verdicts());
         }
@@ -318,7 +318,7 @@ public class AuditService {
     }
 
     private AuditAnalysisResult lightLocal(List<String> sentences, String evidenceText) {
-        AuditAnalysisResult local = localAuditAnalyzer.analyze(sentences, evidenceText);
+        AuditAnalysisResult local = localAnalyze(sentences, evidenceText);
         List<AnalyzedVerdict> lightVerdicts = local.verdicts().stream()
                 .map(verdict -> verdict.status() == VerdictStatus.UNSUPPORTED && verdict.confidence() != Confidence.HIGH
                         ? new AnalyzedVerdict(
@@ -335,7 +335,11 @@ public class AuditService {
     }
 
     private AuditAnalysisResult localWithEngine(List<String> sentences, String evidenceText, String engine) {
-        return new AuditAnalysisResult(engine, localAuditAnalyzer.analyze(sentences, evidenceText).verdicts());
+        return new AuditAnalysisResult(engine, localAnalyze(sentences, evidenceText).verdicts());
+    }
+
+    private AuditAnalysisResult localAnalyze(List<String> sentences, String evidenceText) {
+        return localClaimAnalyzer.analyze(sentences, evidenceText);
     }
 
     private List<AnalyzedVerdict> combineStrict(List<AnalyzedVerdict> local, List<AnalyzedVerdict> llm) {

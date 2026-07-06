@@ -17,7 +17,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 
 @Component
-public class LlmAuditAnalyzer {
+public class LlmAuditAnalyzer implements ClaimAnalyzer {
     private final String apiKey;
     private final String model;
     private final double temperature;

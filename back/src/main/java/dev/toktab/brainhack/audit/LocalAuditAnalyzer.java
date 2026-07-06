@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 @Component
-public class LocalAuditAnalyzer {
+public class LocalAuditAnalyzer implements ClaimAnalyzer {
     private static final Set<String> STOP_WORDS = Set.of(
             "this", "that", "with", "from", "into", "about", "have", "has", "had", "were", "will", "would",
             "could", "should", "their", "there", "than", "then", "they", "them", "your", "ours", "also",
