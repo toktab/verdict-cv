@@ -476,10 +476,15 @@ public class AuditService {
         if (owner == null || !CheckStateIds.WAR.equals(audit.getCheckStateId())) {
             return auditRepository.saveAndFlush(audit);
         }
-        Object lock = warQuotaLocks.computeIfAbsent(owner.getId(), ignored -> new Object());
+        Long ownerId = owner.getId();
+        Object lock = warQuotaLocks.computeIfAbsent(ownerId, ignored -> new Object());
         synchronized (lock) {
-            enforceWarWeeklyLimit(owner, audit.getCheckStateId());
-            return auditRepository.saveAndFlush(audit);
+            try {
+                enforceWarWeeklyLimit(owner, audit.getCheckStateId());
+                return auditRepository.saveAndFlush(audit);
+            } finally {
+                warQuotaLocks.remove(ownerId, lock);
+            }
         }
     }
 
