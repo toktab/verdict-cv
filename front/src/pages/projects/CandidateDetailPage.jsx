@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, History, MessageSquarePlus, Radar, RefreshCcw, ScanText, ShieldCheck, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowRight, History, MessageSquarePlus, Radar, RefreshCcw, ScanText, ShieldCheck, Star, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react';
 import { useLanguage } from '../../i18n';
-import { apiCreateCandidateNote, apiGetCandidateWorkflow, apiListCandidateNotes, apiReanalyzeCandidate, apiUpdateCandidateStatus, apiVoteCandidate } from '../../api';
+import { apiCreateCandidateNote, apiDeleteCandidate, apiGetCandidateWorkflow, apiListCandidateNotes, apiReanalyzeCandidate, apiUpdateCandidateStatus, apiVoteCandidate } from '../../api';
 import defaultAts from '../../data/default-ats.json';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
+import { recordProjectActivity } from './projectActivity';
 import { findCandidateFromPath, scorePercent, scoreTone } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
 
@@ -30,6 +31,10 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const [noteBusy, setNoteBusy] = useState(false);
     const [workflow, setWorkflow] = useState(null);
     const [workflowMessage, setWorkflowMessage] = useState('');
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deletePhrase, setDeletePhrase] = useState('');
+    const [deleteBusy, setDeleteBusy] = useState(false);
+    const [deleteMessage, setDeleteMessage] = useState('');
     const { project, candidate } = findCandidateFromPath(projects);
     const activeProject = project;
     const activeCandidate = candidate;
@@ -130,6 +135,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const activityCount = workflow?.activity?.length || 0;
     const workflowTrustLabel = userToken ? 'Server saved workflow' : 'Demo browser workflow';
     const decisionVoteCount = voteStats.totalVotes ?? (voteStats.attribution || []).filter((line) => /upvote|downvote/i.test(line)).length ?? 0;
+    const deleteReady = deletePhrase.trim() === 'I confirm';
 
     function selectAnalysisState(stateId) {
         setActiveStateId(stateId);
@@ -269,6 +275,30 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         writeActivity(activeProject.id, user, activeCandidate, `changed status to ${status}`);
     }
 
+    async function deleteCandidate() {
+        if (!deleteReady || deleteBusy) return;
+        setDeleteBusy(true);
+        setDeleteMessage('');
+        try {
+            await apiDeleteCandidate(activeProject.id, activeCandidate.id, userToken);
+            recordProjectActivity(activeProject.id, user, {
+                type: 'candidate_delete',
+                action: `Deleted candidate ${activeCandidate.name}`,
+                candidateId: activeCandidate.id,
+                candidateName: activeCandidate.name,
+                projectTitle: activeProject.title,
+                severity: 'danger',
+                detail: `${activeCandidate.name} was removed from ${activeProject.title}.`,
+            });
+            await onProjectsChange?.();
+            navigateTo(setRoute, 'projectDetail', activeProject.id);
+        } catch (error) {
+            setDeleteMessage(error.message || 'Could not delete candidate.');
+        } finally {
+            setDeleteBusy(false);
+        }
+    }
+
     return (
         <div className="shell">
             <div className="pageGlow contentFadeIn" />
@@ -292,6 +322,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         <button className="secondary" disabled={reanalyzing} onClick={reanalyzeCandidate} type="button"><RefreshCcw size={18} /> {reanalyzing ? 'Re-running...' : 'Re-run analysis'}</button>
                         <button className="primary" onClick={() => navigateTo(setRoute, 'candidateProfile', activeProject.id, activeCandidate.id)}><ScanText size={18} /> {t('profilingMode')}</button>
                         <button className="primary" onClick={() => navigateTo(setRoute, 'signalTrace', activeProject.id, activeCandidate.id)}><Radar size={18} /> {t('signalTrace')}</button>
+                        <button className="destructive" onClick={() => setDeleteOpen(true)} type="button"><Trash2 size={18} /> Delete</button>
                     </div>
                 </section>
                 {reanalyzeMessage && <div className="inlineNotice">{reanalyzeMessage}</div>}
@@ -808,6 +839,28 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                     </>
                 )}
             </main>
+            {deleteOpen && (
+                <div className="candidateSendBackdrop settingsDeleteBackdrop" role="dialog" aria-modal="true">
+                    <section className="candidateSendModal settingsDeleteModal">
+                        <div className="modalHead">
+                            <div>
+                                <span className="eyebrow">Confirm candidate deletion</span>
+                                <h2>Delete {activeCandidate.name}</h2>
+                            </div>
+                            <button type="button" onClick={() => setDeleteOpen(false)}><X size={16} /> Close</button>
+                        </div>
+                        {deleteMessage && <div className="error compact">{deleteMessage}</div>}
+                        <div className="deleteConfirmBox">
+                            <AlertTriangle size={32} />
+                            <p>You are about to delete <strong>{activeCandidate.name}</strong> from <strong>{activeProject.title}</strong>. This action will be saved in the project log. Type exactly <strong>I confirm</strong>.</p>
+                            <input value={deletePhrase} onChange={(event) => setDeletePhrase(event.target.value)} placeholder="I confirm" />
+                        </div>
+                        <button className="destructive" disabled={!deleteReady || deleteBusy} type="button" onClick={deleteCandidate}>
+                            <Trash2 size={16} /> {deleteBusy ? 'Deleting...' : 'Delete candidate'}
+                        </button>
+                    </section>
+                </div>
+            )}
         </div>
     );
 }
@@ -1239,29 +1292,12 @@ function normalizeLocal(value) {
 }
 
 function writeActivity(projectId, user, candidate, action) {
-    if (!projectId || !user || !candidate) return;
-    const key = `projectActivity:${projectId}`;
-    const actorEmail = user.email || user.username || 'unknown';
-    const entry = {
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-        actorEmail,
-        actorName: user.fullName || user.username || actorEmail,
-        candidateId: candidate.id,
-        candidateName: candidate.name,
+    recordProjectActivity(projectId, user, {
+        type: 'candidate_workflow',
         action,
-        createdAt: new Date().toISOString(),
-    };
-    let rows = [];
-    try {
-        rows = JSON.parse(localStorage.getItem(key) || '[]');
-    } catch {
-        rows = [];
-    }
-    const last = rows[0];
-    if (last?.actorEmail === entry.actorEmail && last?.candidateId === entry.candidateId && last?.action === entry.action && Date.now() - Date.parse(last.createdAt) < 5000) {
-        return;
-    }
-    localStorage.setItem(key, JSON.stringify([entry, ...rows].slice(0, 300)));
+        candidateId: candidate?.id,
+        candidateName: candidate?.name,
+    });
 }
 
 function buildEvidenceRows(project, candidate, t) {

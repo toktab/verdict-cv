@@ -19,7 +19,7 @@ import { apiLogin, apiRegister, apiMe, apiLogout, apiListMessages, apiListProjec
 import { appendMessage, createMessage, messageBelongsTo, readMessages } from './messageStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuditScoreExplainer } from './components/AuditScoreExplainer';
-import { navigateTo, routeFromPath } from './navigation';
+import { navigateTo, routeFromPath, scrollToPageTop } from './navigation';
 import { auditScoreLevel } from './utils/auditScore';
 import defaultAts from './data/default-ats.json';
 import './styles.css';

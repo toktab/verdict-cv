@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
 import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMembers, apiLookupUser, apiSendMessage } from '../../api';
 import { appendMessage, createMessage } from '../../messageStore';
+import { readProjectActivity, recordProjectActivity } from './projectActivity';
 import { findProjectFromPath } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
 
@@ -34,7 +35,8 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [activityMember, setActivityMember] = useState(null);
     const [rankModal, setRankModal] = useState(null);
     const [memberModal, setMemberModal] = useState(null);
-    const [activityRows, setActivityRows] = useState(() => readActivity(project?.id));
+    const [confirmAction, setConfirmAction] = useState(null);
+    const [activityRows, setActivityRows] = useState(() => readProjectActivity(project?.id));
     const members = useMemo(() => buildMembers(project, user, invites, roleOverrides, serverMembers), [project, user, invites, roleOverrides, serverMembers]);
     const updateRankModal = useCallback((patch) => {
         setRankModal((current) => {
@@ -80,7 +82,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     useEffect(() => {
         setRoleOverrides(readRoles(project?.id));
         setCustomPermissions(readCustomPermissions(project?.id));
-        setActivityRows(readActivity(project?.id));
+        setActivityRows(readProjectActivity(project?.id));
     }, [project?.id]);
 
     useEffect(() => {
@@ -111,6 +113,16 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         setEmail('');
         setInviteLookup({ state: 'idle', user: null, query: '' });
         setMessage(`Invite token created for ${row.email}: ${row.token}`);
+        recordProjectActivity(project.id, user, {
+            type: 'invite',
+            action: `Invited ${row.email}`,
+            targetEmail: row.email,
+            targetName: inviteLookup.user?.fullName || inviteLookup.user?.username || row.email,
+            projectTitle: project.title,
+            severity: 'good',
+            detail: `Invite token created with role ${row.role || 'Reviewer'}.`,
+        });
+        setActivityRows(readProjectActivity(project.id));
     }
 
     function applyRoleChange(emailAddress, role, notify = notifyRoleChange) {
@@ -142,6 +154,16 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                 sendRoleNotice(user.email, `Head Admin was transferred to ${member.name} on ${project.title}. Your role is now Admin.`);
             }
         }
+        recordProjectActivity(project.id, user, {
+            type: 'rank_change',
+            action: `Changed ${member.name}'s rank from ${previousRole} to ${role}`,
+            targetEmail: member.email,
+            targetName: member.name,
+            projectTitle: project.title,
+            severity: 'warn',
+            detail: notify ? 'Member notification was requested.' : 'Member notification was skipped.',
+        });
+        setActivityRows(readProjectActivity(project.id));
     }
 
     function removeMember(emailAddress) {
@@ -151,6 +173,16 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         setRoleOverrides(next);
         writeRoles(project.id, next);
         sendRoleNotice(emailAddress, `You were removed from ${project.title}.`);
+        recordProjectActivity(project.id, user, {
+            type: 'kick',
+            action: `Kicked ${member.name} from project`,
+            targetEmail: member.email,
+            targetName: member.name,
+            projectTitle: project.title,
+            severity: 'danger',
+            detail: `${member.email} was removed from ${project.title}.`,
+        });
+        setActivityRows(readProjectActivity(project.id));
     }
 
     function sendRoleNotice(to, body) {
@@ -196,6 +228,16 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         const next = { ...customPermissions, [emailAddress]: nextPermissions.includes('canView') ? nextPermissions : ['canView', ...nextPermissions] };
         setCustomPermissions(next);
         writeCustomPermissions(project.id, next);
+        const member = members.find((row) => sameEmail(row.email, emailAddress));
+        recordProjectActivity(project.id, user, {
+            type: 'permission_change',
+            action: `${nextPermissions.includes(permission) ? 'Enabled' : 'Disabled'} ${permission} for ${member?.name || emailAddress}`,
+            targetEmail: emailAddress,
+            targetName: member?.name || emailAddress,
+            projectTitle: project.title,
+            severity: 'warn',
+        });
+        setActivityRows(readProjectActivity(project.id));
     }
 
     return (
@@ -298,7 +340,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                     notifyRoleChange={notifyRoleChange}
                     onClose={() => setMemberModal(null)}
                     onActivity={(member) => {
-                        setActivityRows(readActivity(project.id));
+                        setActivityRows(readProjectActivity(project.id));
                         setActivityMember(member);
                         setMemberModal(null);
                     }}
@@ -307,7 +349,13 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                         setMemberModal(null);
                     }}
                     onKick={(member) => {
-                        removeMember(member.email);
+                        setConfirmAction({
+                            title: `Kick ${member.name}`,
+                            detail: `You are about to remove ${member.name} (${member.email}) from ${project.title}. This action will be saved in project logs.`,
+                            confirmLabel: 'Kick member',
+                            danger: true,
+                            onConfirm: () => removeMember(member.email),
+                        });
                         setMemberModal(null);
                     }}
                     onTogglePermission={toggleCustomPermission}
@@ -366,6 +414,16 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                     }}
                 />
             )}
+            {confirmAction && (
+                <ConfirmActionModal
+                    action={confirmAction}
+                    onClose={() => setConfirmAction(null)}
+                    onConfirm={() => {
+                        confirmAction.onConfirm?.();
+                        setConfirmAction(null);
+                    }}
+                />
+            )}
             {activityMember && (
                 <div className="candidateSendBackdrop" role="dialog" aria-modal="true">
                     <section className="candidateSendModal">
@@ -377,14 +435,14 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                             <button type="button" onClick={() => setActivityMember(null)}><X size={16} /> Close</button>
                         </div>
                         <div className="activityLogRows">
-                            {activityRows.filter((row) => sameIdentity(row.actorEmail, activityMember.email)).map((row) => (
+                            {activityRows.filter((row) => sameIdentity(row.actorEmail, activityMember.email) || sameIdentity(row.targetEmail, activityMember.email)).map((row) => (
                                 <article key={row.id}>
                                     <strong>{row.action}</strong>
-                                    <span>{row.candidateName}</span>
+                                    <span>{row.candidateName || row.detail || row.projectTitle}</span>
                                     <small>{row.createdAt.slice(0, 16).replace('T', ' ')}</small>
                                 </article>
                             ))}
-                            {!activityRows.some((row) => sameIdentity(row.actorEmail, activityMember.email)) && <p className="mutedPanelText">No candidate activity has been recorded for this member yet.</p>}
+                            {!activityRows.some((row) => sameIdentity(row.actorEmail, activityMember.email) || sameIdentity(row.targetEmail, activityMember.email)) && <p className="mutedPanelText">No project activity has been recorded for this member yet.</p>}
                         </div>
                     </section>
                 </div>
@@ -524,6 +582,30 @@ function RankModal({ currentUser, member, selectedRole, confirmText, countdown, 
                             onApply();
                         }
                     }}>Apply rank</button>
+                </div>
+            </section>
+        </div>
+    );
+}
+
+function ConfirmActionModal({ action, onClose, onConfirm }) {
+    return (
+        <div className="candidateSendBackdrop" role="dialog" aria-modal="true">
+            <section className="candidateSendModal actionConfirmModal">
+                <div className="modalHead">
+                    <div>
+                        <span className="eyebrow">Confirm action</span>
+                        <h2>{action.title}</h2>
+                    </div>
+                    <button type="button" onClick={onClose}><X size={16} /> Close</button>
+                </div>
+                <div className="deleteConfirmBox">
+                    <AlertTriangle size={32} />
+                    <p>{action.detail}</p>
+                </div>
+                <div className="editActions">
+                    <button className="secondary" type="button" onClick={onClose}>Cancel</button>
+                    <button className={action.danger ? 'destructive' : 'primary'} type="button" onClick={onConfirm}>{action.confirmLabel || 'Confirm'}</button>
                 </div>
             </section>
         </div>
@@ -676,15 +758,6 @@ function InviteLookupPreview({ lookup, rawValue }) {
 function userInitials(user) {
     const source = user?.fullName || user?.username || user?.email || 'U';
     return source.split(/\s+/).map((part) => part.charAt(0)).join('').slice(0, 2).toUpperCase();
-}
-
-function readActivity(projectId) {
-    if (!projectId) return [];
-    try {
-        return JSON.parse(localStorage.getItem(`projectActivity:${projectId}`) || '[]');
-    } catch {
-        return [];
-    }
 }
 
 function sameIdentity(left = '', right = '') {

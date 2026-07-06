@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowRight, Bell, Database, FileText, Lock, RotateCcw, Save, Settings, ShieldCheck, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Bell, Database, Download, FileText, History, Lock, RotateCcw, Save, Settings, ShieldCheck, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
 import { apiDeleteProject } from '../../api';
+import { downloadProjectActivity, formatActivityDate, projectActivityText, readProjectActivity, recordProjectActivity } from './projectActivity';
 import { findProjectFromPath } from './projectPageUtils';
 import './ProjectSettingsPage.css';
 import { ProjectRouteState } from './ProjectRouteState';
@@ -29,11 +30,15 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
     const [deleteCountdown, setDeleteCountdown] = useState(3);
     const [deletePhrase, setDeletePhrase] = useState('');
     const [deleteBusy, setDeleteBusy] = useState(false);
-    const deleteReady = deleteCountdown <= 0 && deletePhrase === 'I confirm';
+    const [logsOpen, setLogsOpen] = useState(false);
+    const [logsMode, setLogsMode] = useState('visual');
+    const [activityRows, setActivityRows] = useState(() => readProjectActivity(project?.id));
+    const deleteReady = deleteCountdown <= 0 && deletePhrase.trim() === 'I confirm';
     const settingRows = useMemo(() => projectSettingsRows(settings, setSettings, !canManage), [settings, canManage]);
 
     useEffect(() => {
         setSettings(readProjectSettings(project?.id));
+        setActivityRows(readProjectActivity(project?.id));
     }, [project?.id]);
 
     useEffect(() => {
@@ -52,6 +57,14 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
 
     function saveSettings() {
         writeProjectSettings(project.id, settings);
+        recordProjectActivity(project.id, user, {
+            type: 'settings',
+            action: 'Saved project settings',
+            projectTitle: project.title,
+            severity: 'info',
+            detail: 'Project settings were updated from the settings page.',
+        });
+        setActivityRows(readProjectActivity(project.id));
         setSaved('Project settings saved for this workspace.');
         window.setTimeout(() => setSaved(''), 1800);
     }
@@ -59,6 +72,14 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
     function resetSettings() {
         setSettings(defaultSettings);
         writeProjectSettings(project.id, defaultSettings);
+        recordProjectActivity(project.id, user, {
+            type: 'settings_reset',
+            action: 'Reset project settings',
+            projectTitle: project.title,
+            severity: 'warn',
+            detail: 'Project settings were reset to VERDICT defaults.',
+        });
+        setActivityRows(readProjectActivity(project.id));
         setSaved('Settings reset to VERDICT defaults.');
         window.setTimeout(() => setSaved(''), 1800);
     }
@@ -67,6 +88,13 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
         if (!deleteReady) return;
         setDeleteBusy(true);
         try {
+            recordProjectActivity(project.id, user, {
+                type: 'project_delete',
+                action: `Deleted project ${project.title}`,
+                projectTitle: project.title,
+                severity: 'danger',
+                detail: `${project.title} was deleted from active project lists.`,
+            });
             await apiDeleteProject(project.id, userToken);
             await onProjectsChange?.();
             navigateTo(setRoute, 'projects');
@@ -91,6 +119,10 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
                     <div className="detailHeroActions">
                         <button className="secondary compactHeroButton" type="button" onClick={() => navigateTo(setRoute, 'projectDetail', project.id)}><ArrowRight size={16} /> Back</button>
                         <button className="secondary compactHeroButton" type="button" onClick={() => navigateTo(setRoute, 'projectTeam', project.id)}><Users size={16} /> Team</button>
+                        <button className="secondary compactHeroButton" type="button" onClick={() => {
+                            setActivityRows(readProjectActivity(project.id));
+                            setLogsOpen(true);
+                        }}><History size={16} /> Logs</button>
                     </div>
                 </section>
 
@@ -146,8 +178,58 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
                     </section>
                 </div>
             )}
+            {logsOpen && (
+                <div className="candidateSendBackdrop projectLogsBackdrop" role="dialog" aria-modal="true">
+                    <section className="candidateSendModal projectLogsModal">
+                        <div className="modalHead">
+                            <div>
+                                <span className="eyebrow">Project history</span>
+                                <h2>{project.title}</h2>
+                            </div>
+                            <button type="button" onClick={() => setLogsOpen(false)}><X size={16} /> Close</button>
+                        </div>
+                        <div className="projectLogsToolbar">
+                            <div className="segmentedControl">
+                                <button className={logsMode === 'visual' ? 'active' : ''} type="button" onClick={() => setLogsMode('visual')}>Visual</button>
+                                <button className={logsMode === 'text' ? 'active' : ''} type="button" onClick={() => setLogsMode('text')}>Full text</button>
+                            </div>
+                            <button className="secondary" type="button" onClick={() => downloadProjectActivity(project, activityRows)}><Download size={16} /> Download TXT</button>
+                        </div>
+                        {logsMode === 'visual' ? (
+                            <div className="projectActivityTimeline">
+                                {activityRows.map((row) => <ProjectLogRow key={row.id} row={row} />)}
+                                {!activityRows.length && <p className="mutedPanelText">No project activity has been recorded yet.</p>}
+                            </div>
+                        ) : (
+                            <textarea className="projectActivityText" readOnly value={projectActivityText(project, activityRows)} />
+                        )}
+                    </section>
+                </div>
+            )}
         </div>
     );
+}
+
+function ProjectLogRow({ row }) {
+    const icon = iconForActivity(row);
+    return (
+        <article className={`projectLogRow ${row.severity || 'info'}`}>
+            <div className="projectLogIcon">{icon}</div>
+            <div>
+                <strong>{row.action}</strong>
+                <span>{row.detail || row.candidateName || row.targetEmail || row.projectTitle}</span>
+                <small>{row.actorName || row.actorEmail} / {formatActivityDate(row.createdAt)}</small>
+            </div>
+        </article>
+    );
+}
+
+function iconForActivity(row) {
+    const type = `${row.type || row.action || ''}`.toLowerCase();
+    if (type.includes('kick') || type.includes('delete')) return <Trash2 size={16} />;
+    if (type.includes('invite')) return <Users size={16} />;
+    if (type.includes('rank') || type.includes('permission')) return <ShieldCheck size={16} />;
+    return <History size={16} />;
 }
 
 function projectSettingsRows(settings, setSettings, disabled) {
