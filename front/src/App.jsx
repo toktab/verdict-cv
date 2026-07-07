@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, RefreshCcw, Save, Send, ShieldCheck, User, UserPlus, X } from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Moon, Play, RefreshCcw, Save, Send, ShieldCheck, Sun, User, UserPlus, X } from 'lucide-react';
 import IntroAnimation from './IntroAnimation';
 import { HistoryPage } from './pages/HistoryPage';
 import { CandidateDetailPage } from './pages/projects/CandidateDetailPage';
@@ -265,6 +265,13 @@ function shouldShowIntroOnBoot() {
     return sessionStorage.getItem('verdictIntroSeen') !== 'true';
 }
 
+function readThemePreference() {
+    if (typeof window === 'undefined') return 'dark';
+    const stored = localStorage.getItem('verdictTheme');
+    if (stored === 'light' || stored === 'dark') return stored;
+    return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
 function App() {
     const { route, setRoute, detailAuditId, setDetailAuditId } = useRouteState(routeFromPath);
     const [userToken, setUserToken] = useState(localStorage.getItem('verdictUserToken') || '');
@@ -294,6 +301,8 @@ function App() {
     const [projectsError, setProjectsError] = useState('');
     const [introVisible, setIntroVisible] = useState(() => shouldShowIntroOnBoot());
     const [lang, setLangState] = useState(() => localStorage.getItem('verdictLang') || 'ge');
+    const [theme, setThemeState] = useState(() => readThemePreference());
+    const [themeChoiceOpen, setThemeChoiceOpen] = useState(() => !localStorage.getItem('verdictTheme'));
     const [composeOpen, setComposeOpen] = useState(false);
     const [composeDraft, setComposeDraft] = useState({ to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null });
     const [unreadMessages, setUnreadMessages] = useState(0);
@@ -303,6 +312,13 @@ function App() {
     function setLang(nextLang) {
         localStorage.setItem('verdictLang', nextLang);
         setLangState(nextLang);
+    }
+
+    function setTheme(nextTheme) {
+        const normalized = nextTheme === 'light' ? 'light' : 'dark';
+        localStorage.setItem('verdictTheme', normalized);
+        setThemeState(normalized);
+        setThemeChoiceOpen(false);
     }
 
     function t(key, replacements) {
@@ -320,6 +336,11 @@ function App() {
     useEffect(() => {
         document.documentElement.lang = lang === 'ge' ? 'ka' : lang;
     }, [lang]);
+
+    useEffect(() => {
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+    }, [theme]);
 
     useEffect(() => {
         function handleAuthProblem() {
@@ -651,11 +672,11 @@ function App() {
         );
     }
 
-    const AppHeader = (props) => <Header {...props} unreadMessages={unreadMessages} />;
+    const AppHeader = (props) => <Header {...props} unreadMessages={unreadMessages} theme={theme} setTheme={setTheme} />;
 
     let content;
     if (route === 'admin') {
-        content = <AdminPage Header={Header} setRoute={setRoute} />;
+        content = <AdminPage Header={(props) => <Header {...props} theme={theme} setTheme={setTheme} />} setRoute={setRoute} />;
     } else if (route === 'dashboard') {
         content = <DashboardPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} history={history} templates={templates} historyLoading={historyLoading} historyError={historyError} onRefreshHistory={loadHistory} openAudit={openAudit} />;
     } else if (route === 'history') {
@@ -685,7 +706,7 @@ function App() {
     } else if (route === 'auditProfile') {
         content = <ProfilingModePage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} />;
     } else if (route === 'profile') {
-        content = <ProfilePage Header={AppHeader} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
+        content = <ProfilePage Header={AppHeader} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} theme={theme} setTheme={setTheme} />;
     } else if (route === 'messages') {
         content = <MessagesPage Header={AppHeader} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} openCompose={openCompose} onProjectsChange={loadProjects} />;
     } else if (route === 'login') {
@@ -840,7 +861,39 @@ function App() {
                     setMessageNotice(null);
                 }}
             />
+            {themeChoiceOpen && (
+                <ThemeChoiceModal
+                    current={theme}
+                    onChoose={setTheme}
+                    onClose={() => setTheme(theme)}
+                />
+            )}
         </LanguageContext.Provider>
+    );
+}
+
+function ThemeChoiceModal({ current, onChoose, onClose }) {
+    return (
+        <div className="themeChoiceOverlay" role="dialog" aria-modal="true">
+            <section className="themeChoiceModal">
+                <button className="themeChoiceClose" type="button" onClick={onClose}><X size={16} /> Close</button>
+                <span className="eyebrow">First look</span>
+                <h2>Choose your workspace mode</h2>
+                <p>You can change this any time from the top bar or Profile.</p>
+                <div className="themeChoiceGrid">
+                    <button className={current === 'dark' ? 'active' : ''} type="button" onClick={() => onChoose('dark')}>
+                        <Moon size={22} />
+                        <strong>Dark mode</strong>
+                        <span>Classic VERDICT contrast for long review sessions.</span>
+                    </button>
+                    <button className={current === 'light' ? 'active' : ''} type="button" onClick={() => onChoose('light')}>
+                        <Sun size={22} />
+                        <strong>Light mode</strong>
+                        <span>Clean ATS/report style like the scan pages.</span>
+                    </button>
+                </div>
+            </section>
+        </div>
     );
 }
 
@@ -1059,7 +1112,7 @@ function emptyComposeDraft() {
     return { to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null };
 }
 
-function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessages = 0 }) {
+function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessages = 0, theme = 'dark', setTheme }) {
     const { lang, setLang, t } = useLanguage();
     const [accountOpen, setAccountOpen] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -1109,6 +1162,10 @@ function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessag
             </button>
             <nav className="topbarNav">
                 <button onClick={() => navigate('home')}>{t('home')}</button>
+                <button className="quiet themeToggleButton" type="button" onClick={() => setTheme?.(theme === 'dark' ? 'light' : 'dark')} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
+                    {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                    {theme === 'dark' ? 'Light' : 'Dark'}
+                </button>
                 {user && <button className="quiet" onClick={() => navigate('dashboard')}><Gauge size={16} /> {t('dashboard')}</button>}
                 <button className="quiet" onClick={() => navigate('projects')}><LayoutDashboard size={16} /> {t('projects')}</button>
                 {user && <button className="quiet" onClick={() => navigate('history')}><History size={16} /> {t('history')}</button>}
