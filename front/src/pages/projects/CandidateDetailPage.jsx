@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, AlertTriangle, ArrowRight, History, MessageSquarePlus, Radar, RefreshCcw, ScanText, ShieldCheck, Star, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowRight, Award, BriefcaseBusiness, CodeXml, ExternalLink, History, Link, MessageSquarePlus, Radar, RefreshCcw, ScanText, ShieldCheck, Star, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { apiCreateCandidateNote, apiDeleteCandidate, apiGetCandidateWorkflow, apiListCandidateNotes, apiReanalyzeCandidate, apiUpdateCandidateStatus, apiVoteCandidate } from '../../api';
 import defaultAts from '../../data/default-ats.json';
@@ -106,6 +106,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
 
     const verdictRows = buildCandidateVerdicts(activeCandidate);
     const evidenceRows = buildEvidenceRows(activeProject, activeCandidate, t);
+    const sourceCards = buildSourceCards(activeCandidate);
     const scoreFactors = buildScoreFactors(activeCandidate, t);
     const activeScoreLevel = scoreLevel(activeCandidate.score);
     const memoryProfile = buildMemoryProfile(activeCandidate, t);
@@ -833,6 +834,21 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                                     <p>{row.text}</p>
                                 </article>
                             ))}
+                            <div className="sourceCardStack">
+                                {sourceCards.map((card) => {
+                                    const Icon = card.icon;
+                                    return (
+                                        <article className={`sourceCard ${card.tone}`} key={card.kind}>
+                                            <div className="sourceCardIcon"><Icon size={18} /></div>
+                                            <div>
+                                                <strong>{card.title}</strong>
+                                                <span>{card.summary}</span>
+                                                {card.url ? <a href={card.url} target="_blank" rel="noreferrer"><ExternalLink size={13} /> Open source</a> : <small>No link found in CV text.</small>}
+                                            </div>
+                                        </article>
+                                    );
+                                })}
+                            </div>
                         </aside>
                     </div>
                 </section>
@@ -1315,4 +1331,37 @@ function buildEvidenceRows(project, candidate, t) {
             text: `${candidate.supported} supported, ${candidate.stretched} stretched, and ${candidate.unsupported} unsupported claims are currently recorded for this candidate.`,
         },
     ];
+}
+
+function buildSourceCards(candidate) {
+    const links = extractCandidateLinks(candidateSourceText(candidate));
+    const github = links.find((url) => /github\.com/i.test(url));
+    const linkedin = links.find((url) => /linkedin\.com/i.test(url));
+    const certificate = links.find((url) => /(credly|coursera|udemy|certificate|certification|verify|badgr|accredible)/i.test(url));
+    const portfolio = links.find((url) => !github && /(portfolio|vercel\.app|netlify\.app|pages\.dev|dev\.to|medium\.com|hashnode|notion\.site|personal|about)/i.test(url))
+        || links.find((url) => !/(github|linkedin|credly|coursera|udemy|certificate|certification|verify|badgr|accredible)/i.test(url));
+    const publicLink = links.find((url) => url !== github && url !== linkedin && url !== certificate && url !== portfolio);
+    return [
+        sourceCard('github', 'GitHub', github, github ? 'Repository/profile evidence found in CV.' : 'Ask for code profile or repository links.', CodeXml),
+        sourceCard('linkedin', 'LinkedIn', linkedin, linkedin ? 'Professional profile evidence found in CV.' : 'Ask for profile URL to verify title and dates.', BriefcaseBusiness),
+        sourceCard('portfolio', 'Portfolio', portfolio, portfolio ? 'Portfolio or personal site found in CV.' : 'No portfolio-style link was detected.', Link),
+        sourceCard('certificates', 'Certificates', certificate, certificate ? 'Certificate or issuer verification link found.' : 'No certificate verification link was detected.', Award),
+        sourceCard('public', 'Public links', publicLink, links.length ? `${links.length} total public link${links.length === 1 ? '' : 's'} detected.` : 'No public links were detected in the CV text.', ExternalLink),
+    ];
+}
+
+function sourceCard(kind, title, url, summary, icon) {
+    return {
+        kind,
+        title,
+        url: url || '',
+        summary,
+        icon,
+        tone: url ? 'found' : 'missing',
+    };
+}
+
+function extractCandidateLinks(text) {
+    const matches = String(text || '').match(/https?:\/\/[^\s),;]+/gi) || [];
+    return [...new Set(matches.map((url) => url.replace(/[.,;:]+$/, '')))].slice(0, 20);
 }
