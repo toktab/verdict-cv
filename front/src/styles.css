@@ -857,8 +857,10 @@ nav button:hover,
 /* ATS scan/report experience */
 .atsScanShell,
 .atsReportShell {
-    background: #eef5f9;
-    color: #1f2937;
+    background:
+            radial-gradient(circle at 20% -10%, rgba(255, 59, 59, 0.16), transparent 28rem),
+            linear-gradient(180deg, #111114 0%, #070708 42%, #050505 100%);
+    color: var(--text);
     min-height: 100vh;
 }
 
@@ -871,8 +873,10 @@ nav button:hover,
 }
 
 .atsScoreSidebar {
-    background: #fff;
-    border-right: 1px solid #cfd8e3;
+    background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.018)),
+            #101116;
+    border-right: 1px solid var(--line);
     min-height: calc(100vh - 72px);
     padding: 22px 22px 32px;
     position: sticky;
@@ -882,13 +886,13 @@ nav button:hover,
 
 .atsScoreSidebar.embedded {
     min-height: auto;
-    border: 1px solid #d6e1ea;
+    border: 1px solid var(--line);
     border-radius: 8px;
     position: static;
 }
 
 .atsScoreSidebar h2 {
-    color: #172033;
+    color: var(--text);
     font-size: 1.55rem;
     margin: 0 0 16px;
     text-align: center;
@@ -896,7 +900,7 @@ nav button:hover,
 
 .atsScoreDonut,
 .atsMiniDonut {
-    background: radial-gradient(circle at center, #e9f8f1 0 52%, transparent 53%), conic-gradient(#12bd7d 0 var(--ats-score), #ffd166 var(--ats-score) calc(var(--ats-score) + 34deg), #dce3ea 0);
+    background: radial-gradient(circle at center, #14181d 0 52%, transparent 53%), conic-gradient(#12bd7d 0 var(--ats-score), #ffcc66 var(--ats-score) calc(var(--ats-score) + 34deg), rgba(255, 255, 255, 0.12) 0);
     border-radius: 999px;
     display: grid;
     margin: 0 auto 22px;
@@ -916,9 +920,9 @@ nav button:hover,
 .atsScoreDonut > div,
 .atsMiniDonut strong {
     align-items: baseline;
-    background: rgba(255, 255, 255, .72);
+    background: rgba(7, 8, 10, .82);
     border-radius: 999px;
-    color: #4b5563;
+    color: var(--text);
     display: flex;
     font-weight: 800;
     justify-content: center;
@@ -954,8 +958,8 @@ nav button:hover,
 }
 
 .atsPaleButton {
-    background: #e5f2ff;
-    color: #087be8;
+    background: rgba(255, 59, 59, 0.12);
+    color: #ffb4b4;
     margin-top: 10px;
 }
 
@@ -974,18 +978,18 @@ nav button:hover,
 }
 
 .atsProgressRow span {
-    color: #1f2937;
+    color: var(--soft);
     font-size: .82rem;
     font-weight: 700;
 }
 
 .atsProgressRow small {
-    color: #087be8;
+    color: #ff8b8b;
     font-size: .76rem;
 }
 
 .atsProgressRow b {
-    background: #dbe3ec;
+    background: rgba(255, 255, 255, 0.12);
     border-radius: 999px;
     display: block;
     height: 14px;
@@ -993,7 +997,7 @@ nav button:hover,
 }
 
 .atsProgressRow i {
-    background: #25aee4;
+    background: linear-gradient(90deg, #ff4b4b, #ff8b8b);
     border-radius: inherit;
     display: block;
     height: 100%;
@@ -1005,9 +1009,9 @@ nav button:hover,
 
 .atsScanTopbar {
     align-items: center;
-    background: #fff;
-    border-bottom: 1px solid #cfd8e3;
-    box-shadow: 0 2px 8px rgba(31, 41, 55, .12);
+    background: rgba(12, 13, 17, 0.94);
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, .28);
     display: grid;
     gap: 18px;
     grid-template-columns: auto 1fr auto;
@@ -1015,18 +1019,18 @@ nav button:hover,
 }
 
 .atsScanTopbar span {
-    color: #64748b;
+    color: var(--muted);
     font-size: .8rem;
 }
 
 .atsScanTopbar h1 {
-    color: #1f2937;
+    color: var(--text);
     font-size: 1.2rem;
     margin: 2px 0;
 }
 
 .atsScanTopbar p {
-    color: #64748b;
+    color: var(--muted);
     margin: 0;
 }
 
@@ -1038,9 +1042,9 @@ nav button:hover,
 
 .atsScanTabs button,
 .atsSegmented button {
-    background: #dce1e9;
+    background: rgba(255, 255, 255, 0.065);
     border: 0;
-    color: #172033;
+    color: var(--muted);
     cursor: pointer;
     font-weight: 800;
     min-height: 54px;
@@ -1048,8 +1052,9 @@ nav button:hover,
 
 .atsScanTabs button.active,
 .atsSegmented button.active {
-    background: #fff;
-    border-top: 2px solid #087be8;
+    background: rgba(255, 59, 59, 0.14);
+    border-top: 2px solid var(--accent);
+    color: var(--text);
 }
 
 .atsDocumentCanvas {
@@ -1072,13 +1077,13 @@ nav button:hover,
 }
 
 .atsCompareHeader h2 {
-    color: #172033;
+    color: var(--text);
     font-size: 1.55rem;
     margin: 4px 0 0;
 }
 
 .atsCompareHeader p {
-    color: #64748b;
+    color: var(--muted);
     margin: 0;
     max-width: 520px;
 }
@@ -1091,9 +1096,12 @@ nav button:hover,
 }
 
 .atsDocumentSheet {
-    background: #fff;
-    box-shadow: 0 10px 24px rgba(31, 41, 55, .15);
-    color: #111827;
+    background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
+            #101216;
+    border: 1px solid var(--line);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .42);
+    color: var(--soft);
     line-height: 1.68;
     min-height: 900px;
     max-width: 900px;
@@ -1110,14 +1118,14 @@ nav button:hover,
 }
 
 .atsDocumentSheet h2 {
-    color: #071421;
+    color: var(--text);
     font-size: 1.9rem;
     margin: 0 0 6px;
 }
 
 .atsDocumentSubline {
-    border-bottom: 1px solid #cfd8e3;
-    color: #64748b;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
     margin: 0 0 28px;
     padding-bottom: 16px;
 }
@@ -1135,17 +1143,17 @@ nav button:hover,
 }
 
 .atsMark.matching {
-    background: #bdf4dd;
+    background: rgba(18, 189, 125, 0.22);
     box-shadow: inset 0 -2px #16a86b;
 }
 
 .atsMark.variation {
-    background: #fff0a7;
+    background: rgba(255, 204, 102, 0.24);
     box-shadow: inset 0 -2px #f59e0b;
 }
 
 .atsMark.missing {
-    background: #ffd2d2;
+    background: rgba(239, 68, 68, 0.28);
     box-shadow: inset 0 -2px #ef4444;
 }
 
@@ -1169,8 +1177,8 @@ nav button:hover,
 
 .atsHighlightLegend {
     align-items: center;
-    background: #fff;
-    border-top: 1px solid #d6e1ea;
+    background: rgba(12, 13, 17, 0.94);
+    border-top: 1px solid var(--line);
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
@@ -1186,7 +1194,7 @@ nav button:hover,
     align-items: center;
     background: transparent;
     border: 0;
-    color: #087be8;
+    color: #ff8b8b;
     cursor: pointer;
     display: inline-flex;
     font-weight: 800;
@@ -1217,8 +1225,10 @@ nav button:hover,
 }
 
 .atsEmbeddedPanel {
-    background: #eef5f9;
-    border: 1px solid #d6e1ea;
+    background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.014)),
+            #0b0c10;
+    border: 1px solid var(--line);
     border-radius: 8px;
     display: grid;
     grid-template-columns: 270px minmax(0, 1fr);
@@ -1235,20 +1245,20 @@ nav button:hover,
 
 .atsTipBanner {
     align-items: center;
-    background: #fff7df;
-    border: 1px solid #ffd88a;
+    background: rgba(255, 204, 102, 0.11);
+    border: 1px solid rgba(255, 204, 102, 0.24);
     border-radius: 6px;
-    color: #5f4200;
+    color: #ffdca8;
     display: flex;
     gap: 12px;
     padding: 12px 14px;
 }
 
 .atsTipBanner button {
-    background: #ffbd2e;
+    background: linear-gradient(180deg, #ff4b4b, #b91d1d);
     border: 0;
     border-radius: 4px;
-    color: #271500;
+    color: #fff;
     cursor: pointer;
     font-weight: 800;
     margin-left: auto;
@@ -1256,10 +1266,12 @@ nav button:hover,
 }
 
 .atsCheckPanel {
-    background: #fff;
-    border: 1px solid #cfd8e3;
+    background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+            var(--panel);
+    border: 1px solid var(--line);
     border-radius: 4px;
-    color: #1f2937;
+    color: var(--text);
     padding: 24px;
 }
 
@@ -1272,13 +1284,13 @@ nav button:hover,
 }
 
 .atsSectionHead h2 {
-    color: #1f2937;
+    color: var(--text);
     font-size: 1.75rem;
     margin: 0 0 6px;
 }
 
 .atsSectionHead p {
-    color: #64748b;
+    color: var(--muted);
     margin: 0;
 }
 
@@ -1293,13 +1305,13 @@ nav button:hover,
 }
 
 .atsCheckRows {
-    border: 1px solid #d6e1ea;
+    border: 1px solid var(--line);
     border-radius: 4px;
 }
 
 .atsCheckRows article {
     align-items: start;
-    border-bottom: 1px solid #d6e1ea;
+    border-bottom: 1px solid var(--line);
     display: grid;
     gap: 12px;
     grid-template-columns: 190px 24px 1fr;
@@ -1325,7 +1337,7 @@ nav button:hover,
 .atsSkillTable,
 .atsReportTable {
     border-collapse: collapse;
-    color: #172033;
+    color: var(--text);
     width: 100%;
 }
 
@@ -1333,7 +1345,7 @@ nav button:hover,
 .atsSkillTable td,
 .atsReportTable th,
 .atsReportTable td {
-    border-bottom: 1px solid #d6e1ea;
+    border-bottom: 1px solid var(--line);
     padding: 12px 14px;
     text-align: left;
 }
@@ -1357,8 +1369,8 @@ nav button:hover,
 
 .atsHighlightedGrid > div,
 .atsReportEvidenceGrid pre {
-    background: #f7fbff;
-    border: 1px solid #cfd8e3;
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid var(--line);
     border-radius: 4px;
     min-height: 330px;
     padding: 14px;
@@ -1366,7 +1378,7 @@ nav button:hover,
 
 .atsHighlightedGrid pre,
 .atsReportEvidenceGrid pre {
-    color: #172033;
+    color: var(--soft);
     font-family: inherit;
     line-height: 1.55;
     margin: 10px 0 0;
@@ -1389,9 +1401,12 @@ nav button:hover,
 }
 
 .atsReportPaper {
-    background: #fff;
-    box-shadow: 0 14px 32px rgba(31, 41, 55, .16);
-    color: #071421;
+    background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.025)),
+            #101216;
+    border: 1px solid var(--line);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, .48);
+    color: var(--text);
     margin: 0 auto;
     max-width: 1040px;
     padding: 18px;
@@ -1416,8 +1431,8 @@ nav button:hover,
 
 .atsReportSummary {
     align-items: center;
-    background: #e4f3ff;
-    border: 1px solid #a9d4ff;
+    background: rgba(255, 59, 59, 0.08);
+    border: 1px solid rgba(255, 99, 99, 0.22);
     border-radius: 4px;
     display: grid;
     gap: 14px;
@@ -1427,8 +1442,8 @@ nav button:hover,
 }
 
 .atsReportSummary article {
-    background: #fff;
-    border: 1px solid #cfd8e3;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid var(--line);
     border-radius: 4px;
     padding: 16px 20px;
 }
