@@ -172,7 +172,21 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
                     <Metric label={t('detectedPhrases')} value={detectedMatches.length} />
                 </section>
 
-                {error && <div className="error">{error}</div>}
+                {error && (
+                    <div className="retryNotice error">
+                        <div>
+                            <strong>Candidate upload failed.</strong>
+                            <span>{error}</span>
+                        </div>
+                        <div className="retryActions">
+                            <button className="secondary" disabled={Boolean(stage) || (!resumeFile && !cvText.trim())} onClick={analyzeCandidate} type="button">
+                                <Play size={15} /> Retry
+                            </button>
+                            {resumeFile && <button className="secondary" disabled={Boolean(stage)} onClick={() => { setResumeFile(null); setError(''); }} type="button">Remove file</button>}
+                            <button className="secondary" onClick={() => setError('')} type="button">Dismiss</button>
+                        </div>
+                    </div>
+                )}
 
                 {stage && (
                     <div className="loading">

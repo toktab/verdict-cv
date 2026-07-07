@@ -81,7 +81,17 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
                         {importError || importMessage}
                     </section>
                 )}
-                {projectsError && <section className="error compact">Could not load projects. {projectsError}</section>}
+                {projectsError && (
+                    <section className="retryNotice error compact">
+                        <div>
+                            <strong>Could not load projects.</strong>
+                            <span>{projectsError}</span>
+                        </div>
+                        <div className="retryActions">
+                            <button className="secondary" disabled={projectsLoading} onClick={refreshProjects} type="button"><RefreshCcw size={15} /> Retry</button>
+                        </div>
+                    </section>
+                )}
                 <section className="dashboardStats">
                     <Metric label={t('openJobs')} value={projects.length} />
                     <Metric label={t('candidates')} value={totals.candidates} />

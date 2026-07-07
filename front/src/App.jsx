@@ -284,6 +284,7 @@ function App() {
     const [historyLoading, setHistoryLoading] = useState(false);
     const [templateLoading, setTemplateLoading] = useState(false);
     const [uploadingField, setUploadingField] = useState('');
+    const [lastAuditUpload, setLastAuditUpload] = useState(null);
     const [stage, setStage] = useState('');
     const [error, setError] = useState('');
     const [authProblem, setAuthProblem] = useState('');
@@ -580,6 +581,11 @@ function App() {
         if (!file) {
             return;
         }
+        setLastAuditUpload({ field, file });
+        await uploadAuditFileObject(field, file);
+    }
+
+    async function uploadAuditFileObject(field, file) {
         setError('');
         if (!userToken) {
             setError('Sign in before uploading audit files.');
@@ -603,6 +609,11 @@ function App() {
         } finally {
             setUploadingField('');
         }
+    }
+
+    async function retryAuditUpload() {
+        if (!lastAuditUpload) return;
+        await uploadAuditFileObject(lastAuditUpload.field, lastAuditUpload.file);
     }
 
     async function openAudit(id) {
@@ -755,7 +766,19 @@ function App() {
                         <Metric label="Claim chars" value={form.claimText.length} />
                         <Metric label="Evidence chars" value={form.evidenceText.length} />
                     </section>
-                    {error && <div className="error">{error}</div>}
+                    {error && (
+                        <div className="retryNotice error">
+                            <div>
+                                <strong>Something needs another try.</strong>
+                                <span>{error}</span>
+                            </div>
+                            <div className="retryActions">
+                                <button className="secondary" disabled={loading || !userToken} onClick={runAudit} type="button"><RefreshCcw size={15} /> Retry audit</button>
+                                {lastAuditUpload && <button className="secondary" disabled={Boolean(uploadingField)} onClick={retryAuditUpload} type="button"><FileSearch size={15} /> Retry upload</button>}
+                                <button className="secondary" onClick={() => setError('')} type="button">Dismiss</button>
+                            </div>
+                        </div>
+                    )}
                     {loading && <><Loading stage={stage} /><SkeletonBlock rows={5} /></>}
                     {audit && <AuditResult audit={audit} setRoute={setRoute} />}
                     <HistoryPanel history={history} templates={templates} loading={historyLoading} error={historyError} onRefresh={loadHistory} openAudit={openAudit} />
@@ -2410,20 +2433,35 @@ function StickyAuditBar({ audit }) {
 }
 
 function ExportActions({ auditId }) {
+    const [exportState, setExportState] = useState({ busy: '', error: '' });
     const formats = [
         ['txt', 'TXT'],
         ['word', 'Word'],
         ['excel', 'Excel'],
         ['pdf', 'PDF'],
     ];
+    async function download(format) {
+        setExportState({ busy: format, error: '' });
+        try {
+            await exportAudit(auditId, format);
+            setExportState({ busy: '', error: '' });
+        } catch (error) {
+            setExportState({ busy: '', error: error.message || `Could not export ${format.toUpperCase()}.` });
+        }
+    }
     return (
         <div className="exportActions" aria-label="Export audit formats">
             <span><Download size={15} /> Export</span>
             {formats.map(([format, label]) => (
-                <button key={format} className={format === 'pdf' ? 'primaryExport' : ''} onClick={() => exportAudit(auditId, format)}>
-                    {label}
+                <button key={format} className={format === 'pdf' ? 'primaryExport' : ''} disabled={Boolean(exportState.busy)} onClick={() => download(format)}>
+                    {exportState.busy === format ? '...' : label}
                 </button>
             ))}
+            {exportState.error && (
+                <button className="exportRetry" type="button" onClick={() => download('pdf')}>
+                    Retry PDF
+                </button>
+            )}
         </div>
     );
 }
@@ -2432,7 +2470,7 @@ async function exportAudit(id, format = 'txt') {
     const token = localStorage.getItem('verdictUserToken') || '';
     const response = await fetch(`/api/audit/${id}/export?format=${encodeURIComponent(format)}`, { headers: { 'X-User-Token': token } });
     if (!response.ok) {
-        throw new Error('Export failed');
+        throw new Error(`${format.toUpperCase()} export failed. Check your session and try again.`);
     }
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);

@@ -3200,6 +3200,37 @@ mark {
     font-size: 13px;
 }
 
+.retryNotice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.retryNotice div:first-child {
+    display: grid;
+    gap: 4px;
+}
+
+.retryNotice strong,
+.retryNotice span {
+    display: block;
+}
+
+.retryNotice span {
+    color: var(--soft);
+}
+
+.retryActions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .teamInvitePanel,
 .reviewNotesPanel {
     border: 1px solid var(--line);
@@ -6835,6 +6866,11 @@ select {
     border-color: rgba(99, 102, 241, 0.72);
     color: #eef2ff;
     background: linear-gradient(135deg, rgba(239, 68, 68, 0.72), rgba(99, 102, 241, 0.76), rgba(16, 185, 129, 0.72));
+}
+
+.exportActions button.exportRetry {
+    border-color: rgba(248, 113, 113, 0.52);
+    color: #fecaca;
 }
 
 .counts {

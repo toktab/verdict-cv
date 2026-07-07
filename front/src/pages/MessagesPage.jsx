@@ -173,7 +173,18 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                             <span>{visible.length} message{visible.length === 1 ? '' : 's'}</span>
                         </div>
                     </div>
-                    {loadError && <div className="error compact">{loadError}</div>}
+                    {loadError && (
+                        <div className="retryNotice error compact">
+                            <div>
+                                <strong>Message sync failed.</strong>
+                                <span>{loadError}</span>
+                            </div>
+                            <div className="retryActions">
+                                <button className="secondary" disabled={loading} onClick={loadMessages} type="button"><RefreshCcw size={15} /> Retry</button>
+                                <button className="secondary" onClick={() => setLoadError('')} type="button">Dismiss</button>
+                            </div>
+                        </div>
+                    )}
                     <div className="messageRows">
                         {loading && Array.from({ length: 4 }, (_, index) => (
                             <div className="messageRowSkeleton" key={index}>
