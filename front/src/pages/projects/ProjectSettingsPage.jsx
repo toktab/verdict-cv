@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, Bell, Database, Download, FileText, History, Lock, RotateCcw, Save, Settings, ShieldCheck, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
-import { apiDeleteProject } from '../../api';
-import { downloadProjectActivity, formatActivityDate, projectActivityText, readProjectActivity, recordProjectActivity } from './projectActivity';
+import { apiDeleteProject, apiGetProjectSettings, apiListProjectActivity, apiSaveProjectSettings } from '../../api';
+import { downloadProjectActivity, formatActivityDate, projectActivityText, readProjectActivity, recordProjectActivityOnServer } from './projectActivity';
 import { findProjectFromPath } from './projectPageUtils';
 import './ProjectSettingsPage.css';
 import { ProjectRouteState } from './ProjectRouteState';
@@ -34,13 +34,30 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
     const [logsOpen, setLogsOpen] = useState(false);
     const [logsMode, setLogsMode] = useState('visual');
     const [activityRows, setActivityRows] = useState(() => readProjectActivity(project?.id));
+    const [stateError, setStateError] = useState('');
     const deleteReady = deleteCountdown <= 0 && deletePhrase.trim() === 'I confirm';
     const settingRows = useMemo(() => projectSettingsRows(settings, setSettings, !canManage), [settings, canManage]);
 
     useEffect(() => {
         setSettings(readProjectSettings(project?.id));
         setActivityRows(readProjectActivity(project?.id));
-    }, [project?.id]);
+        setStateError('');
+        if (!project?.id || !userToken) return;
+        let cancelled = false;
+        Promise.all([
+            apiGetProjectSettings(project.id, userToken),
+            apiListProjectActivity(project.id, userToken),
+        ]).then(([settingsResponse, activityResponse]) => {
+            if (cancelled) return;
+            setSettings({ ...defaultSettings, ...(settingsResponse.settings || {}) });
+            setActivityRows(activityResponse || []);
+        }).catch((error) => {
+            if (!cancelled) setStateError(error.message || 'Could not load project state.');
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [project?.id, userToken]);
 
     useEffect(() => {
         if (!deleteOpen) return undefined;
@@ -57,31 +74,52 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
         return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} />;
     }
 
-    function saveSettings() {
-        writeProjectSettings(project.id, settings);
-        recordProjectActivity(project.id, user, {
+    async function refreshActivityRows() {
+        try {
+            setActivityRows(await apiListProjectActivity(project.id, userToken));
+        } catch {
+            setActivityRows(readProjectActivity(project.id));
+        }
+    }
+
+    async function saveSettings() {
+        setStateError('');
+        try {
+            const savedSettings = await apiSaveProjectSettings(project.id, settings, userToken);
+            setSettings({ ...defaultSettings, ...(savedSettings.settings || {}) });
+        } catch (error) {
+            setStateError(error.message || 'Could not save project settings.');
+            return;
+        }
+        await recordProjectActivityOnServer(project.id, user, {
             type: 'settings',
             action: 'Saved project settings',
             projectTitle: project.title,
             severity: 'info',
             detail: 'Project settings were updated from the settings page.',
-        });
-        setActivityRows(readProjectActivity(project.id));
+        }, userToken);
+        await refreshActivityRows();
         setSaved('Project settings saved for this workspace.');
         window.setTimeout(() => setSaved(''), 1800);
     }
 
-    function resetSettings() {
+    async function resetSettings() {
         setSettings(defaultSettings);
-        writeProjectSettings(project.id, defaultSettings);
-        recordProjectActivity(project.id, user, {
+        setStateError('');
+        try {
+            await apiSaveProjectSettings(project.id, defaultSettings, userToken);
+        } catch (error) {
+            setStateError(error.message || 'Could not reset project settings.');
+            return;
+        }
+        await recordProjectActivityOnServer(project.id, user, {
             type: 'settings_reset',
             action: 'Reset project settings',
             projectTitle: project.title,
             severity: 'warn',
             detail: 'Project settings were reset to VERDICT defaults.',
-        });
-        setActivityRows(readProjectActivity(project.id));
+        }, userToken);
+        await refreshActivityRows();
         setSaved('Settings reset to VERDICT defaults.');
         window.setTimeout(() => setSaved(''), 1800);
     }
@@ -98,13 +136,13 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
         setDeleteBusy(true);
         setDeleteFeedback('');
         try {
-            recordProjectActivity(project.id, user, {
+            await recordProjectActivityOnServer(project.id, user, {
                 type: 'project_delete',
                 action: `Deleted project ${project.title}`,
                 projectTitle: project.title,
                 severity: 'danger',
                 detail: `${project.title} was deleted from active project lists.`,
-            });
+            }, userToken);
             await apiDeleteProject(project.id, userToken);
             await onProjectsChange?.();
             navigateTo(setRoute, 'projects');
@@ -130,12 +168,13 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
                         <button className="secondary compactHeroButton" type="button" onClick={() => navigateTo(setRoute, 'projectDetail', project.id)}><ArrowRight size={16} /> Back</button>
                         <button className="secondary compactHeroButton" type="button" onClick={() => navigateTo(setRoute, 'projectTeam', project.id)}><Users size={16} /> Team</button>
                         <button className="secondary compactHeroButton" type="button" onClick={() => {
-                            setActivityRows(readProjectActivity(project.id));
+                            refreshActivityRows();
                             setLogsOpen(true);
                         }}><History size={16} /> Logs</button>
                     </div>
                 </section>
 
+                {stateError && <section className="error compact">Project state failed. {stateError} <button type="button" onClick={() => project?.id && refreshActivityRows()}>Retry logs</button></section>}
                 {saved && <section className={saved.includes('Could not') ? 'error compact' : 'success compact'}>{saved}</section>}
 
                 <section className="settingsGrid">
@@ -311,18 +350,6 @@ function rangeRow(group, title, text, key, settings, setSettings, disabled) {
     };
 }
 
-function settingsKey(projectId) {
-    return `verdictProjectSettings:${projectId || 'unknown'}`;
-}
-
 function readProjectSettings(projectId) {
-    try {
-        return { ...defaultSettings, ...JSON.parse(localStorage.getItem(settingsKey(projectId)) || '{}') };
-    } catch {
-        return defaultSettings;
-    }
-}
-
-function writeProjectSettings(projectId, settings) {
-    localStorage.setItem(settingsKey(projectId), JSON.stringify(settings));
+    return projectId ? defaultSettings : defaultSettings;
 }

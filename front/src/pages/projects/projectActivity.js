@@ -1,3 +1,5 @@
+import { apiRecordProjectActivity } from '../../api';
+
 export function readProjectActivity(projectId) {
     if (!projectId) return [];
     try {
@@ -5,6 +7,17 @@ export function readProjectActivity(projectId) {
     } catch {
         return [];
     }
+}
+
+export async function readProjectActivityFromServer(projectId, token, fallbackRows = []) {
+    if (!projectId || !token) return fallbackRows;
+    const response = await fetch(`/api/projects/${projectId}/activity`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+        throw new Error(await serverError(response));
+    }
+    return response.json();
 }
 
 export function recordProjectActivity(projectId, user, details = {}) {
@@ -38,6 +51,25 @@ export function recordProjectActivity(projectId, user, details = {}) {
     }
     localStorage.setItem(activityKey(projectId), JSON.stringify([entry, ...rows].slice(0, 500)));
     return entry;
+}
+
+export async function recordProjectActivityOnServer(projectId, user, details = {}, token = '') {
+    const localEntry = recordProjectActivity(projectId, user, details);
+    if (!projectId || !token) return localEntry;
+    try {
+        return await apiRecordProjectActivity(projectId, {
+            type: details.type || localEntry.type,
+            action: details.action || localEntry.action,
+            target_email: details.targetEmail || '',
+            target_name: details.targetName || '',
+            candidate_id: details.candidateId || null,
+            candidate_name: details.candidateName || '',
+            severity: details.severity || localEntry.severity,
+            detail: details.detail || '',
+        }, token);
+    } catch {
+        return localEntry;
+    }
 }
 
 export function projectActivityText(project, rows) {
@@ -89,4 +121,13 @@ function severityFor(value = '') {
 
 function slug(value) {
     return String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'project';
+}
+
+async function serverError(response) {
+    try {
+        const payload = await response.json();
+        return payload.message || payload.detail || `${response.status} ${response.statusText}`;
+    } catch {
+        return `${response.status} ${response.statusText}`;
+    }
 }

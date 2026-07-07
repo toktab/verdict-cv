@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
-import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMembers, apiLookupUser, apiSendMessage, apiUpdateProjectMemberRole } from '../../api';
+import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMemberPermissions, apiListProjectMembers, apiLookupUser, apiSaveProjectMemberPermissions, apiSendMessage, apiUpdateProjectMemberRole } from '../../api';
 import { appendMessage, createMessage } from '../../messageStore';
-import { readProjectActivity, recordProjectActivity } from './projectActivity';
+import { readProjectActivity, recordProjectActivityOnServer } from './projectActivity';
 import { findProjectFromPath } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
 
@@ -81,9 +81,15 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
 
     useEffect(() => {
         setRoleOverrides(readRoles(project?.id));
-        setCustomPermissions(readCustomPermissions(project?.id));
         setActivityRows(readProjectActivity(project?.id));
-    }, [project?.id]);
+        if (!project?.id || !userToken) {
+            setCustomPermissions({});
+            return;
+        }
+        apiListProjectMemberPermissions(project.id, userToken)
+            .then(setCustomPermissions)
+            .catch(() => setCustomPermissions({}));
+    }, [project?.id, userToken]);
 
     useEffect(() => {
         const query = email.trim();
@@ -113,7 +119,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         setEmail('');
         setInviteLookup({ state: 'idle', user: null, query: '' });
         setMessage(`Invite token created for ${row.email}: ${row.token}`);
-        recordProjectActivity(project.id, user, {
+        await recordProjectActivityOnServer(project.id, user, {
             type: 'invite',
             action: `Invited ${row.email}`,
             targetEmail: row.email,
@@ -121,7 +127,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
             projectTitle: project.title,
             severity: 'good',
             detail: `Invite token created with role ${row.role || 'Reviewer'}.`,
-        });
+        }, userToken);
         setActivityRows(readProjectActivity(project.id));
     }
 
@@ -144,7 +150,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         if (role === 'Custom' && !customPermissions[emailAddress]) {
             const nextCustom = { ...customPermissions, [emailAddress]: ROLE_PERMISSIONS.Viewer };
             setCustomPermissions(nextCustom);
-            writeCustomPermissions(project.id, nextCustom);
+            await apiSaveProjectMemberPermissions(project.id, { email: emailAddress, role: 'Custom', permissions: ROLE_PERMISSIONS.Viewer }, userToken).catch(() => null);
         }
         if (notify) {
             sendRoleNotice(emailAddress, `Your role changed from ${previousRole} to ${role} on ${project.title}.`);
@@ -154,7 +160,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                 sendRoleNotice(user.email, `Head Admin was transferred to ${member.name} on ${project.title}. Your role is now Admin.`);
             }
         }
-        recordProjectActivity(project.id, user, {
+        await recordProjectActivityOnServer(project.id, user, {
             type: 'rank_change',
             action: `Changed ${member.name}'s rank from ${previousRole} to ${role}`,
             targetEmail: member.email,
@@ -162,7 +168,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
             projectTitle: project.title,
             severity: 'warn',
             detail: notify ? 'Member notification was requested.' : 'Member notification was skipped.',
-        });
+        }, userToken);
         setActivityRows(readProjectActivity(project.id));
     }
 
@@ -173,7 +179,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         setRoleOverrides(next);
         writeRoles(project.id, next);
         sendRoleNotice(emailAddress, `You were removed from ${project.title}.`);
-        recordProjectActivity(project.id, user, {
+        recordProjectActivityOnServer(project.id, user, {
             type: 'kick',
             action: `Kicked ${member.name} from project`,
             targetEmail: member.email,
@@ -181,7 +187,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
             projectTitle: project.title,
             severity: 'danger',
             detail: `${member.email} was removed from ${project.title}.`,
-        });
+        }, userToken);
         setActivityRows(readProjectActivity(project.id));
     }
 
@@ -219,7 +225,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         setCandidateSenderOpen(false);
     }
 
-    function toggleCustomPermission(emailAddress, permission) {
+    async function toggleCustomPermission(emailAddress, permission) {
         if (!myPermissions.includes('canChangePermissions')) return;
         const current = customPermissions[emailAddress] || ROLE_PERMISSIONS.Viewer;
         const nextPermissions = current.includes(permission)
@@ -227,16 +233,16 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
             : [...current, permission];
         const next = { ...customPermissions, [emailAddress]: nextPermissions.includes('canView') ? nextPermissions : ['canView', ...nextPermissions] };
         setCustomPermissions(next);
-        writeCustomPermissions(project.id, next);
+        await apiSaveProjectMemberPermissions(project.id, { email: emailAddress, role: 'Custom', permissions: next[emailAddress] }, userToken).catch((error) => setMessage(error.message || 'Could not save custom permissions.'));
         const member = members.find((row) => sameEmail(row.email, emailAddress));
-        recordProjectActivity(project.id, user, {
+        await recordProjectActivityOnServer(project.id, user, {
             type: 'permission_change',
             action: `${nextPermissions.includes(permission) ? 'Enabled' : 'Disabled'} ${permission} for ${member?.name || emailAddress}`,
             targetEmail: emailAddress,
             targetName: member?.name || emailAddress,
             projectTitle: project.title,
             severity: 'warn',
-        });
+        }, userToken);
         setActivityRows(readProjectActivity(project.id));
     }
 
@@ -697,19 +703,6 @@ function readRoles(projectId) {
 
 function writeRoles(projectId, roles) {
     localStorage.setItem(`projectRoles:${projectId}`, JSON.stringify(roles));
-}
-
-function readCustomPermissions(projectId) {
-    if (!projectId) return {};
-    try {
-        return JSON.parse(localStorage.getItem(`projectCustomPermissions:${projectId}`) || '{}');
-    } catch {
-        return {};
-    }
-}
-
-function writeCustomPermissions(projectId, permissions) {
-    localStorage.setItem(`projectCustomPermissions:${projectId}`, JSON.stringify(permissions));
 }
 
 function permissionsFor(role, email, customPermissions, serverPermissions = []) {

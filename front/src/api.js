@@ -106,6 +106,38 @@ export async function apiDeleteProject(id, token) {
     return del(`/projects/${id}`, token);
 }
 
+export async function apiGetProjectSettings(id, token) {
+    return get(`/projects/${id}/settings`, token);
+}
+
+export async function apiSaveProjectSettings(id, settings, token) {
+    return patch(`/projects/${id}/settings`, { settings }, token);
+}
+
+export async function apiListProjectActivity(id, token) {
+    return get(`/projects/${id}/activity`, token);
+}
+
+export async function apiRecordProjectActivity(id, details, token) {
+    return post(`/projects/${id}/activity`, details, token);
+}
+
+export async function apiListProjectAtsTemplates(id, token) {
+    return get(`/projects/${id}/ats-templates`, token);
+}
+
+export async function apiSaveProjectAtsTemplates(id, templates, token) {
+    return post(`/projects/${id}/ats-templates`, templates, token);
+}
+
+export async function apiListProjectMemberPermissions(id, token) {
+    return get(`/projects/${id}/members/permissions`, token);
+}
+
+export async function apiSaveProjectMemberPermissions(id, payload, token) {
+    return patch(`/projects/${id}/members/permissions`, payload, token);
+}
+
 export async function apiAddCandidate(projectId, { name, role, cvText }, token) {
     return post(`/projects/${projectId}/candidates`, { name, role, cv_text: cvText || '' }, token);
 }

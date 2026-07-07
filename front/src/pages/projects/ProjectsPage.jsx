@@ -1,6 +1,6 @@
 import { BriefcaseBusiness, Copy, Database, Plus, RefreshCcw, Save, ShieldCheck, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { apiImportJobPostings } from '../../api';
+import { useEffect, useMemo, useState } from 'react';
+import { apiImportJobPostings, apiListProjectAtsTemplates, apiSaveProjectAtsTemplates } from '../../api';
 import defaultAts from '../../data/default-ats.json';
 import { useLanguage } from '../../i18n';
 import { ProjectScoreStrip } from './components/ProjectScoreStrip';
@@ -160,20 +160,36 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
                 </section>
                 {!projectsLoading && <Pagination page={currentPage} totalPages={pageCount(filteredProjects)} onPage={setPage} t={t} />}
             </main>
-            {atsOpen && <AtsTemplateModal user={user} onClose={() => setAtsOpen(false)} />}
+            {atsOpen && <AtsTemplateModal projectId={projects[0]?.id} userToken={userToken} onClose={() => setAtsOpen(false)} />}
         </div>
     );
 }
 
-function AtsTemplateModal({ user, onClose }) {
-    const [templates, setTemplates] = useState(() => readAtsTemplates(user));
-    const [activeId, setActiveId] = useState(() => readAtsTemplates(user)[0]?.id || defaultAtsTemplate().id);
+function AtsTemplateModal({ projectId, userToken, onClose }) {
+    const [templates, setTemplates] = useState(() => readAtsTemplates());
+    const [activeId, setActiveId] = useState(() => readAtsTemplates()[0]?.id || defaultAtsTemplate().id);
+    const [saveState, setSaveState] = useState('');
     const active = templates.find((template) => template.id === activeId) || templates[0] || defaultAtsTemplate();
+
+    useEffect(() => {
+        if (!projectId || !userToken) return undefined;
+        let cancelled = false;
+        apiListProjectAtsTemplates(projectId, userToken)
+            .then((rows) => {
+                if (cancelled) return;
+                const serverTemplates = rows.map((row) => ({ ...row.template, id: row.id, name: row.name, visibility: row.visibility, verified: row.verified }));
+                setTemplates([defaultAtsTemplate(), ...serverTemplates.filter((template) => template.id !== defaultAtsTemplate().id)]);
+                setActiveId(serverTemplates[0]?.id || defaultAtsTemplate().id);
+            })
+            .catch((error) => setSaveState(error.message || 'Could not load ATS templates.'));
+        return () => {
+            cancelled = true;
+        };
+    }, [projectId, userToken]);
 
     function saveTemplates(next, nextActiveId = activeId) {
         setTemplates(next);
         setActiveId(nextActiveId);
-        writeAtsTemplates(user, next);
     }
 
     function updateActive(patch) {
@@ -232,9 +248,27 @@ function AtsTemplateModal({ user, onClose }) {
                         </div>
                         <div className="heroActions">
                             <button className="secondary" type="button" onClick={() => createTemplate(active)}><Copy size={16} /> Copy template</button>
-                            <button className="primary" type="button" onClick={() => writeAtsTemplates(user, templates)}><Save size={16} /> Save template</button>
+                            <button className="primary" disabled={!projectId} type="button" onClick={async () => {
+                                setSaveState('');
+                                try {
+                                    const rows = await apiSaveProjectAtsTemplates(projectId, templates.map((template) => ({
+                                        id: template.id,
+                                        name: template.name,
+                                        visibility: template.visibility,
+                                        verified: Boolean(template.verified),
+                                        template,
+                                    })), userToken);
+                                    const serverTemplates = rows.map((row) => ({ ...row.template, id: row.id, name: row.name, visibility: row.visibility, verified: row.verified }));
+                                    setTemplates([defaultAtsTemplate(), ...serverTemplates.filter((template) => template.id !== defaultAtsTemplate().id)]);
+                                    setSaveState('ATS templates saved to this project.');
+                                } catch (error) {
+                                    setSaveState(error.message || 'Could not save ATS templates.');
+                                }
+                            }}><Save size={16} /> Save template</button>
                         </div>
                     </div>
+                    {saveState && <div className={saveState.includes('Could not') ? 'error compact' : 'success compact'}>{saveState}</div>}
+                    {!projectId && <div className="error compact">Create or import a project before saving ATS templates.</div>}
                     <div className="atsFormGrid">
                         <label>Name<input disabled={active.verified} value={active.name} onChange={(event) => updateActive({ name: event.target.value })} /></label>
                         <label>Description<input disabled={active.verified} value={active.description} onChange={(event) => updateActive({ description: event.target.value })} /></label>
@@ -282,22 +316,8 @@ function projectAccessLabel(project, user) {
     return { kind: 'invited', label: `Invited / ${role}` };
 }
 
-function atsStorageKey(user) {
-    return `verdictAtsTemplates:${(user?.email || user?.username || 'guest').toLowerCase()}`;
-}
-
-function readAtsTemplates(user) {
-    try {
-        const saved = JSON.parse(localStorage.getItem(atsStorageKey(user)) || '[]');
-        const rows = Array.isArray(saved) ? saved : [];
-        return [defaultAtsTemplate(), ...rows.filter((template) => template.id !== defaultAtsTemplate().id)];
-    } catch {
-        return [defaultAtsTemplate()];
-    }
-}
-
-function writeAtsTemplates(user, templates) {
-    localStorage.setItem(atsStorageKey(user), JSON.stringify(templates));
+function readAtsTemplates() {
+    return [defaultAtsTemplate()];
 }
 
 function defaultAtsTemplate() {

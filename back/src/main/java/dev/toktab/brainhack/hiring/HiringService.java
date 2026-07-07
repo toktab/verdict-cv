@@ -24,6 +24,7 @@ import dev.toktab.brainhack.hiring.HiringDtos.ProjectRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.VoteRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.VoteSummaryResponse;
+import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectActivityRequest;
 import dev.toktab.brainhack.messaging.MessageService;
 import dev.toktab.brainhack.realtime.RealtimeService;
 import jakarta.transaction.Transactional;
@@ -79,6 +80,7 @@ public class HiringService {
     private final UserAccountService userAccountService;
     private final AtsKeywordCatalog atsKeywordCatalog;
     private final RealtimeService realtimeService;
+    private final ProjectStateService projectStateService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(java.time.Duration.ofSeconds(4))
@@ -95,7 +97,8 @@ public class HiringService {
             MessageService messageService,
             UserAccountService userAccountService,
             AtsKeywordCatalog atsKeywordCatalog,
-            RealtimeService realtimeService) {
+            RealtimeService realtimeService,
+            ProjectStateService projectStateService) {
         this.projectRepository = projectRepository;
         this.candidateRepository = candidateRepository;
         this.mapper = mapper;
@@ -107,6 +110,7 @@ public class HiringService {
         this.userAccountService = userAccountService;
         this.atsKeywordCatalog = atsKeywordCatalog;
         this.realtimeService = realtimeService;
+        this.projectStateService = projectStateService;
     }
 
     @Transactional
@@ -140,6 +144,7 @@ public class HiringService {
         project.setState(defaulted(request.state(), "WAR+AI State"));
         project.setStatus(defaulted(request.status(), "Screening"));
         HiringProject saved = projectRepository.save(project);
+        recordActivity(saved, owner, "project_create", "Created project", "good", "Project workspace was created.");
         publishProjectChange(saved);
         return mapper.project(saved, actorRole(owner, saved), permissionsFor(owner, saved));
     }
@@ -167,6 +172,7 @@ public class HiringService {
         }
         project.setDeletedAt(Instant.now());
         projectRepository.save(project);
+        recordActivity(project, owner, "project_delete", "Deleted project " + project.getTitle(), "danger", "Project was deleted from active lists.");
         publishProjectChange(project);
     }
 
@@ -175,6 +181,7 @@ public class HiringService {
         HiringProject project = projectEntity(owner, projectId);
         HiringCandidate candidate = buildCandidate(project, defaulted(request.name(), "Unnamed candidate"), defaulted(request.role(), project.getTitle()), defaulted(request.cvText(), ""), "");
         CandidateResponse response = mapper.candidate(saveAnalyzedCandidate(candidate));
+        recordActivity(project, owner, "candidate_create", "Added candidate " + candidate.getName(), "good", "Candidate was added to the project.");
         publishProjectChange(project);
         return response;
     }
@@ -185,6 +192,7 @@ public class HiringService {
         String cvText = extractResumeText(resume);
         HiringCandidate candidate = buildCandidate(project, defaulted(name, "Unnamed candidate"), defaulted(role, project.getTitle()), cvText, resume == null ? "" : resume.getOriginalFilename());
         CandidateResponse response = mapper.candidate(saveAnalyzedCandidate(candidate));
+        recordActivity(project, owner, "candidate_upload", "Uploaded candidate " + candidate.getName(), "good", "Candidate resume was uploaded and analyzed.");
         publishProjectChange(project);
         return response;
     }
@@ -223,6 +231,7 @@ public class HiringService {
         candidate.setClaimsJson(refreshed.getClaimsJson());
         candidate.setAuditPhraseMatchesJson(refreshed.getAuditPhraseMatchesJson());
         CandidateResponse response = mapper.candidate(saveAnalyzedCandidate(candidate));
+        recordActivity(candidate.getProject(), owner, "candidate_reanalyze", "Reanalyzed candidate " + candidate.getName(), "info", "Candidate scoring and phrase checks were refreshed.");
         publishProjectChange(candidate.getProject());
         return response;
     }
@@ -271,6 +280,7 @@ public class HiringService {
         int identityConfidence = Math.min(96, Math.max(24, 35 + corroborated * 14 - candidate.getUnsupported() * 4));
         candidate.setOsint(corroborated >= 3 ? "Ready" : corroborated >= 1 ? "Partial" : "Escalate");
         candidateRepository.save(candidate);
+        recordActivity(candidate.getProject(), owner, "candidate_osint", "Ran evidence scan for " + candidate.getName(), "info", "SignalTrace evidence cards were refreshed.");
         publishProjectChange(candidate.getProject());
 
         return new OsintRunResponse(
@@ -290,6 +300,7 @@ public class HiringService {
         HiringCandidate candidate = candidateEntity(owner, projectId, candidateId);
         candidate.setDeletedAt(Instant.now());
         candidateRepository.save(candidate);
+        recordActivity(candidate.getProject(), owner, "candidate_delete", "Deleted candidate " + candidate.getName(), "danger", "Candidate was removed from active review lists.");
         publishProjectChange(candidate.getProject());
     }
 
@@ -392,6 +403,7 @@ public class HiringService {
         targetMembership.setRole(role);
         membershipRepository.save(targetMembership);
         projectRepository.save(project);
+        recordActivity(project, actor, "rank_change", "Changed member role", "warn", request.email() + " is now " + displayRole(role) + ".");
         publishProjectChange(project);
         return members(actor, projectId);
     }
@@ -413,6 +425,7 @@ public class HiringService {
         invite.setToken(randomToken());
         ProjectInvite saved = inviteRepository.save(invite);
         messageService.createInviteMessage(actor, saved.getInvitedEmail(), project.getTitle(), project.getId(), saved.getToken());
+        recordActivity(project, actor, "invite_create", "Invited " + saved.getInvitedEmail(), "good", "Role: " + saved.getRole());
         publishProjectChange(project);
         return mapper.invite(saved);
     }
@@ -439,6 +452,7 @@ public class HiringService {
         invite.setStatus("ACCEPTED");
         invite.setAcceptedAt(Instant.now());
         ProjectInvite saved = inviteRepository.save(invite);
+        recordActivity(saved.getProject(), actor, "invite_accept", "Accepted invite", "good", actor.getEmail() + " joined the project.");
         publishProjectChange(saved.getProject());
         return mapper.invite(saved);
     }
@@ -462,6 +476,7 @@ public class HiringService {
         note.setDecision(defaulted(request.decision(), "NONE").toUpperCase(Locale.ROOT));
         note.setBody(defaulted(request.body(), ""));
         CandidateReviewNote saved = noteRepository.save(note);
+        recordActivity(candidate.getProject(), actor, "candidate_note", "Added candidate note", "info", candidate.getName() + ": " + note.getDecision());
         publishProjectChange(candidate.getProject());
         return mapper.note(saved);
     }
@@ -487,6 +502,7 @@ public class HiringService {
         note.setDecision(action);
         note.setBody(action.equals("UPVOTE") ? "score=" + score : "");
         noteRepository.save(note);
+        recordActivity(candidate.getProject(), actor, "candidate_vote", "Recorded candidate vote", "info", candidate.getName() + ": " + action);
         publishProjectChange(candidate.getProject());
         return workflowResponse(actor, candidate);
     }
@@ -506,6 +522,7 @@ public class HiringService {
         note.setDecision(status.toUpperCase(Locale.ROOT));
         note.setBody("Changed candidate status to " + status);
         noteRepository.save(note);
+        recordActivity(candidate.getProject(), actor, "candidate_status", "Changed candidate status", "warn", candidate.getName() + " moved to " + status + ".");
         publishProjectChange(candidate.getProject());
         return workflowResponse(actor, candidate);
     }
@@ -964,6 +981,10 @@ public class HiringService {
                     .forEach(users::add);
         }
         realtimeService.publishProject(users);
+    }
+
+    private void recordActivity(HiringProject project, UserAccount actor, String type, String action, String severity, String detail) {
+        projectStateService.record(project, actor, new ProjectActivityRequest(type, action, "", "", null, "", severity, detail));
     }
 
     private void requirePermission(UserAccount actor, HiringProject project, String permission) {
