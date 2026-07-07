@@ -186,6 +186,10 @@ export async function apiUpdateProjectMemberRole(projectId, { email, role }, tok
     return patch(`/projects/${projectId}/members/role`, { email, role }, token);
 }
 
+export async function apiRemoveProjectMember(projectId, email, token) {
+    return del(`/projects/${projectId}/members?email=${encodeURIComponent(email)}`, token);
+}
+
 export async function apiCreateProjectInvite(projectId, { email, role }, token) {
     return post(`/projects/${projectId}/invites`, { email, role }, token);
 }

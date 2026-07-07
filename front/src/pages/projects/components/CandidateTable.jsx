@@ -7,8 +7,6 @@ export function CandidateTable({ project, setRoute, navigateTo }) {
     const { t } = useLanguage();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
-    const [votes] = useState(() => readCandidateVotes(project.id));
-    const [statuses] = useState(() => readCandidateStatuses(project.id));
     const filteredCandidates = useMemo(() => {
         const needle = search.trim().toLowerCase();
         if (!needle) return project.candidates;
@@ -42,14 +40,13 @@ export function CandidateTable({ project, setRoute, navigateTo }) {
                     <span>{t('status')}</span>
                 </div>
                 {visibleCandidates.map((candidate) => {
-                    const summary = voteSummary(votes[candidate.id]);
-                    const pipelineStatus = statuses[candidate.id] || 'Unreviewed';
+                    const pipelineStatus = candidate.state || 'Unreviewed';
                     return (
                         <button className="candidateTableRow candidateTableRowTall" key={candidate.id} onClick={() => navigateTo(setRoute, 'candidateDetail', project.id, candidate.id)}>
                             <span>
                                 <strong>{candidate.id} / {candidate.name}</strong>
                                 <small>{candidate.role} / {t('submitted')} {formatShortDate(candidate.submittedAt)}</small>
-                                <small>Avg: {summary.average}/5 / {summary.downvotes} downvotes / {summary.stars} stars</small>
+                                <small>Server status: {pipelineStatus}</small>
                             </span>
                             <b className={scoreTone(candidate.score)}>{candidate.score}%</b>
                             <span>{candidate.match}%</span>
@@ -80,30 +77,4 @@ export function CandidateTable({ project, setRoute, navigateTo }) {
             </div>
         </section>
     );
-}
-
-function readCandidateVotes(projectId) {
-    try {
-        return JSON.parse(localStorage.getItem(`candidateVotes:${projectId}`) || '{}');
-    } catch {
-        return {};
-    }
-}
-
-function readCandidateStatuses(projectId) {
-    try {
-        return JSON.parse(localStorage.getItem(`candidateStatuses:${projectId}`) || '{}');
-    } catch {
-        return {};
-    }
-}
-
-function voteSummary(row = {}) {
-    const upvotes = Object.values(row.upvotes || {});
-    const average = upvotes.length ? (upvotes.reduce((sum, vote) => sum + Number(vote.score || 0), 0) / upvotes.length).toFixed(1) : '0.0';
-    return {
-        average,
-        downvotes: Object.keys(row.downvotes || {}).length,
-        stars: Object.keys(row.stars || {}).length,
-    };
 }

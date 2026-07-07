@@ -235,6 +235,14 @@ public class HiringController {
         return hiringService.updateMemberRole(owner(authorization, legacyToken), projectId, request);
     }
 
+    @DeleteMapping("/{projectId}/members")
+    public List<ProjectMemberResponse> removeMember(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                                    @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                                    @PathVariable Long projectId,
+                                                    @RequestParam String email) {
+        return hiringService.removeMember(owner(authorization, legacyToken), projectId, email);
+    }
+
     @PostMapping("/{projectId}/invites")
     public InviteResponse invite(@RequestHeader(value = "Authorization", required = false) String authorization,
                                  @RequestHeader(value = "X-User-Token", required = false) String legacyToken,

@@ -38,8 +38,6 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const { project, candidate } = findCandidateFromPath(projects);
     const activeProject = project;
     const activeCandidate = candidate;
-    const [candidateVotes, setCandidateVotes] = useState(() => readCandidateVotes(activeProject?.id));
-    const [candidateStatuses, setCandidateStatuses] = useState(() => readCandidateStatuses(activeProject?.id));
     const [voteScore, setVoteScore] = useState('3');
     const projectStateId = stateIdFromName(activeProject?.state);
     const stateStorageKey = candidateStateStorageKey(activeProject?.id, activeCandidate?.id);
@@ -58,8 +56,6 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     }, [activeProject?.id, activeCandidate?.id, projectStateId, stateStorageKey]);
 
     useEffect(() => {
-        setCandidateVotes(readCandidateVotes(activeProject?.id));
-        setCandidateStatuses(readCandidateStatuses(activeProject?.id));
         setWorkflow(null);
         setWorkflowMessage('');
     }, [activeProject?.id]);
@@ -124,11 +120,10 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const strongestClaim = strongestRequirementClaim(activeProject, activeCandidate) || activeCandidate.claims.find(([, status]) => status === 'Supported')?.[0] || activeCandidate.role;
     const weakestClaim = weakestRequirementClaim(activeProject, activeCandidate) || activeCandidate.claims.find(([claim, status]) => status === 'Unsupported' && isActionableQuestionClaim(claim))?.[0] || activeCandidate.claims.find(([claim, status]) => status === 'Stretched' && isActionableQuestionClaim(claim))?.[0] || activeCandidate.risk;
     const recruiterSummary = buildRecruiterSummary(activeProject, activeCandidate, decision, coverage, strongestClaim, weakestClaim);
-    const voteRow = candidateVotes[activeCandidate.id] || {};
-    const voteStats = workflow?.voteSummary || voteSummary(voteRow);
+    const voteStats = workflow?.voteSummary || voteSummary();
     const myVoteKey = user?.email || user?.username || 'me';
-    const pipelineStatus = workflow?.status || candidateStatuses[activeCandidate.id] || activeCandidate.state || 'Unreviewed';
-    const projectRole = activeProject?.myRole || currentProjectRole(activeProject?.id, user);
+    const pipelineStatus = workflow?.status || activeCandidate.state || 'Unreviewed';
+    const projectRole = activeProject?.myRole || 'Viewer';
     const projectPermissions = activeProject?.myPermissions || [];
     const canVote = hasProjectPermission(projectRole, projectPermissions, 'canVote');
     const canAddNote = hasProjectPermission(projectRole, projectPermissions, 'canAddNote');
@@ -189,63 +184,25 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         }
     }
 
-    function saveVote(mutator) {
-        if (!canVote) return;
-        const next = { ...candidateVotes };
-        const row = {
-            upvotes: {},
-            downvotes: {},
-            stars: {},
-            ...(next[activeCandidate.id] || {}),
-        };
-        mutator(row);
-        next[activeCandidate.id] = row;
-        setCandidateVotes(next);
-        localStorage.setItem(`candidateVotes:${activeProject.id}`, JSON.stringify(next));
-    }
-
     async function upvote() {
-        if (userToken) {
-            await saveServerVote('UPVOTE', Number(voteScore));
-            return;
-        }
-        saveVote((row) => {
-            row.upvotes[myVoteKey] = { score: Number(voteScore), name: user?.fullName || user?.username || myVoteKey };
-            delete row.downvotes[myVoteKey];
-        });
-        writeActivity(activeProject.id, user, activeCandidate, `upvoted with ${voteScore}/5`);
+        await saveServerVote('UPVOTE', Number(voteScore));
     }
 
     async function downvote() {
-        if (userToken) {
-            await saveServerVote('DOWNVOTE');
-            return;
-        }
-        saveVote((row) => {
-            row.downvotes[myVoteKey] = { name: user?.fullName || user?.username || myVoteKey };
-            delete row.upvotes[myVoteKey];
-        });
-        writeActivity(activeProject.id, user, activeCandidate, 'downvoted');
+        await saveServerVote('DOWNVOTE');
     }
 
     async function toggleStar() {
-        const willStar = workflow ? !workflow.voteSummary.starredByMe : !voteRow.stars?.[myVoteKey];
-        if (userToken) {
-            await saveServerVote(willStar ? 'STAR' : 'UNSTAR');
-            return;
-        }
-        saveVote((row) => {
-            if (row.stars[myVoteKey]) {
-                delete row.stars[myVoteKey];
-            } else {
-                row.stars[myVoteKey] = { name: user?.fullName || user?.username || myVoteKey };
-            }
-        });
-        writeActivity(activeProject.id, user, activeCandidate, willStar ? 'starred candidate' : 'unstarred candidate');
+        const willStar = !workflow?.voteSummary?.starredByMe;
+        await saveServerVote(willStar ? 'STAR' : 'UNSTAR');
     }
 
     async function saveServerVote(action, score = null) {
         if (!canVote) return;
+        if (!userToken) {
+            setWorkflowMessage('Sign in before changing candidate workflow.');
+            return;
+        }
         setWorkflowMessage('');
         try {
             const next = await apiVoteCandidate(activeProject.id, activeCandidate.id, { action, score }, userToken);
@@ -258,22 +215,19 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
 
     async function changePipelineStatus(status) {
         if (!canSetStatus(projectRole, projectPermissions, status)) return;
-        if (userToken) {
-            setWorkflowMessage('');
-            try {
-                const next = await apiUpdateCandidateStatus(activeProject.id, activeCandidate.id, { status }, userToken);
-                setWorkflow(next);
-                await onProjectsChange?.();
-                setWorkflowMessage('Candidate status saved.');
-            } catch (error) {
-                setWorkflowMessage(error.message || 'Could not save candidate status.');
-            }
+        if (!userToken) {
+            setWorkflowMessage('Sign in before changing candidate workflow.');
             return;
         }
-        const next = { ...candidateStatuses, [activeCandidate.id]: status };
-        setCandidateStatuses(next);
-        localStorage.setItem(`candidateStatuses:${activeProject.id}`, JSON.stringify(next));
-        writeActivity(activeProject.id, user, activeCandidate, `changed status to ${status}`);
+        setWorkflowMessage('');
+        try {
+            const next = await apiUpdateCandidateStatus(activeProject.id, activeCandidate.id, { status }, userToken);
+            setWorkflow(next);
+            await onProjectsChange?.();
+            setWorkflowMessage('Candidate status saved.');
+        } catch (error) {
+            setWorkflowMessage(error.message || 'Could not save candidate status.');
+        }
     }
 
     async function deleteCandidate() {
@@ -890,24 +844,6 @@ function formatNoteDate(value) {
     return String(value).slice(0, 16).replace('T', ' ');
 }
 
-function readCandidateVotes(projectId) {
-    if (!projectId) return {};
-    try {
-        return JSON.parse(localStorage.getItem(`candidateVotes:${projectId}`) || '{}');
-    } catch {
-        return {};
-    }
-}
-
-function readCandidateStatuses(projectId) {
-    if (!projectId) return {};
-    try {
-        return JSON.parse(localStorage.getItem(`candidateStatuses:${projectId}`) || '{}');
-    } catch {
-        return {};
-    }
-}
-
 function scoreOptions() {
     return Array.from({ length: 11 }, (_, index) => (index * 0.5).toFixed(index % 2 ? 1 : 0));
 }
@@ -930,16 +866,6 @@ function voteAttribution(row = {}) {
         ...Object.entries(row.downvotes || {}).map(([email, vote]) => `${vote.name || email}: downvote`),
         ...Object.entries(row.stars || {}).map(([email, vote]) => `${vote.name || email}: starred`),
     ];
-}
-
-function currentProjectRole(projectId, user) {
-    if (!projectId || !user) return 'Viewer';
-    try {
-        const roles = JSON.parse(localStorage.getItem(`projectRoles:${projectId}`) || '{}');
-        return roles[user.email] || roles[user.username] || 'Admin';
-    } catch {
-        return 'Admin';
-    }
 }
 
 const ROLE_PERMISSIONS = {

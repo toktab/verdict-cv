@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
-import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMemberPermissions, apiListProjectMembers, apiLookupUser, apiSaveProjectMemberPermissions, apiSendMessage, apiUpdateProjectMemberRole } from '../../api';
+import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMemberPermissions, apiListProjectMembers, apiLookupUser, apiRemoveProjectMember, apiSaveProjectMemberPermissions, apiSendMessage, apiUpdateProjectMemberRole } from '../../api';
 import { appendMessage, createMessage } from '../../messageStore';
 import { readProjectActivity, recordProjectActivityOnServer } from './projectActivity';
 import { findProjectFromPath } from './projectPageUtils';
@@ -25,8 +25,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [serverMembers, setServerMembers] = useState(null);
     const [email, setEmail] = useState('');
     const [inviteLookup, setInviteLookup] = useState({ state: 'idle', user: null, query: '' });
-    const [roleOverrides, setRoleOverrides] = useState(() => readRoles(project?.id));
-    const [customPermissions, setCustomPermissions] = useState(() => readCustomPermissions(project?.id));
+    const [customPermissions, setCustomPermissions] = useState({});
     const [message, setMessage] = useState('');
     const [notifyRoleChange, setNotifyRoleChange] = useState(true);
     const [candidateSenderOpen, setCandidateSenderOpen] = useState(false);
@@ -37,7 +36,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [memberModal, setMemberModal] = useState(null);
     const [confirmAction, setConfirmAction] = useState(null);
     const [activityRows, setActivityRows] = useState(() => readProjectActivity(project?.id));
-    const members = useMemo(() => buildMembers(project, user, invites, roleOverrides, serverMembers), [project, user, invites, roleOverrides, serverMembers]);
+    const members = useMemo(() => buildMembers(project, user, invites, serverMembers), [project, user, invites, serverMembers]);
     const updateRankModal = useCallback((patch) => {
         setRankModal((current) => {
             if (!current) return current;
@@ -80,7 +79,6 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     }, [loadTeamData, project?.id, userToken]);
 
     useEffect(() => {
-        setRoleOverrides(readRoles(project?.id));
         setActivityRows(readProjectActivity(project?.id));
         if (!project?.id || !userToken) {
             setCustomPermissions({});
@@ -139,8 +137,6 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         try {
             const memberRows = await apiUpdateProjectMemberRole(project.id, { email: emailAddress, role }, userToken);
             setServerMembers(memberRows);
-            setRoleOverrides({});
-            writeRoles(project.id, {});
             await loadTeamData();
             await onProjectsChange?.();
         } catch (error) {
@@ -172,23 +168,28 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         setActivityRows(readProjectActivity(project.id));
     }
 
-    function removeMember(emailAddress) {
+    async function removeMember(emailAddress) {
         const member = members.find((row) => row.email === emailAddress);
         if (!member || isProtectedMember(member)) return;
-        const next = { ...roleOverrides, [emailAddress]: 'Kicked' };
-        setRoleOverrides(next);
-        writeRoles(project.id, next);
-        sendRoleNotice(emailAddress, `You were removed from ${project.title}.`);
-        recordProjectActivityOnServer(project.id, user, {
-            type: 'kick',
-            action: `Kicked ${member.name} from project`,
-            targetEmail: member.email,
-            targetName: member.name,
-            projectTitle: project.title,
-            severity: 'danger',
-            detail: `${member.email} was removed from ${project.title}.`,
-        }, userToken);
-        setActivityRows(readProjectActivity(project.id));
+        try {
+            const memberRows = await apiRemoveProjectMember(project.id, emailAddress, userToken);
+            setServerMembers(memberRows);
+            sendRoleNotice(emailAddress, `You were removed from ${project.title}.`);
+            await recordProjectActivityOnServer(project.id, user, {
+                type: 'kick',
+                action: `Kicked ${member.name} from project`,
+                targetEmail: member.email,
+                targetName: member.name,
+                projectTitle: project.title,
+                severity: 'danger',
+                detail: `${member.email} was removed from ${project.title}.`,
+            }, userToken);
+            await loadTeamData();
+            await onProjectsChange?.();
+            setActivityRows(readProjectActivity(project.id));
+        } catch (error) {
+            setMessage(error.message || 'Could not remove member.');
+        }
     }
 
     function sendRoleNotice(to, body) {
@@ -623,11 +624,11 @@ function initials(value = '') {
     return `${parts[0]?.[0] || 'V'}${parts[1]?.[0] || ''}`.toUpperCase();
 }
 
-function buildMembers(project, user, invites, overrides, serverMembers = []) {
+function buildMembers(project, user, invites, serverMembers = []) {
     const rows = Array.isArray(serverMembers) && serverMembers.length ? serverMembers.map((member) => ({
         name: member.name || member.email?.split('@')[0] || 'Reviewer',
         email: member.email,
-        role: overrides[member.email] || normalizeRole(member.role, member.status),
+        role: normalizeRole(member.role, member.status),
         permissions: member.permissions || [],
         status: member.status || 'ACTIVE',
         source: member.source || 'MEMBER',
@@ -650,7 +651,7 @@ function buildMembers(project, user, invites, overrides, serverMembers = []) {
         rows.push({
             name: invite.email?.split('@')[0] || 'Reviewer',
             email: invite.email,
-            role: overrides[invite.email] || normalizeRole(invite.role, invite.status),
+            role: normalizeRole(invite.role, invite.status),
             permissions: invite.permissions || [],
             status: invite.status || 'PENDING',
             source: 'INVITE',
@@ -690,19 +691,6 @@ function roleDescription(role) {
 
 function isProtectedMember(member) {
     return member.protectedMember || member.role === 'Head Admin';
-}
-
-function readRoles(projectId) {
-    if (!projectId) return {};
-    try {
-        return JSON.parse(localStorage.getItem(`projectRoles:${projectId}`) || '{}');
-    } catch {
-        return {};
-    }
-}
-
-function writeRoles(projectId, roles) {
-    localStorage.setItem(`projectRoles:${projectId}`, JSON.stringify(roles));
 }
 
 function permissionsFor(role, email, customPermissions, serverPermissions = []) {

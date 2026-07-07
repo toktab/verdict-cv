@@ -409,6 +409,42 @@ public class HiringService {
     }
 
     @Transactional
+    public List<ProjectMemberResponse> removeMember(UserAccount actor, Long projectId, String email) {
+        HiringProject project = projectEntity(actor, projectId);
+        requirePermission(actor, project, "canKickMembers");
+        String targetEmail = defaulted(email, "").trim().toLowerCase(Locale.ROOT);
+        if (targetEmail.isBlank()) {
+            throw new IllegalArgumentException("Member email required");
+        }
+        if (project.getOwner().getEmail().equalsIgnoreCase(targetEmail)) {
+            throw new IllegalArgumentException("Protected owner cannot be kicked");
+        }
+        boolean removed = false;
+        UserAccount target = userAccountService.findActiveByUsernameOrEmail(targetEmail).orElse(null);
+        if (target != null && project.getOrganization() != null) {
+            removed = membershipRepository.findByOrganizationIdAndUserId(project.getOrganization().getId(), target.getId())
+                    .map(membership -> {
+                        membershipRepository.delete(membership);
+                        return true;
+                    })
+                    .orElse(false);
+        }
+        for (ProjectInvite invite : inviteRepository.findByProjectIdOrderByCreatedAtDesc(projectId)) {
+            if (invite.getInvitedEmail().equalsIgnoreCase(targetEmail) && "PENDING".equals(invite.getStatus())) {
+                invite.setStatus("REVOKED");
+                inviteRepository.save(invite);
+                removed = true;
+            }
+        }
+        if (!removed) {
+            throw new IllegalArgumentException("Project member not found");
+        }
+        recordActivity(project, actor, "kick", "Kicked " + targetEmail + " from project", "danger", targetEmail + " was removed from " + project.getTitle() + ".");
+        publishProjectChange(project);
+        return members(actor, projectId);
+    }
+
+    @Transactional
     public InviteResponse invite(UserAccount actor, Long projectId, InviteRequest request) {
         HiringProject project = projectEntity(actor, projectId);
         requirePermission(actor, project, "canInvite");
