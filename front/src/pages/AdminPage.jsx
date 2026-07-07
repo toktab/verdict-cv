@@ -65,6 +65,7 @@ export function AdminPage({ Header, setRoute }) {
     const [selectedAudit, setSelectedAudit] = useState(null);
     const [editingVerdict, setEditingVerdict] = useState(null);
     const [editingUser, setEditingUser] = useState(null);
+    const [adminConfirm, setAdminConfirm] = useState(null);
     const [userForm, setUserForm] = useState(emptyUserForm());
     const [adminLoading, setAdminLoading] = useState(false);
     const [error, setError] = useState('');
@@ -114,10 +115,16 @@ export function AdminPage({ Header, setRoute }) {
         }
     }, [token, auditOffset, userOffset, logOffset, auditSearch, userSearch, logSearch]);
 
+    function requestDeleteAudit(id) {
+        setAdminConfirm({
+            title: `Delete audit #${id}`,
+            detail: 'This removes the audit from the admin list. Saved exports and report history for that row will no longer be available.',
+            confirmLabel: 'Delete audit',
+            onConfirm: () => deleteAudit(id),
+        });
+    }
+
     async function deleteAudit(id) {
-        if (!window.confirm(`Delete audit #${id}?`)) {
-            return;
-        }
         track('admin_delete_audit', 'admin_panel', `auditId=${id}`);
         await api.deleteAudit(token, id);
         if (selectedAudit?.id === id) {
@@ -126,10 +133,16 @@ export function AdminPage({ Header, setRoute }) {
         await loadAdmin();
     }
 
+    function requestDeleteLog(id) {
+        setAdminConfirm({
+            title: `Delete log #${id}`,
+            detail: 'This hides the selected log row from the admin log stream.',
+            confirmLabel: 'Delete log',
+            onConfirm: () => deleteLog(id),
+        });
+    }
+
     async function deleteLog(id) {
-        if (!window.confirm(`Delete log #${id}?`)) {
-            return;
-        }
         track('admin_delete_log', 'admin_panel', `logId=${id}`);
         await api.deleteLog(token, id);
         await loadAdmin();
@@ -169,10 +182,17 @@ export function AdminPage({ Header, setRoute }) {
         await loadAdmin();
     }
 
+    function requestDeleteUser(id) {
+        const target = users.find((user) => user.id === id);
+        setAdminConfirm({
+            title: `Delete user #${id}`,
+            detail: `This removes ${target?.email || 'this account'} from the platform. Project ownership and audit references may be affected.`,
+            confirmLabel: 'Delete user',
+            onConfirm: () => deleteUser(id),
+        });
+    }
+
     async function deleteUser(id) {
-        if (!window.confirm(`Delete user #${id}? This removes their account.`)) {
-            return;
-        }
         track('admin_delete_user', 'admin_panel', `userId=${id}`);
         await api.deleteUser(token, id);
         if (editingUser?.id === id) {
@@ -206,9 +226,15 @@ export function AdminPage({ Header, setRoute }) {
             return;
         }
         const labels = selectedClearTargetRows.map((target) => target.label).join(', ');
-        if (!window.confirm(`Clear ${selectedClearRowCount} rows for: ${labels}? This cannot be undone.`)) {
-            return;
-        }
+        setAdminConfirm({
+            title: 'Clear selected tables',
+            detail: `This will clear ${selectedClearRowCount} row(s) for: ${labels}. The typed phrase was accepted, but this is still destructive.`,
+            confirmLabel: 'Clear tables',
+            onConfirm: clearSelectedTablesNow,
+        });
+    }
+
+    async function clearSelectedTablesNow() {
         track('admin_clear_tables', 'admin_panel', selectedClearTargets.join(','));
         setError('');
         const results = await api.clearAdminTables(token, selectedClearTargets);
@@ -373,7 +399,7 @@ export function AdminPage({ Header, setRoute }) {
                                 <span>#{user.id} {user.fullName} / {user.username} / {user.email} / {user.emailVerified ? 'verified' : 'unverified'}</span>
                                 <div className="rowActions">
                                     <button className="secondary" onClick={() => editUser(user)}><Edit3 size={15} /> Edit</button>
-                                    <button className="destructive" onClick={() => deleteUser(user.id)}><Trash2 size={15} /> Delete</button>
+                                    <button className="destructive" onClick={() => requestDeleteUser(user.id)}><Trash2 size={15} /> Delete</button>
                                 </div>
                             </div>
                         ))}
@@ -390,7 +416,7 @@ export function AdminPage({ Header, setRoute }) {
                             <span>#{audit.id} {audit.claimTitle} / {audit.credibilityScore}% / {audit.status || 'COMPLETED'}</span>
                             <div className="rowActions">
                                 <button className="secondary" onClick={() => openAuditEditor(audit)}><Edit3 size={15} /> Edit</button>
-                                <button className="destructive" onClick={() => deleteAudit(audit.id)}><Trash2 size={15} /> Delete</button>
+                                <button className="destructive" onClick={() => requestDeleteAudit(audit.id)}><Trash2 size={15} /> Delete</button>
                             </div>
                         </div>
                     ))}
@@ -406,7 +432,7 @@ export function AdminPage({ Header, setRoute }) {
                             <code>#{log.sequence} {log.eventType} {log.method} {log.path} {log.statusCode}</code>
                             <span>{log.ipAddress} / {new Date(log.createdAt).toLocaleString()}</span>
                             <small>{log.detail}</small>
-                            <button className="destructive" onClick={() => deleteLog(log.id)}><Trash2 size={14} /> Delete</button>
+                            <button className="destructive" onClick={() => requestDeleteLog(log.id)}><Trash2 size={14} /> Delete</button>
                         </div>
                     ))}
                 </section>
@@ -422,6 +448,41 @@ export function AdminPage({ Header, setRoute }) {
                     onDeleteVerdict={deleteVerdictFromAudit}
                 />
             )}
+            {adminConfirm && (
+                <AdminConfirmModal
+                    action={adminConfirm}
+                    onClose={() => setAdminConfirm(null)}
+                    onConfirm={async () => {
+                        const action = adminConfirm;
+                        setAdminConfirm(null);
+                        await action.onConfirm?.();
+                    }}
+                />
+            )}
+        </div>
+    );
+}
+
+function AdminConfirmModal({ action, onClose, onConfirm }) {
+    return (
+        <div className="modalOverlay" role="dialog" aria-modal="true">
+            <section className="modal actionConfirmModal">
+                <div className="modalHead">
+                    <div>
+                        <span className="eyebrow">Admin confirmation</span>
+                        <h2>{action.title}</h2>
+                    </div>
+                    <button onClick={onClose}><X size={18} /> Close</button>
+                </div>
+                <div className="deleteConfirmBox">
+                    <Trash2 size={30} />
+                    <p>{action.detail}</p>
+                </div>
+                <div className="editActions">
+                    <button className="secondary" onClick={onClose}>Cancel</button>
+                    <button className="destructive" onClick={onConfirm}><Trash2 size={15} /> {action.confirmLabel || 'Confirm'}</button>
+                </div>
+            </section>
         </div>
     );
 }
