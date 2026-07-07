@@ -282,6 +282,9 @@ export const javaApi = {
     adminSettings(token) {
         return adminRequest('GET', '/admin/settings', undefined, token);
     },
+    adminHealth(token) {
+        return adminRequest('GET', '/admin/health', undefined, token);
+    },
     updateAdminSettings(token, payload) {
         return adminRequest('PATCH', '/admin/settings', payload, token);
     },

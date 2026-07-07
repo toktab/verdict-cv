@@ -50,6 +50,8 @@ public interface AuditRepository extends JpaRepository<Audit, Long> {
     Optional<Audit> findByIdAndOwnerIdAndDeletedAtIsNullForUpdate(@Param("id") Long id, @Param("ownerId") Long ownerId);
 
     long countByOwnerIdAndCheckStateIdAndCreatedAtAfterAndDeletedAtIsNull(Long ownerId, String checkStateId, Instant createdAt);
+    long countByStatusAndDeletedAtIsNull(AuditStatus status);
+    long countByDeletedAtIsNull();
 
     List<Audit> findByStatusAndDeletedAtIsNull(AuditStatus status);
 

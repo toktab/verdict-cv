@@ -7064,6 +7064,45 @@ select {
     color: var(--text);
 }
 
+.adminHealthPanel {
+    background:
+            linear-gradient(135deg, rgba(22, 163, 74, 0.08), transparent 34%),
+            rgba(255, 255, 255, 0.045);
+}
+
+.adminHealthGrid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.healthTile {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.22);
+}
+
+.healthTile span,
+.healthTile small {
+    display: block;
+    color: var(--muted);
+}
+
+.healthTile strong {
+    display: block;
+    margin: 6px 0;
+    color: var(--text);
+}
+
+.healthTile.good {
+    border-color: rgba(34, 197, 94, 0.34);
+}
+
+.healthTile.warn {
+    border-color: rgba(248, 113, 113, 0.4);
+}
+
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

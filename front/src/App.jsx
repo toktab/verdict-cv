@@ -2552,6 +2552,7 @@ function AdminPanel({ setRoute }) {
     const [logs, setLogs] = useState([]);
     const [users, setUsers] = useState([]);
     const [settings, setSettings] = useState({ requireEmailVerification: false });
+    const [health, setHealth] = useState(null);
     const [tableClearTargets, setTableClearTargets] = useState([]);
     const [selectedClearTargets, setSelectedClearTargets] = useState([]);
     const [clearConfirmText, setClearConfirmText] = useState('');
@@ -2589,18 +2590,20 @@ function AdminPanel({ setRoute }) {
         track('admin_refresh', 'admin_panel');
         setAdminLoading(true);
         try {
-            const [auditRows, logRows, userRows, settingRows, clearTargetRows] = await Promise.all([
+            const [auditRows, logRows, userRows, settingRows, clearTargetRows, healthRows] = await Promise.all([
                 api.adminAudits(token, auditOffset, pageSize, auditSearch),
                 api.adminLogs(token, logOffset, pageSize, logSearch),
                 api.adminUsers(token, userOffset, pageSize, userSearch),
                 api.adminSettings(token),
                 api.adminTableClearTargets(token),
+                api.adminHealth(token),
             ]);
             setAudits(auditRows);
             setLogs(logRows);
             setUsers(userRows);
             setSettings(settingRows);
             setTableClearTargets(clearTargetRows);
+            setHealth(healthRows);
         } finally {
             setAdminLoading(false);
         }
@@ -2785,6 +2788,20 @@ function AdminPanel({ setRoute }) {
                         <RefreshCcw size={15} /> {adminLoading ? 'Refreshing...' : 'Refresh admin'}
                     </button>
                 </section>
+                <section className="adminSection adminWide adminHealthPanel">
+                    <h2><Gauge size={18} /> System health</h2>
+                    {health ? (
+                        <div className="adminHealthGrid">
+                            <HealthTile label="DB" value={health.db?.ok ? 'Online' : 'Down'} detail={`${health.db?.latencyMillis || 0}ms / ${health.db?.status || 'unknown'}`} good={health.db?.ok} />
+                            <HealthTile label="LLM" value={health.llm?.configured ? 'Configured' : 'Fallback'} detail={`${health.llm?.model || 'local'} / ${health.llm?.mode || 'unknown'}`} good={health.llm?.configured} />
+                            <HealthTile label="RabbitMQ" value={health.rabbitmq?.auditQueueEnabled ? 'Queue on' : 'Queue off'} detail={`${health.rabbitmq?.host || 'localhost'} / ${health.rabbitmq?.status || 'local-worker'}`} good={health.rabbitmq?.auditQueueEnabled || health.rabbitmq?.eventsEnabled} />
+                            <HealthTile label="Audits" value={`${health.audits?.failureRate || 0}% failed`} detail={`${health.audits?.running || 0} running / ${health.audits?.failed || 0} failed / ${health.audits?.total || 0} total`} good={(health.audits?.failureRate || 0) < 5} />
+                            <HealthTile label="Build" value={health.buildHash || 'dev'} detail={health.checkedAt ? new Date(health.checkedAt).toLocaleString() : 'not checked'} good />
+                        </div>
+                    ) : (
+                        <div className="emptyState">Health data has not loaded yet.</div>
+                    )}
+                </section>
                 <section className="adminSection adminWide adminDangerZone">
                     <h2><Trash2 size={18} /> Clear tables</h2>
                     <p className="mutedPanelText">Select table groups to empty. This permanently deletes every row in those groups and handles related child tables in the right order.</p>
@@ -2907,6 +2924,16 @@ function AdminPanel({ setRoute }) {
                 />
             )}
         </div>
+    );
+}
+
+function HealthTile({ label, value, detail, good }) {
+    return (
+        <article className={`healthTile ${good ? 'good' : 'warn'}`}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+            <small>{detail}</small>
+        </article>
     );
 }
 

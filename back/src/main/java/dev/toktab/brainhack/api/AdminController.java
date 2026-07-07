@@ -3,6 +3,8 @@ package dev.toktab.brainhack.api;
 import dev.toktab.brainhack.admin.AdminSessionService;
 import dev.toktab.brainhack.admin.AdminTableMaintenanceService;
 import dev.toktab.brainhack.admin.AdminTableMaintenanceService.TableClearResult;
+import dev.toktab.brainhack.admin.AdminHealthService;
+import dev.toktab.brainhack.admin.AdminHealthService.AdminHealthResponse;
 import dev.toktab.brainhack.account.AccountSettingsService;
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.account.UserAccountService;
@@ -54,6 +56,7 @@ public class AdminController {
     private final UserMapper userMapper;
     private final AccountSettingsService accountSettingsService;
     private final AdminTableMaintenanceService tableMaintenanceService;
+    private final AdminHealthService adminHealthService;
 
     public AdminController(
             AdminSessionService adminSessionService,
@@ -65,7 +68,8 @@ public class AdminController {
             UserAccountService userAccountService,
             UserMapper userMapper,
             AccountSettingsService accountSettingsService,
-            AdminTableMaintenanceService tableMaintenanceService) {
+            AdminTableMaintenanceService tableMaintenanceService,
+            AdminHealthService adminHealthService) {
         this.adminSessionService = adminSessionService;
         this.auditService = auditService;
         this.auditMapper = auditMapper;
@@ -76,6 +80,7 @@ public class AdminController {
         this.userMapper = userMapper;
         this.accountSettingsService = accountSettingsService;
         this.tableMaintenanceService = tableMaintenanceService;
+        this.adminHealthService = adminHealthService;
     }
 
     @PostMapping("/login")
@@ -138,6 +143,11 @@ public class AdminController {
     @GetMapping("/settings")
     public AdminSettingsResponse settings() {
         return new AdminSettingsResponse(accountSettingsService.requireEmailVerification());
+    }
+
+    @GetMapping("/health")
+    public AdminHealthResponse health() {
+        return adminHealthService.health();
     }
 
     @PatchMapping("/settings")
