@@ -1,177 +1,102 @@
 import { useMemo, useState } from 'react';
-import { ArrowRight, PanelRightOpen } from 'lucide-react';
-import { useLanguage } from '../../i18n';
-import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
-import { findCandidateFromPath, scoreTone } from './projectPageUtils';
+import { ArrowRight, FileText, Printer, RefreshCcw, Sparkles } from 'lucide-react';
+import { buildAtsReport, candidateSourceText, projectDescriptionText, splitTextByTerms } from './atsReportUtils';
+import { findCandidateFromPath } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
 
-export function CandidateProfilePage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false }) {
-    const { t } = useLanguage();
+export function CandidateProfilePage({ Header, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false }) {
     const { project, candidate } = findCandidateFromPath(projects);
-    const activeProject = project;
-    const activeCandidate = candidate;
-    const [activeProfile, setActiveProfile] = useState(null);
-    const profileText = useMemo(() => activeCandidate ? candidateSourceText(activeCandidate) : '', [activeCandidate]);
-    const profileItems = useMemo(() => activeCandidate ? buildProfileItems(profileText, activeCandidate) : [], [profileText, activeCandidate]);
-    const wordStats = useMemo(() => importantWordStats(profileText, profileItems), [profileText, profileItems]);
+    const [activeTab, setActiveTab] = useState('resume');
+    const report = useMemo(() => project && candidate ? buildAtsReport(project, candidate) : null, [project, candidate]);
+    const resumeText = useMemo(() => candidate ? candidateSourceText(candidate) : '', [candidate]);
+    const jobText = useMemo(() => project ? projectDescriptionText(project) : '', [project]);
 
-    if (!activeProject || !activeCandidate) {
-        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow={activeProject ? 'Profiling' : undefined} title={activeProject ? 'Candidate profile not found' : undefined} message={activeProject ? 'This profiling route points to a candidate that is unavailable.' : undefined} />;
-
+    if (!project || !candidate) {
+        return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow={project ? 'Profiling' : undefined} title={project ? 'Candidate profile not found' : undefined} message={project ? 'This profiling route points to a candidate that is unavailable.' : undefined} />;
     }
 
     return (
-        <div className="shell">
-            <div className="pageGlow contentFadeIn" />
+        <div className="shell atsScanShell">
             <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-            <main className="profileModePage contentFadeIn">
-                <section className="profileModeTopbar">
-                    <div>
-                        <span className="eyebrow">{t('profilingMode')}</span>
-                        <h1>{activeCandidate.name}</h1>
-                        <p>{t('profileModeText')}</p>
+            <main className="atsScanWorkspace contentFadeIn">
+                <aside className="atsScoreSidebar">
+                    <h2>Match Rate</h2>
+                    <ScoreDonut score={report.score} />
+                    <button className="atsBlueButton" type="button" onClick={() => navigateTo(setRoute, 'addCandidate', project.id)}><RefreshCcw size={16} /> Upload & rescan</button>
+                    <button className="atsPaleButton" type="button" onClick={() => navigateTo(setRoute, 'candidateDetail', project.id, candidate.id)}><Sparkles size={16} /> AI Optimize</button>
+                    <div className="atsProgressList">
+                        {report.categories.map((category) => <ProgressRow key={category.label} category={category} />)}
                     </div>
-                    <button className="secondary" onClick={() => navigateTo(setRoute, 'candidateDetail', activeProject.id, activeCandidate.id)}><ArrowRight size={16} /> {t('backToCandidate')}</button>
-                </section>
-                <section className="detailMeta">
-                    <Metric label={t('candidateId')} value={activeCandidate.id} />
-                    <Metric label={t('jobId')} value={activeProject.id} />
-                    <Metric label={t('score')} value={`${activeCandidate.score}%`} />
-                    <Metric label={t('risk')} value={activeCandidate.risk} />
-                    <Metric label={t('highlights')} value={profileItems.length} />
-                    <Metric label="Words" value={wordStats.totalWords} />
-                    <Metric label={t('state')} value={activeProject.state} />
-                </section>
-                <section className="cvSignalSummary">
-                    <div>
-                        <span className="eyebrow">Important words</span>
-                        <h2>Full CV text is shown below</h2>
-                    </div>
-                    <div className="importantWordChips">
-                        {wordStats.topWords.map((item) => (
-                            <span key={item.word}>{item.word}<b>{item.count}</b></span>
-                        ))}
-                    </div>
-                </section>
-                <section className={`profileModeLayout ${activeProfile ? 'inspectorOpen' : ''}`}>
-                    <article className="profileDocumentSheet">
-                        <div className="profileDocumentHead">
-                            <span>{t('candidateCv')}</span>
-                            <strong>{activeProject.title}</strong>
+                </aside>
+                <section className="atsScanMain">
+                    <header className="atsScanTopbar">
+                        <button className="secondary" type="button" onClick={() => navigateTo(setRoute, 'candidateDetail', project.id, candidate.id)}><ArrowRight size={16} /> Back</button>
+                        <div>
+                            <span>Resume scan results</span>
+                            <h1>{project.title}</h1>
+                            <p>{candidate.name} / {candidate.role}</p>
                         </div>
-                        <div className="profileDocumentText">
-                            {renderProfileText(profileText, profileItems, activeProfile, setActiveProfile)}
+                        <button className="secondary" type="button" onClick={() => window.print()}><Printer size={16} /> Print</button>
+                    </header>
+                    <div className="atsScanTabs">
+                        <button className={activeTab === 'resume' ? 'active' : ''} type="button" onClick={() => setActiveTab('resume')}>Resume Report</button>
+                        <button className={activeTab === 'job' ? 'active' : ''} type="button" onClick={() => setActiveTab('job')}>Job Description</button>
+                    </div>
+                    <article className="atsDocumentCanvas">
+                        <div className="atsDocumentSheet">
+                            <h2>{activeTab === 'resume' ? candidate.name : project.title}</h2>
+                            <p className="atsDocumentSubline">{activeTab === 'resume' ? 'Resume Report' : 'Job Description'}</p>
+                            <div className="atsHighlightedDocument">
+                                {renderHighlighted(activeTab === 'resume' ? resumeText : jobText, report.skills)}
+                            </div>
                         </div>
                     </article>
-                    <aside className={`profileInspector ${activeProfile ? `open ${activeProfile.severity}` : ''}`}>
-                        {activeProfile ? (
-                            <>
-                                <div className="profileInspectorHead">
-                                    <div>
-                                        <span className="eyebrow">{t('phraseInspector')}</span>
-                                        <h2>{activeProfile.text}</h2>
-                                    </div>
-                                    <div className="profileInspectorActions">
-                                        <span className={`profileSeverityBadge ${activeProfile.severity}`}>{activeProfile.severity} signal</span>
-                                        <button onClick={() => setActiveProfile(null)}>{t('close')}</button>
-                                    </div>
-                                </div>
-                                <section>
-                                    <h3>{activeProfile.role}</h3>
-                                    <p>{activeProfile.reason}</p>
-                                </section>
-                                <section>
-                                    <h3>{t('verdictPressure')}</h3>
-                                    <p>{activeProfile.verdict}</p>
-                                </section>
-                                <section>
-                                    <h3>{t('saferWording')}</h3>
-                                    <p>{activeProfile.safer}</p>
-                                </section>
-                                <div className="profileInspectorFooter">
-                                    <span className={scoreTone(activeCandidate.score)}>{activeCandidate.score}% {t('candidateScore')}</span>
-                                    <span>{activeProject.state}</span>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="emptyState">
-                                <PanelRightOpen size={18} />
-                                {t('clickHighlighted')}
-                            </div>
-                        )}
-                    </aside>
+                    <section className="atsHighlightLegend">
+                        <span className="atsLegendPill matching">Matching Skill</span>
+                        <span className="atsLegendPill variation">Skill Variation</span>
+                        <span className="atsLegendPill missing">Missing Skill</span>
+                        <button type="button" onClick={() => navigateTo(setRoute, 'candidateReport', project.id, candidate.id)}><FileText size={16} /> Open Match Report</button>
+                    </section>
                 </section>
             </main>
         </div>
     );
 }
 
-function candidateSourceText(candidate) {
-    return candidate.cvText?.trim() || candidate.summary || 'No original CV text was stored for this candidate.';
+export function ScoreDonut({ score }) {
+    return (
+        <div className="atsScoreDonut" style={{ '--ats-score': `${score * 3.6}deg` }}>
+            <div>
+                <strong>{score}</strong>
+                <span>%</span>
+            </div>
+        </div>
+    );
 }
 
-function buildProfileItems(text, candidate) {
-    return findCatchphraseMatches(text)
-        .map((match) => ({
-            id: match.id,
-            text: match.text,
-            start: match.start,
-            end: match.end,
-            severity: match.severity,
-            role: `${match.label} / ${match.category}`,
-            reason: match.why,
-            verdict: `${candidate.supported} supported, ${candidate.stretched} stretched, ${candidate.unsupported} unsupported claims in this candidate record. Rule risk: ${match.risk}.`,
-            safer: match.safer,
-        }))
-        .sort((a, b) => a.start - b.start)
-        .filter((item, index, all) => index === 0 || item.start >= all[index - 1].end);
+function ProgressRow({ category }) {
+    return (
+        <div className="atsProgressRow">
+            <div><span>{category.label}</span><small>{category.issues} {category.issues === 1 ? 'issue' : 'issues'} to fix</small></div>
+            <b><i style={{ width: `${category.progress}%` }} /></b>
+        </div>
+    );
 }
 
-function importantWordStats(text, profileItems) {
-    const words = text.toLowerCase().match(/[a-z0-9+#.]{3,}/g) || [];
-    const stop = new Set(['the', 'and', 'for', 'with', 'from', 'this', 'that', 'candidate', 'resume', 'profile', 'work', 'have', 'has', 'was', 'are', 'you', 'your']);
-    const counts = new Map();
-    words.forEach((word) => {
-        if (!stop.has(word)) counts.set(word, (counts.get(word) || 0) + 1);
-    });
-    profileItems.forEach((item) => {
-        const key = item.text.toLowerCase();
-        counts.set(key, Math.max(counts.get(key) || 0, 1));
-    });
-    return {
-        totalWords: words.length,
-        topWords: [...counts.entries()]
-            .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
-            .slice(0, 16)
-            .map(([word, count]) => ({ word, count })),
-    };
-}
-
-function renderProfileText(text, items, activeProfile, setActiveProfile) {
-    const nodes = [];
-    let cursor = 0;
-    items.forEach((item) => {
-        if (item.start > cursor) {
-            nodes.push(text.slice(cursor, item.start));
-        }
-        nodes.push(
-            <button
-                key={item.id}
-                type="button"
-                className={`profileWordMark ${item.severity} ${activeProfile?.id === item.id ? 'active' : ''}`}
-                onClick={() => setActiveProfile(item)}
-            >
-                {text.slice(item.start, item.end)}
-                <span className="profileMiniTooltip">
-                    <b>{item.role}</b>
-                    <em>{item.reason}</em>
-                </span>
-            </button>,
+function renderHighlighted(text, skills) {
+    return splitTextByTerms(text, skills).map((chunk, index) => {
+        if (!chunk.match) return <span key={index}>{chunk.text}</span>;
+        return (
+            <mark className={`atsMark ${chunk.match.status}`} key={`${chunk.text}-${index}`}>
+                {chunk.text}
+                <em>{statusLabel(chunk.match.status)} / Resume {chunk.match.resumeCount || 0} / Job {chunk.match.jobCount || 0}</em>
+            </mark>
         );
-        cursor = item.end;
     });
-    if (cursor < text.length) {
-        nodes.push(text.slice(cursor));
-    }
-    return <p>{nodes}</p>;
+}
+
+function statusLabel(status) {
+    if (status === 'matching') return 'Matching Skill';
+    if (status === 'missing') return 'Missing Skill';
+    return 'Skill Variation';
 }

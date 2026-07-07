@@ -854,6 +854,626 @@ nav button:hover,
     gap: 8px;
 }
 
+/* ATS scan/report experience */
+.atsScanShell,
+.atsReportShell {
+    background: #eef5f9;
+    color: #1f2937;
+    min-height: 100vh;
+}
+
+.atsScanWorkspace,
+.atsReportWorkspace {
+    display: grid;
+    grid-template-columns: 290px minmax(0, 1fr);
+    max-width: 100%;
+    padding: 0;
+}
+
+.atsScoreSidebar {
+    background: #fff;
+    border-right: 1px solid #cfd8e3;
+    min-height: calc(100vh - 72px);
+    padding: 22px 22px 32px;
+    position: sticky;
+    top: 0;
+    align-self: start;
+}
+
+.atsScoreSidebar.embedded {
+    min-height: auto;
+    border: 1px solid #d6e1ea;
+    border-radius: 8px;
+    position: static;
+}
+
+.atsScoreSidebar h2 {
+    color: #172033;
+    font-size: 1.55rem;
+    margin: 0 0 16px;
+    text-align: center;
+}
+
+.atsScoreDonut,
+.atsMiniDonut {
+    background: radial-gradient(circle at center, #e9f8f1 0 52%, transparent 53%), conic-gradient(#12bd7d 0 var(--ats-score), #ffd166 var(--ats-score) calc(var(--ats-score) + 34deg), #dce3ea 0);
+    border-radius: 999px;
+    display: grid;
+    margin: 0 auto 22px;
+    place-items: center;
+}
+
+.atsScoreDonut {
+    height: 150px;
+    width: 150px;
+}
+
+.atsMiniDonut {
+    height: 86px;
+    width: 86px;
+}
+
+.atsScoreDonut > div,
+.atsMiniDonut strong {
+    align-items: baseline;
+    background: rgba(255, 255, 255, .72);
+    border-radius: 999px;
+    color: #4b5563;
+    display: flex;
+    font-weight: 800;
+    justify-content: center;
+}
+
+.atsScoreDonut > div {
+    height: 102px;
+    width: 102px;
+}
+
+.atsScoreDonut strong,
+.atsMiniDonut strong {
+    font-size: 2.25rem;
+}
+
+.atsBlueButton,
+.atsPaleButton {
+    align-items: center;
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    font-weight: 800;
+    gap: 8px;
+    justify-content: center;
+    min-height: 40px;
+    width: 100%;
+}
+
+.atsBlueButton {
+    background: #087be8;
+    color: #fff;
+}
+
+.atsPaleButton {
+    background: #e5f2ff;
+    color: #087be8;
+    margin-top: 10px;
+}
+
+.atsProgressList {
+    display: grid;
+    gap: 16px;
+    margin-top: 26px;
+}
+
+.atsProgressRow div {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.atsProgressRow span {
+    color: #1f2937;
+    font-size: .82rem;
+    font-weight: 700;
+}
+
+.atsProgressRow small {
+    color: #087be8;
+    font-size: .76rem;
+}
+
+.atsProgressRow b {
+    background: #dbe3ec;
+    border-radius: 999px;
+    display: block;
+    height: 14px;
+    overflow: hidden;
+}
+
+.atsProgressRow i {
+    background: #25aee4;
+    border-radius: inherit;
+    display: block;
+    height: 100%;
+}
+
+.atsScanMain {
+    min-width: 0;
+}
+
+.atsScanTopbar {
+    align-items: center;
+    background: #fff;
+    border-bottom: 1px solid #cfd8e3;
+    box-shadow: 0 2px 8px rgba(31, 41, 55, .12);
+    display: grid;
+    gap: 18px;
+    grid-template-columns: auto 1fr auto;
+    padding: 14px 28px;
+}
+
+.atsScanTopbar span {
+    color: #64748b;
+    font-size: .8rem;
+}
+
+.atsScanTopbar h1 {
+    color: #1f2937;
+    font-size: 1.2rem;
+    margin: 2px 0;
+}
+
+.atsScanTopbar p {
+    color: #64748b;
+    margin: 0;
+}
+
+.atsScanTabs,
+.atsSegmented {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+.atsScanTabs button,
+.atsSegmented button {
+    background: #dce1e9;
+    border: 0;
+    color: #172033;
+    cursor: pointer;
+    font-weight: 800;
+    min-height: 54px;
+}
+
+.atsScanTabs button.active,
+.atsSegmented button.active {
+    background: #fff;
+    border-top: 2px solid #087be8;
+}
+
+.atsDocumentCanvas {
+    display: flex;
+    justify-content: center;
+    padding: 44px 24px 72px;
+}
+
+.atsDocumentSheet {
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(31, 41, 55, .15);
+    color: #111827;
+    line-height: 1.68;
+    min-height: 900px;
+    max-width: 900px;
+    padding: 68px 74px;
+    width: min(900px, 100%);
+}
+
+.atsDocumentSheet h2 {
+    color: #071421;
+    font-size: 1.9rem;
+    margin: 0 0 6px;
+}
+
+.atsDocumentSubline {
+    border-bottom: 1px solid #cfd8e3;
+    color: #64748b;
+    margin: 0 0 28px;
+    padding-bottom: 16px;
+}
+
+.atsHighlightedDocument {
+    white-space: pre-wrap;
+}
+
+.atsMark {
+    border-radius: 2px;
+    color: inherit;
+    cursor: help;
+    padding: 1px 3px;
+    position: relative;
+}
+
+.atsMark.matching {
+    background: #bdf4dd;
+    box-shadow: inset 0 -2px #16a86b;
+}
+
+.atsMark.variation {
+    background: #fff0a7;
+    box-shadow: inset 0 -2px #f59e0b;
+}
+
+.atsMark.missing {
+    background: #ffd2d2;
+    box-shadow: inset 0 -2px #ef4444;
+}
+
+.atsMark em {
+    background: #111827;
+    border-radius: 4px;
+    bottom: calc(100% + 8px);
+    color: #fff;
+    display: none;
+    font-style: normal;
+    left: 0;
+    min-width: 180px;
+    padding: 8px 10px;
+    position: absolute;
+    z-index: 5;
+}
+
+.atsMark:hover em {
+    display: block;
+}
+
+.atsHighlightLegend {
+    align-items: center;
+    background: #fff;
+    border-top: 1px solid #d6e1ea;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 16px 28px;
+}
+
+.atsHighlightLegend.compact {
+    border-top: 0;
+    padding: 16px 0 0;
+}
+
+.atsHighlightLegend button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: #087be8;
+    cursor: pointer;
+    display: inline-flex;
+    font-weight: 800;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.atsLegendPill {
+    border-radius: 999px;
+    color: #fff;
+    display: inline-flex;
+    font-size: .78rem;
+    font-weight: 800;
+    padding: 6px 10px;
+    white-space: nowrap;
+}
+
+.atsLegendPill.matching {
+    background: #18b877;
+}
+
+.atsLegendPill.variation {
+    background: #f7b500;
+}
+
+.atsLegendPill.missing {
+    background: #ef4444;
+}
+
+.atsEmbeddedPanel {
+    background: #eef5f9;
+    border: 1px solid #d6e1ea;
+    border-radius: 8px;
+    display: grid;
+    grid-template-columns: 270px minmax(0, 1fr);
+    margin-bottom: 22px;
+    overflow: hidden;
+}
+
+.atsEmbeddedMain {
+    display: grid;
+    gap: 24px;
+    min-width: 0;
+    padding: 24px;
+}
+
+.atsTipBanner {
+    align-items: center;
+    background: #fff7df;
+    border: 1px solid #ffd88a;
+    border-radius: 6px;
+    color: #5f4200;
+    display: flex;
+    gap: 12px;
+    padding: 12px 14px;
+}
+
+.atsTipBanner button {
+    background: #ffbd2e;
+    border: 0;
+    border-radius: 4px;
+    color: #271500;
+    cursor: pointer;
+    font-weight: 800;
+    margin-left: auto;
+    padding: 9px 12px;
+}
+
+.atsCheckPanel {
+    background: #fff;
+    border: 1px solid #cfd8e3;
+    border-radius: 4px;
+    color: #1f2937;
+    padding: 24px;
+}
+
+.atsSectionHead {
+    align-items: flex-start;
+    display: flex;
+    gap: 18px;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.atsSectionHead h2 {
+    color: #1f2937;
+    font-size: 1.75rem;
+    margin: 0 0 6px;
+}
+
+.atsSectionHead p {
+    color: #64748b;
+    margin: 0;
+}
+
+.atsImpactBadge {
+    background: #4b5563;
+    border-radius: 999px;
+    color: #fff;
+    font-size: .74rem;
+    font-weight: 900;
+    padding: 7px 10px;
+    text-transform: uppercase;
+}
+
+.atsCheckRows {
+    border: 1px solid #d6e1ea;
+    border-radius: 4px;
+}
+
+.atsCheckRows article {
+    align-items: start;
+    border-bottom: 1px solid #d6e1ea;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 190px 24px 1fr;
+    padding: 14px 16px;
+}
+
+.atsCheckRows article:last-child {
+    border-bottom: 0;
+}
+
+.atsOkIcon {
+    color: #18b877;
+}
+
+.atsBadIcon {
+    color: #ef4444;
+}
+
+.atsWarnIcon {
+    color: #f59e0b;
+}
+
+.atsSkillTable,
+.atsReportTable {
+    border-collapse: collapse;
+    color: #172033;
+    width: 100%;
+}
+
+.atsSkillTable th,
+.atsSkillTable td,
+.atsReportTable th,
+.atsReportTable td {
+    border-bottom: 1px solid #d6e1ea;
+    padding: 12px 14px;
+    text-align: left;
+}
+
+.atsSkillTable th,
+.atsReportTable th {
+    font-weight: 900;
+}
+
+.atsX {
+    color: #ef4444;
+    font-weight: 900;
+}
+
+.atsHighlightedGrid,
+.atsReportEvidenceGrid {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.atsHighlightedGrid > div,
+.atsReportEvidenceGrid pre {
+    background: #f7fbff;
+    border: 1px solid #cfd8e3;
+    border-radius: 4px;
+    min-height: 330px;
+    padding: 14px;
+}
+
+.atsHighlightedGrid pre,
+.atsReportEvidenceGrid pre {
+    color: #172033;
+    font-family: inherit;
+    line-height: 1.55;
+    margin: 10px 0 0;
+    max-height: 520px;
+    overflow: auto;
+    white-space: pre-wrap;
+}
+
+.atsReportWorkspace {
+    display: block;
+    padding: 32px 24px 72px;
+}
+
+.atsReportActions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin: 0 auto 18px;
+    max-width: 1040px;
+}
+
+.atsReportPaper {
+    background: #fff;
+    box-shadow: 0 14px 32px rgba(31, 41, 55, .16);
+    color: #071421;
+    margin: 0 auto;
+    max-width: 1040px;
+    padding: 18px;
+}
+
+.atsReportHeader {
+    align-items: start;
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 24px;
+}
+
+.atsReportHeader h1 {
+    font-size: 2rem;
+    margin: 0;
+}
+
+.atsReportHeader p {
+    font-size: 1rem;
+    margin: 4px 0;
+}
+
+.atsReportSummary {
+    align-items: center;
+    background: #e4f3ff;
+    border: 1px solid #a9d4ff;
+    border-radius: 4px;
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 110px repeat(4, 1fr);
+    margin-bottom: 30px;
+    padding: 20px;
+}
+
+.atsReportSummary article {
+    background: #fff;
+    border: 1px solid #cfd8e3;
+    border-radius: 4px;
+    padding: 16px 20px;
+}
+
+.atsReportSummary span {
+    display: block;
+    font-size: .82rem;
+    margin-bottom: 8px;
+}
+
+.atsReportSummary article strong {
+    font-size: 1.7rem;
+}
+
+.atsReportSection {
+    margin-top: 28px;
+}
+
+.atsReportSection h2 {
+    font-size: 1.55rem;
+    margin: 0 0 10px;
+}
+
+@media (max-width: 980px) {
+    .atsScanWorkspace,
+    .atsEmbeddedPanel {
+        grid-template-columns: 1fr;
+    }
+
+    .atsScoreSidebar {
+        min-height: auto;
+        position: static;
+    }
+
+    .atsScanTopbar,
+    .atsSectionHead,
+    .atsTipBanner,
+    .atsReportHeader {
+        align-items: stretch;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .atsHighlightedGrid,
+    .atsReportEvidenceGrid,
+    .atsReportSummary {
+        grid-template-columns: 1fr;
+    }
+
+    .atsCheckRows article {
+        grid-template-columns: 1fr;
+    }
+
+    .atsDocumentSheet {
+        min-height: auto;
+        padding: 32px 24px;
+    }
+}
+
+@media print {
+    body {
+        background: #fff !important;
+    }
+
+    .noPrint,
+    .atsReportShell header:not(.atsReportHeader),
+    .atsReportActions {
+        display: none !important;
+    }
+
+    .atsReportWorkspace {
+        padding: 0 !important;
+    }
+
+    .atsReportPaper {
+        box-shadow: none;
+        max-width: none;
+        padding: 0;
+    }
+
+    .atsReportEvidenceGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .confirmSummaryCard {
     display: grid;
     grid-template-columns: minmax(220px, 1fr) auto;

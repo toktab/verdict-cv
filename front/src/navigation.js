@@ -10,6 +10,7 @@ export function routeFromPath(pathname = window.location.pathname) {
     if (pathname.match(/^\/projects\/([^/]+)\/team$/)) return { route: 'projectTeam' };
     if (pathname.match(/^\/projects\/([^/]+)\/settings$/)) return { route: 'projectSettings' };
     if (pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)\/signaltrace$/)) return { route: 'signalTrace' };
+    if (pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)\/report$/)) return { route: 'candidateReport' };
     if (pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)\/profile$/)) return { route: 'candidateProfile' };
     if (pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)$/)) return { route: 'candidateDetail' };
     if (pathname.match(/^\/projects\/([^/]+)$/)) return { route: 'projectDetail' };
@@ -35,6 +36,7 @@ export function pathForRoute(next, id, childId) {
     if (next === 'projectSettings') return `/projects/${id}/settings`;
     if (next === 'addCandidate') return `/projects/${id}/candidates/new`;
     if (next === 'signalTrace') return `/projects/${id}/candidates/${childId}/signaltrace`;
+    if (next === 'candidateReport') return `/projects/${id}/candidates/${childId}/report`;
     if (next === 'candidateProfile') return `/projects/${id}/candidates/${childId}/profile`;
     if (next === 'candidateDetail') return `/projects/${id}/candidates/${childId}`;
     if (next === 'profile') return '/profile';

@@ -3,6 +3,7 @@ import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, FileSearch, 
 import IntroAnimation from './IntroAnimation';
 import { HistoryPage } from './pages/HistoryPage';
 import { CandidateDetailPage } from './pages/projects/CandidateDetailPage';
+import { CandidateMatchReportPage } from './pages/projects/CandidateMatchReportPage';
 import { CandidateProfilePage } from './pages/projects/CandidateProfilePage';
 import { HomePage } from './pages/HomePage';
 import { MessagesPage } from './pages/MessagesPage';
@@ -673,6 +674,8 @@ function App() {
         content = <AddCandidatePage Header={AppHeader} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} onProjectsChange={loadProjects} />;
     } else if (route === 'candidateDetail') {
         content = <CandidateDetailPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} onProjectsChange={loadProjects} />;
+    } else if (route === 'candidateReport') {
+        content = <CandidateMatchReportPage Header={AppHeader} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} />;
     } else if (route === 'candidateProfile') {
         content = <CandidateProfilePage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} />;
     } else if (route === 'signalTrace') {

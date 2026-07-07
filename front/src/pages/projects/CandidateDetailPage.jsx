@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
-import { Activity, AlertTriangle, ArrowRight, Award, BriefcaseBusiness, CodeXml, ExternalLink, History, Link, MessageSquarePlus, Radar, RefreshCcw, ScanText, ShieldCheck, Star, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Activity, AlertTriangle, ArrowRight, Award, BriefcaseBusiness, CheckCircle2, CodeXml, ExternalLink, FileText, History, Link, MessageSquarePlus, Radar, RefreshCcw, ScanText, ShieldCheck, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, X, XCircle } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { apiCreateCandidateNote, apiDeleteCandidate, apiGetCandidateWorkflow, apiListCandidateNotes, apiReanalyzeCandidate, apiUpdateCandidateStatus, apiVoteCandidate } from '../../api';
 import defaultAts from '../../data/default-ats.json';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
+import { buildAtsReport, candidateSourceText as atsCandidateSourceText, projectDescriptionText, splitTextByTerms } from './atsReportUtils';
 import { recordProjectActivity } from './projectActivity';
 import { findCandidateFromPath, scorePercent, scoreTone } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
@@ -95,6 +96,8 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         writeActivity(activeProject.id, user, activeCandidate, 'opened candidate profile');
     }, [activeProject?.id, activeCandidate?.id, activeCandidate, user]);
 
+    const atsReport = useMemo(() => buildAtsReport(activeProject, activeCandidate), [activeProject, activeCandidate]);
+
     if (!activeProject || !activeCandidate) {
         return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow={activeProject ? 'Candidate' : undefined} title={activeProject ? 'Candidate not found' : undefined} message={activeProject ? 'This candidate is unavailable or was removed from the project.' : undefined} />;
 
@@ -121,6 +124,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const weakestClaim = weakestRequirementClaim(activeProject, activeCandidate) || activeCandidate.claims.find(([claim, status]) => status === 'Unsupported' && isActionableQuestionClaim(claim))?.[0] || activeCandidate.claims.find(([claim, status]) => status === 'Stretched' && isActionableQuestionClaim(claim))?.[0] || activeCandidate.risk;
     const recruiterSummary = buildRecruiterSummary(activeProject, activeCandidate, decision, coverage, strongestClaim, weakestClaim);
     const voteStats = workflow?.voteSummary || voteSummary();
+    const voteRow = workflow?.voteRow || workflow?.votes || workflow?.voteSummary || {};
     const myVoteKey = user?.email || user?.username || 'me';
     const pipelineStatus = workflow?.status || activeCandidate.state || 'Unreviewed';
     const projectRole = activeProject?.myRole || 'Viewer';
@@ -275,12 +279,22 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                     </div>
                     <div className="candidateHeroActions">
                         <button className="secondary" disabled={reanalyzing} onClick={reanalyzeCandidate} type="button"><RefreshCcw size={18} /> {reanalyzing ? 'Re-running...' : 'Re-run analysis'}</button>
+                        <button className="secondary" onClick={() => navigateTo(setRoute, 'candidateReport', activeProject.id, activeCandidate.id)} type="button"><FileText size={18} /> Export</button>
                         <button className="primary" onClick={() => navigateTo(setRoute, 'candidateProfile', activeProject.id, activeCandidate.id)}><ScanText size={18} /> {t('profilingMode')}</button>
                         <button className="primary" onClick={() => navigateTo(setRoute, 'signalTrace', activeProject.id, activeCandidate.id)}><Radar size={18} /> {t('signalTrace')}</button>
                         <button className="destructive" onClick={() => setDeleteOpen(true)} type="button"><Trash2 size={18} /> Delete</button>
                     </div>
                 </section>
                 {reanalyzeMessage && <div className="inlineNotice">{reanalyzeMessage}</div>}
+                <AtsCandidateOverview
+                    candidate={activeCandidate}
+                    project={activeProject}
+                    report={atsReport}
+                    navigateTo={navigateTo}
+                    setRoute={setRoute}
+                    reanalyzing={reanalyzing}
+                    onReanalyze={reanalyzeCandidate}
+                />
                 <section className="detailMeta">
                     <Metric label={t('role')} value={activeCandidate.role} />
                     <Metric label={t('jobMatch')} value={`${activeCandidate.match}%`} />
@@ -837,6 +851,138 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
 
 function candidateSourceText(candidate) {
     return candidate.cvText?.trim() || candidate.summary || 'No original CV text was stored for this candidate.';
+}
+
+function AtsCandidateOverview({ project, candidate, report, navigateTo, setRoute, reanalyzing, onReanalyze }) {
+    const [view, setView] = useState('comparison');
+    const resumeText = atsCandidateSourceText(candidate);
+    const jobText = projectDescriptionText(project);
+    const visibleSkills = report.skills.slice(0, 18);
+    return (
+        <section className="atsEmbeddedPanel">
+            <aside className="atsScoreSidebar embedded">
+                <h2>Match Rate</h2>
+                <div className="atsScoreDonut" style={{ '--ats-score': `${report.score * 3.6}deg` }}>
+                    <div><strong>{report.score}</strong><span>%</span></div>
+                </div>
+                <button className="atsBlueButton" disabled={reanalyzing} type="button" onClick={onReanalyze}><RefreshCcw size={16} /> {reanalyzing ? 'Scanning...' : 'Upload & rescan'}</button>
+                <button className="atsPaleButton" type="button" onClick={() => navigateTo(setRoute, 'candidateProfile', project.id, candidate.id)}><Sparkles size={16} /> Highlighted view</button>
+                <div className="atsProgressList">
+                    {report.categories.map((category) => (
+                        <div className="atsProgressRow" key={category.label}>
+                            <div><span>{category.label}</span><small>{category.issues} {category.issues === 1 ? 'issue' : 'issues'} to fix</small></div>
+                            <b><i style={{ width: `${category.progress}%` }} /></b>
+                        </div>
+                    ))}
+                </div>
+            </aside>
+            <div className="atsEmbeddedMain">
+                <div className="atsTipBanner">
+                    <Sparkles size={17} />
+                    <span>ATS-specific scan for {project.title}. Skills, searchability, recruiter tips, and formatting are generated from the default ATS template.</span>
+                    <button type="button" onClick={() => navigateTo(setRoute, 'candidateReport', project.id, candidate.id)}>Open Match Report</button>
+                </div>
+                <section className="atsCheckPanel">
+                    <div className="atsSectionHead">
+                        <div>
+                            <h2>Searchability</h2>
+                            <p>How well this resume can be found, parsed, and understood by hiring teams.</p>
+                        </div>
+                        <span className="atsImpactBadge">Important</span>
+                    </div>
+                    <div className="atsCheckRows">
+                        {report.searchabilityRows.map((row) => (
+                            <article key={row.label}>
+                                <strong>{row.label}</strong>
+                                {row.ok ? <CheckCircle2 className="atsOkIcon" size={18} /> : <XCircle className="atsBadIcon" size={18} />}
+                                <span>{row.text}</span>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+                <section className="atsCheckPanel">
+                    <div className="atsSectionHead">
+                        <div>
+                            <h2>Skills</h2>
+                            <p>Hard and soft signals are combined into one comparison, colored by match quality.</p>
+                        </div>
+                        <div className="atsSegmented">
+                            <button className={view === 'comparison' ? 'active' : ''} type="button" onClick={() => setView('comparison')}>Skills Comparison</button>
+                            <button className={view === 'highlighted' ? 'active' : ''} type="button" onClick={() => setView('highlighted')}>Highlighted Skills</button>
+                        </div>
+                    </div>
+                    {view === 'comparison' ? (
+                        <table className="atsSkillTable">
+                            <thead>
+                                <tr>
+                                    <th>Skill</th>
+                                    <th>Resume</th>
+                                    <th>Job Description</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {visibleSkills.map((row) => (
+                                    <tr key={row.label}>
+                                        <td>{row.label}</td>
+                                        <td>{row.resumeCount || <span className="atsX">x</span>}</td>
+                                        <td>{row.jobCount || <span className="atsX">x</span>}</td>
+                                        <td><span className={`atsLegendPill ${row.status}`}>{atsStatusLabel(row.status)}</span></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <div className="atsHighlightedGrid">
+                            <div>
+                                <strong>Resume</strong>
+                                <pre>{renderAtsHighlighted(resumeText, report.skills)}</pre>
+                            </div>
+                            <div>
+                                <strong>Job Description</strong>
+                                <pre>{renderAtsHighlighted(jobText, report.skills)}</pre>
+                            </div>
+                        </div>
+                    )}
+                    <div className="atsHighlightLegend compact">
+                        <span className="atsLegendPill matching">Matching Skill</span>
+                        <span className="atsLegendPill variation">Skill Variation</span>
+                        <span className="atsLegendPill missing">Missing Skill</span>
+                    </div>
+                </section>
+                <section className="atsCheckPanel">
+                    <div className="atsSectionHead">
+                        <div>
+                            <h2>Recruiter Tips</h2>
+                            <p>Readable next actions before a human makes a hiring decision.</p>
+                        </div>
+                    </div>
+                    <div className="atsCheckRows">
+                        {report.recruiterRows.map((row) => (
+                            <article key={row.label}>
+                                <strong>{row.label}</strong>
+                                {row.ok ? <CheckCircle2 className="atsOkIcon" size={18} /> : <AlertTriangle className="atsWarnIcon" size={18} />}
+                                <span>{row.text}</span>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+            </div>
+        </section>
+    );
+}
+
+function renderAtsHighlighted(text, skills) {
+    return splitTextByTerms(text, skills).map((chunk, index) => {
+        if (!chunk.match) return <span key={index}>{chunk.text}</span>;
+        return <mark className={`atsMark ${chunk.match.status}`} key={`${chunk.text}-${index}`}>{chunk.text}</mark>;
+    });
+}
+
+function atsStatusLabel(status) {
+    if (status === 'matching') return 'Matching Skill';
+    if (status === 'missing') return 'Missing Skill';
+    return 'Skill Variation';
 }
 
 function formatNoteDate(value) {
