@@ -9,6 +9,7 @@ import dev.toktab.brainhack.api.dto.CheckStateResponse;
 import dev.toktab.brainhack.api.dto.VerdictOverrideRequest;
 import dev.toktab.brainhack.events.RabbitEventPublisher;
 import dev.toktab.brainhack.log.AuditLogService;
+import dev.toktab.brainhack.realtime.RealtimeService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import java.time.Duration;
@@ -51,6 +52,7 @@ public class AuditService {
     private final VerdictOverrideRepository overrideRepository;
     private final AuditSnapshotRepository snapshotRepository;
     private final ObjectMapper objectMapper;
+    private final RealtimeService realtimeService;
     private final ConcurrentMap<Long, Object> warQuotaLocks = new ConcurrentHashMap<>();
     private final int maxClaimChars;
     private final int maxEvidenceChars;
@@ -73,6 +75,7 @@ public class AuditService {
             VerdictOverrideRepository overrideRepository,
             AuditSnapshotRepository snapshotRepository,
             ObjectMapper objectMapper,
+            RealtimeService realtimeService,
             @Value("${verdict.audit.max-claim-chars}") int maxClaimChars,
             @Value("${verdict.audit.max-evidence-chars}") int maxEvidenceChars) {
         this.auditRepository = auditRepository;
@@ -91,6 +94,7 @@ public class AuditService {
         this.overrideRepository = overrideRepository;
         this.snapshotRepository = snapshotRepository;
         this.objectMapper = objectMapper;
+        this.realtimeService = realtimeService;
         this.maxClaimChars = maxClaimChars;
         this.maxEvidenceChars = maxEvidenceChars;
     }
@@ -226,6 +230,7 @@ public class AuditService {
         audit.setProcessingMillis(processingMillis(audit));
         Audit saved = auditRepository.save(audit);
         rabbitEventPublisher.publish("audit.cancelled", Map.of("auditId", saved.getId()));
+        publishAuditChange(saved);
         logService.recordSystem("AUDIT_CANCELLED", "auditId=" + saved.getId());
         return saved;
     }
@@ -562,6 +567,7 @@ public class AuditService {
         audit.setProcessingMillis(processingMillis(audit));
         auditRepository.save(audit);
         rabbitEventPublisher.publish("audit.cancelled", Map.of("auditId", audit.getId()));
+        publishAuditChange(audit);
         logService.recordSystem("AUDIT_ASYNC_CANCELLED", "auditId=" + audit.getId());
     }
 
@@ -658,6 +664,7 @@ public class AuditService {
         Audit saved = auditRepository.save(audit);
         snapshot(saved);
         rabbitEventPublisher.publish("audit.completed", Map.of("auditId", saved.getId(), "score", saved.getCredibilityScore(), "engine", saved.getEngine()));
+        publishAuditChange(saved);
         return saved;
     }
 
@@ -670,6 +677,11 @@ public class AuditService {
         setProgress(audit, "failed", 100, "Audit failed: " + exception.getClass().getSimpleName());
         auditRepository.save(audit);
         rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
+        publishAuditChange(audit);
+    }
+
+    private void publishAuditChange(Audit audit) {
+        realtimeService.publishAudit(audit.getOwner(), audit.getId(), audit.getStatus().name());
     }
 
     private Verdict toEntity(AnalyzedVerdict analyzed) {

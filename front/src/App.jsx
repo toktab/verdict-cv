@@ -374,6 +374,9 @@ function App() {
         source.addEventListener('message', () => {
             window.dispatchEvent(new Event('verdictMessagesChanged'));
         });
+        source.addEventListener('audit', (event) => {
+            window.dispatchEvent(new CustomEvent('verdictAuditChanged', { detail: JSON.parse(event.data || '{}') }));
+        });
         source.onerror = () => {
             window.dispatchEvent(new Event('verdictRealtimeDisconnected'));
         };
@@ -1307,23 +1310,33 @@ function emptyTemplateForm(mode = 'cv') {
 }
 
 async function waitForAuditCompletion(id, token, setStage) {
-    const pollStages = ['RUNNING CLAIM CHECKS', 'CHECKING EVIDENCE', 'FINALIZING RESULTS'];
-    for (let attempt = 0; attempt < 60; attempt += 1) {
-        await delay(1000);
-        setStage(pollStages[attempt % pollStages.length]);
-        const audit = await api.getAudit(id, token);
-        if (audit.status === 'FAILED') {
-            throw new Error('Audit job failed. Please try again.');
+    setStage('WAITING FOR REALTIME AUDIT EVENT');
+    return new Promise((resolve, reject) => {
+        const timeout = window.setTimeout(() => {
+            window.removeEventListener('verdictAuditChanged', onAudit);
+            reject(new Error('Audit realtime event did not arrive. Open History and press Refresh to recover the result.'));
+        }, 120000);
+        async function onAudit(event) {
+            const detail = event.detail || {};
+            if (Number(detail.auditId) !== Number(id)) {
+                return;
+            }
+            window.clearTimeout(timeout);
+            window.removeEventListener('verdictAuditChanged', onAudit);
+            setStage(`AUDIT ${detail.status || 'UPDATED'}`);
+            try {
+                const audit = await api.getAudit(id, token);
+                if (audit.status === 'FAILED') {
+                    reject(new Error('Audit job failed. Please try again.'));
+                } else {
+                    resolve(audit);
+                }
+            } catch (error) {
+                reject(error);
+            }
         }
-        if (audit.status !== 'RUNNING') {
-            return audit;
-        }
-    }
-    throw new Error('Audit job is still running. Open it from history in a moment.');
-}
-
-function delay(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+        window.addEventListener('verdictAuditChanged', onAudit);
+    });
 }
 
 function AuthPage({ mode, setRoute, setUser, setUserToken, authProblem = '', clearAuthProblem = () => {} }) {

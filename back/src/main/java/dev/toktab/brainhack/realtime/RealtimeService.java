@@ -41,6 +41,12 @@ public class RealtimeService {
         users.forEach(this::publishProject);
     }
 
+    public void publishAudit(UserAccount user, Long auditId, String status) {
+        if (user != null) {
+            send(user.getId(), "audit", Map.of("type", "audit", "auditId", auditId, "status", status, "at", Instant.now().toString()));
+        }
+    }
+
     private void send(Long userId, String eventName, Object body) {
         List<SseEmitter> rows = emitters.getOrDefault(userId, new CopyOnWriteArrayList<>());
         for (SseEmitter emitter : rows) {
