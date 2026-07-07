@@ -1644,6 +1644,87 @@ nav button:hover,
     color: var(--text) !important;
 }
 
+/* ATS dark skin v2: keep browser-cached light imports from leaking into candidate/report pages. */
+html body .shell .atsEmbeddedPanel,
+html body .shell.atsScanShell,
+html body .shell.atsReportShell {
+    background:
+            radial-gradient(circle at 18% -14%, rgba(255, 59, 59, 0.18), transparent 31rem),
+            linear-gradient(180deg, #121216 0%, #08090b 42%, #030303 100%) !important;
+    border-color: rgba(255, 255, 255, 0.13) !important;
+    color: #f5f5f6 !important;
+}
+
+html body .shell .atsEmbeddedPanel *,
+html body .shell.atsScanShell *,
+html body .shell.atsReportShell * {
+    box-shadow-color: rgba(0, 0, 0, 0.6);
+}
+
+html body .shell .atsScoreSidebar,
+html body .shell .atsScoreSidebar.embedded,
+html body .shell .atsScanTopbar,
+html body .shell .atsCheckPanel,
+html body .shell .atsDocumentSheet,
+html body .shell .atsCompareCanvas,
+html body .shell .atsHighlightLegend,
+html body .shell .atsReportPaper,
+html body .shell .atsReportSummary article,
+html body .shell .atsHighlightedGrid > div,
+html body .shell .atsReportEvidenceGrid pre {
+    background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.022)),
+            #0f1116 !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: #f5f5f6 !important;
+}
+
+html body .shell .atsEmbeddedMain,
+html body .shell .atsScanWorkspace,
+html body .shell .atsReportWorkspace,
+html body .shell .atsDocumentCanvas {
+    background: transparent !important;
+}
+
+html body .shell .atsTipBanner {
+    background: rgba(255, 69, 69, 0.14) !important;
+    border-color: rgba(255, 107, 107, 0.34) !important;
+    color: #ffe2e2 !important;
+}
+
+html body .shell .atsCheckRows,
+html body .shell .atsCheckRows article,
+html body .shell .atsSkillTable th,
+html body .shell .atsSkillTable td,
+html body .shell .atsReportTable th,
+html body .shell .atsReportTable td {
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+html body .shell .atsScoreSidebar h2,
+html body .shell .atsScanTopbar h1,
+html body .shell .atsCompareHeader h2,
+html body .shell .atsDocumentSheet h2,
+html body .shell .atsSectionHead h2,
+html body .shell .atsReportHeader h1,
+html body .shell .atsReportSection h2,
+html body .shell .atsSkillTable,
+html body .shell .atsReportTable {
+    color: #f7f7f8 !important;
+}
+
+html body .shell .atsScanTopbar span,
+html body .shell .atsScanTopbar p,
+html body .shell .atsCompareHeader p,
+html body .shell .atsDocumentSubline,
+html body .shell .atsSectionHead p,
+html body .shell .atsProgressRow span,
+html body .shell .atsHighlightedGrid pre,
+html body .shell .atsReportEvidenceGrid pre,
+html body .shell .atsCheckRows p {
+    color: #c9c9cf !important;
+}
+
 .confirmSummaryCard {
     display: grid;
     grid-template-columns: minmax(220px, 1fr) auto;

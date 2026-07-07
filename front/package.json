@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/sync-static-to-target.mjs",
     "lint": "oxlint src",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview"
