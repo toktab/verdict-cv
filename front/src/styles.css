@@ -1531,6 +1531,119 @@ nav button:hover,
     }
 }
 
+/* Final ATS dark override: keep the imported Jobscan-style experience inside VERDICT's dark system. */
+.shell .atsEmbeddedPanel,
+.shell .atsScanShell,
+.shell .atsReportShell,
+.shell.atsScanShell,
+.shell.atsReportShell {
+    background:
+            radial-gradient(circle at 22% -12%, rgba(255, 59, 59, 0.16), transparent 28rem),
+            linear-gradient(180deg, #111114 0%, #070708 42%, #050505 100%) !important;
+    color: var(--text) !important;
+}
+
+.shell .atsScoreSidebar,
+.shell .atsScoreSidebar.embedded,
+.shell .atsScanTopbar,
+.shell .atsDocumentSheet,
+.shell .atsHighlightLegend,
+.shell .atsCheckPanel,
+.shell .atsReportPaper,
+.shell .atsReportSummary article,
+.shell .atsHighlightedGrid > div,
+.shell .atsReportEvidenceGrid pre {
+    background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.018)),
+            #101116 !important;
+    border-color: var(--line) !important;
+    color: var(--text) !important;
+}
+
+.shell .atsEmbeddedMain,
+.shell .atsReportWorkspace,
+.shell .atsDocumentCanvas,
+.shell .atsCompareCanvas {
+    background: transparent !important;
+}
+
+.shell .atsTipBanner,
+.shell .atsReportSummary {
+    background: rgba(255, 59, 59, 0.09) !important;
+    border-color: rgba(255, 99, 99, 0.28) !important;
+    color: #ffd6d6 !important;
+}
+
+.shell .atsCheckRows,
+.shell .atsCheckRows article,
+.shell .atsSkillTable th,
+.shell .atsSkillTable td,
+.shell .atsReportTable th,
+.shell .atsReportTable td {
+    border-color: var(--line) !important;
+}
+
+.shell .atsScoreSidebar h2,
+.shell .atsScanTopbar h1,
+.shell .atsCompareHeader h2,
+.shell .atsDocumentSheet h2,
+.shell .atsSectionHead h2,
+.shell .atsReportHeader h1,
+.shell .atsReportSection h2,
+.shell .atsSkillTable,
+.shell .atsReportTable {
+    color: var(--text) !important;
+}
+
+.shell .atsScanTopbar span,
+.shell .atsScanTopbar p,
+.shell .atsCompareHeader p,
+.shell .atsDocumentSubline,
+.shell .atsSectionHead p,
+.shell .atsProgressRow span,
+.shell .atsHighlightedGrid pre,
+.shell .atsReportEvidenceGrid pre {
+    color: var(--soft) !important;
+}
+
+.shell .atsScanTabs button,
+.shell .atsSegmented button,
+.shell .atsProgressRow b {
+    background: rgba(255, 255, 255, 0.07) !important;
+    color: var(--muted) !important;
+}
+
+.shell .atsScanTabs button.active,
+.shell .atsSegmented button.active {
+    background: rgba(255, 59, 59, 0.18) !important;
+    border-top-color: var(--accent) !important;
+    color: var(--text) !important;
+}
+
+.shell .atsBlueButton,
+.shell .atsTipBanner button {
+    background: linear-gradient(180deg, #ff4b4b, #b91d1d) !important;
+    color: #fff !important;
+}
+
+.shell .atsPaleButton {
+    background: rgba(255, 59, 59, 0.13) !important;
+    color: #ffb4b4 !important;
+}
+
+.shell .atsScoreDonut,
+.shell .atsMiniDonut {
+    background:
+            radial-gradient(circle at center, #14181d 0 52%, transparent 53%),
+            conic-gradient(#12bd7d 0 var(--ats-score), #ffcc66 var(--ats-score) calc(var(--ats-score) + 34deg), rgba(255, 255, 255, 0.12) 0) !important;
+}
+
+.shell .atsScoreDonut > div,
+.shell .atsMiniDonut strong {
+    background: rgba(7, 8, 10, .86) !important;
+    color: var(--text) !important;
+}
+
 .confirmSummaryCard {
     display: grid;
     grid-template-columns: minmax(220px, 1fr) auto;
