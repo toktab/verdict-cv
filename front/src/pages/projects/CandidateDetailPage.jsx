@@ -5,7 +5,7 @@ import { apiCreateCandidateNote, apiDeleteCandidate, apiGetCandidateWorkflow, ap
 import defaultAts from '../../data/default-ats.json';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
 import { buildAtsReport, candidateSourceText as atsCandidateSourceText, projectDescriptionText, splitTextByTerms } from './atsReportUtils';
-import { recordProjectActivity } from './projectActivity';
+import { recordProjectActivity, recordProjectActivityOnServer } from './projectActivity';
 import { findCandidateFromPath, scorePercent, scoreTone } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
 
@@ -93,8 +93,8 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
 
     useEffect(() => {
         if (!activeProject?.id || !activeCandidate?.id || !user) return;
-        writeActivity(activeProject.id, user, activeCandidate, 'opened candidate profile');
-    }, [activeProject?.id, activeCandidate?.id, activeCandidate, user]);
+        writeActivity(activeProject.id, user, activeCandidate, 'opened candidate profile', userToken);
+    }, [activeProject?.id, activeCandidate?.id, activeCandidate, user, userToken]);
 
     const atsReport = useMemo(() => buildAtsReport(activeProject, activeCandidate), [activeProject, activeCandidate]);
 
@@ -180,7 +180,11 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
             setReviewNotes((current) => [note, ...current]);
             setNoteBody('');
             setNoteMessage('Reviewer note saved.');
-            writeActivity(activeProject.id, user, activeCandidate, `added reviewer note: ${noteDecision}`);
+            writeActivity(activeProject.id, user, activeCandidate, `added reviewer note: ${noteDecision}`, userToken, {
+                type: 'candidate_note',
+                severity: 'info',
+                detail: noteBody.trim(),
+            });
         } catch (error) {
             setNoteMessage(error.message || 'Could not save reviewer note.');
         } finally {
@@ -212,6 +216,10 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
             const next = await apiVoteCandidate(activeProject.id, activeCandidate.id, { action, score }, userToken);
             setWorkflow(next);
             setWorkflowMessage('Workflow saved.');
+            writeActivity(activeProject.id, user, activeCandidate, `candidate vote: ${action}${score ? ` ${score}/5` : ''}`, userToken, {
+                type: 'candidate_vote',
+                severity: action === 'DOWNVOTE' ? 'warn' : 'good',
+            });
         } catch (error) {
             setWorkflowMessage(error.message || 'Could not save workflow vote.');
         }
@@ -229,6 +237,10 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
             setWorkflow(next);
             await onProjectsChange?.();
             setWorkflowMessage('Candidate status saved.');
+            writeActivity(activeProject.id, user, activeCandidate, `candidate moved to ${status}`, userToken, {
+                type: 'candidate_status',
+                severity: status === 'Closed' ? 'warn' : status === 'Hired' ? 'good' : 'info',
+            });
         } catch (error) {
             setWorkflowMessage(error.message || 'Could not save candidate status.');
         }
@@ -396,10 +408,15 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                                 <span className="eyebrow">Activity</span>
                                 <h2><History size={18} /> Candidate workflow trail</h2>
                             </div>
-                            <span>{workflow.activity.length} event{workflow.activity.length === 1 ? '' : 's'}</span>
+                            <div className="teamActionRow">
+                                <span>{Math.min(5, workflow.activity.length)} of {workflow.activity.length} event{workflow.activity.length === 1 ? '' : 's'}</span>
+                                <button className="secondary" type="button" onClick={() => openCandidateLogs(activeProject, activeCandidate, setRoute, navigateTo)}>
+                                    See more
+                                </button>
+                            </div>
                         </div>
                         <div className="reviewNoteList">
-                            {workflow.activity.map((row) => (
+                            {workflow.activity.slice(0, 5).map((row) => (
                                 <article key={row.id}>
                                     <div>
                                         <strong>{row.action}</strong>
@@ -847,6 +864,17 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
             )}
         </div>
     );
+}
+
+function openCandidateLogs(project, candidate, setRoute, navigateTo) {
+    if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem(`projectLogFilter:${project.id}`, JSON.stringify({
+            open: true,
+            candidateId: String(candidate.id),
+            candidateName: candidate.name,
+        }));
+    }
+    navigateTo(setRoute, 'projectSettings', project.id);
 }
 
 function candidateSourceText(candidate) {
@@ -1379,13 +1407,21 @@ function normalizeLocal(value) {
     return String(value || '').toLowerCase().replace(/[^a-z0-9+#. ]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function writeActivity(projectId, user, candidate, action) {
+function writeActivity(projectId, user, candidate, action, token = '', details = {}) {
     recordProjectActivity(projectId, user, {
-        type: 'candidate_workflow',
+        ...details,
+        type: details.type || 'candidate_workflow',
         action,
         candidateId: candidate?.id,
         candidateName: candidate?.name,
     });
+    recordProjectActivityOnServer(projectId, user, {
+        ...details,
+        type: details.type || 'candidate_workflow',
+        action,
+        candidateId: candidate?.id,
+        candidateName: candidate?.name,
+    }, token);
 }
 
 function buildEvidenceRows(project, candidate, t) {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ArrowRight, FileText, Printer, RefreshCcw, Sparkles } from 'lucide-react';
 import { buildAtsReport, candidateSourceText, projectDescriptionText, splitTextByTerms } from './atsReportUtils';
 import { findCandidateFromPath } from './projectPageUtils';
@@ -6,7 +6,6 @@ import { ProjectRouteState } from './ProjectRouteState';
 
 export function CandidateProfilePage({ Header, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false }) {
     const { project, candidate } = findCandidateFromPath(projects);
-    const [activeTab, setActiveTab] = useState('resume');
     const report = useMemo(() => project && candidate ? buildAtsReport(project, candidate) : null, [project, candidate]);
     const resumeText = useMemo(() => candidate ? candidateSourceText(candidate) : '', [candidate]);
     const jobText = useMemo(() => project ? projectDescriptionText(project) : '', [project]);
@@ -38,17 +37,29 @@ export function CandidateProfilePage({ Header, navigateTo, setRoute, user, userT
                         </div>
                         <button className="secondary" type="button" onClick={() => window.print()}><Printer size={16} /> Print</button>
                     </header>
-                    <div className="atsScanTabs">
-                        <button className={activeTab === 'resume' ? 'active' : ''} type="button" onClick={() => setActiveTab('resume')}>Resume Report</button>
-                        <button className={activeTab === 'job' ? 'active' : ''} type="button" onClick={() => setActiveTab('job')}>Job Description</button>
-                    </div>
-                    <article className="atsDocumentCanvas">
-                        <div className="atsDocumentSheet">
-                            <h2>{activeTab === 'resume' ? candidate.name : project.title}</h2>
-                            <p className="atsDocumentSubline">{activeTab === 'resume' ? 'Resume Report' : 'Job Description'}</p>
-                            <div className="atsHighlightedDocument">
-                                {renderHighlighted(activeTab === 'resume' ? resumeText : jobText, report.skills)}
+                    <article className="atsCompareCanvas">
+                        <div className="atsCompareHeader">
+                            <div>
+                                <span className="eyebrow">Side-by-side profiling</span>
+                                <h2>CV and job description in one workspace</h2>
                             </div>
+                            <p>Use this mode for comparison only. The main candidate page keeps the score, activity, recruiter tips, and workflow controls.</p>
+                        </div>
+                        <div className="atsCompareSheets">
+                            <section className="atsDocumentSheet compactCompare">
+                                <h2>{candidate.name}</h2>
+                                <p className="atsDocumentSubline">Candidate CV</p>
+                                <div className="atsHighlightedDocument">
+                                    {renderHighlighted(resumeText, report.skills)}
+                                </div>
+                            </section>
+                            <section className="atsDocumentSheet compactCompare">
+                                <h2>{project.title}</h2>
+                                <p className="atsDocumentSubline">Job Description</p>
+                                <div className="atsHighlightedDocument">
+                                    {renderHighlighted(jobText, report.skills)}
+                                </div>
+                            </section>
                         </div>
                     </article>
                     <section className="atsHighlightLegend">

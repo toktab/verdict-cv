@@ -33,15 +33,29 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
     const [deleteFeedback, setDeleteFeedback] = useState('');
     const [logsOpen, setLogsOpen] = useState(false);
     const [logsMode, setLogsMode] = useState('visual');
+    const [logFilters, setLogFilters] = useState({ candidateId: 'ALL', reviewer: 'ALL' });
     const [activityRows, setActivityRows] = useState(() => readProjectActivity(project?.id));
     const [stateError, setStateError] = useState('');
     const deleteReady = deleteCountdown <= 0 && deletePhrase.trim() === 'I confirm';
     const settingRows = useMemo(() => projectSettingsRows(settings, setSettings, !canManage), [settings, canManage]);
+    const filteredActivityRows = useMemo(() => filterActivityRows(activityRows, logFilters), [activityRows, logFilters]);
+    const candidateFilterOptions = useMemo(() => candidateOptions(project, activityRows), [project, activityRows]);
+    const reviewerFilterOptions = useMemo(() => reviewerOptions(activityRows), [activityRows]);
 
     useEffect(() => {
         setSettings(readProjectSettings(project?.id));
         setActivityRows(readProjectActivity(project?.id));
         setStateError('');
+        const pendingFilter = readPendingProjectLogFilter(project?.id);
+        if (pendingFilter?.open) {
+            setLogsOpen(true);
+            setLogFilters((current) => ({
+                ...current,
+                candidateId: pendingFilter.candidateId || 'ALL',
+            }));
+        } else {
+            setLogFilters({ candidateId: 'ALL', reviewer: 'ALL' });
+        }
         if (!project?.id || !userToken) return;
         let cancelled = false;
         Promise.all([
@@ -247,15 +261,31 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
                                 <button className={logsMode === 'visual' ? 'active' : ''} type="button" onClick={() => setLogsMode('visual')}>Visual</button>
                                 <button className={logsMode === 'text' ? 'active' : ''} type="button" onClick={() => setLogsMode('text')}>Full text</button>
                             </div>
-                            <button className="secondary" type="button" onClick={() => downloadProjectActivity(project, activityRows)}><Download size={16} /> Download TXT</button>
+                            <div className="projectLogFilters">
+                                <label>
+                                    Candidate
+                                    <select value={logFilters.candidateId} onChange={(event) => setLogFilters({ ...logFilters, candidateId: event.target.value })}>
+                                        <option value="ALL">All candidates</option>
+                                        {candidateFilterOptions.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
+                                    </select>
+                                </label>
+                                <label>
+                                    Reviewer
+                                    <select value={logFilters.reviewer} onChange={(event) => setLogFilters({ ...logFilters, reviewer: event.target.value })}>
+                                        <option value="ALL">All reviewers</option>
+                                        {reviewerFilterOptions.map((reviewer) => <option key={reviewer.key} value={reviewer.key}>{reviewer.label}</option>)}
+                                    </select>
+                                </label>
+                            </div>
+                            <button className="secondary" type="button" onClick={() => downloadProjectActivity(project, filteredActivityRows)}><Download size={16} /> Download TXT</button>
                         </div>
                         {logsMode === 'visual' ? (
                             <div className="projectActivityTimeline">
-                                {activityRows.map((row) => <ProjectLogRow key={row.id} row={row} />)}
-                                {!activityRows.length && <p className="mutedPanelText">No project activity has been recorded yet.</p>}
+                                {filteredActivityRows.map((row) => <ProjectLogRow key={row.id} row={row} />)}
+                                {!filteredActivityRows.length && <p className="mutedPanelText">No project activity matches the selected filters.</p>}
                             </div>
                         ) : (
-                            <textarea className="projectActivityText" readOnly value={projectActivityText(project, activityRows)} />
+                            <textarea className="projectActivityText" readOnly value={projectActivityText(project, filteredActivityRows)} />
                         )}
                     </section>
                 </div>
@@ -264,15 +294,68 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
     );
 }
 
+function readPendingProjectLogFilter(projectId) {
+    if (!projectId || typeof sessionStorage === 'undefined') return null;
+    const key = `projectLogFilter:${projectId}`;
+    try {
+        const value = JSON.parse(sessionStorage.getItem(key) || 'null');
+        sessionStorage.removeItem(key);
+        return value;
+    } catch {
+        sessionStorage.removeItem(key);
+        return null;
+    }
+}
+
+function filterActivityRows(rows, filters) {
+    return rows.filter((row) => {
+        const candidateId = String(row.candidateId || row.candidate_id || '');
+        const reviewerKey = reviewerIdentity(row);
+        const candidateMatches = filters.candidateId === 'ALL' || candidateId === String(filters.candidateId);
+        const reviewerMatches = filters.reviewer === 'ALL' || reviewerKey === filters.reviewer;
+        return candidateMatches && reviewerMatches;
+    });
+}
+
+function candidateOptions(project, rows) {
+    const options = new Map();
+    (project?.candidates || []).forEach((candidate) => {
+        options.set(String(candidate.id), candidate.name || `Candidate #${candidate.id}`);
+    });
+    rows.forEach((row) => {
+        const id = String(row.candidateId || row.candidate_id || '');
+        if (id) options.set(id, row.candidateName || row.candidate_name || `Candidate #${id}`);
+    });
+    return [...options.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function reviewerOptions(rows) {
+    const options = new Map();
+    rows.forEach((row) => {
+        const key = reviewerIdentity(row);
+        if (!key) return;
+        options.set(key, row.actorName || row.actor_name || row.actorEmail || row.actor_email || key);
+    });
+    return [...options.entries()].map(([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function reviewerIdentity(row) {
+    return String(row.actorEmail || row.actor_email || row.actorName || row.actor_name || '').toLowerCase();
+}
+
 function ProjectLogRow({ row }) {
     const icon = iconForActivity(row);
+    const action = row.action || row.event || row.type || 'Project activity';
+    const detail = row.detail || row.candidateName || row.candidate_name || row.targetEmail || row.target_email || row.projectTitle || row.project_title;
+    const actor = row.actorName || row.actor_name || row.actorEmail || row.actor_email || 'System';
+    const createdAt = row.createdAt || row.created_at;
     return (
         <article className={`projectLogRow ${row.severity || 'info'}`}>
             <div className="projectLogIcon">{icon}</div>
             <div>
-                <strong>{row.action}</strong>
-                <span>{row.detail || row.candidateName || row.targetEmail || row.projectTitle}</span>
-                <small>{row.actorName || row.actorEmail} / {formatActivityDate(row.createdAt)}</small>
+                <strong>{action}</strong>
+                <span>{detail}</span>
+                <small>{actor} / {formatActivityDate(createdAt)}</small>
             </div>
         </article>
     );

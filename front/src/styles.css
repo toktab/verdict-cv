@@ -1069,6 +1069,7 @@ html[data-theme="dark"] .atsSegmented button {
 }
 
 html[data-theme="dark"] .atsDocumentSheet h2,
+html[data-theme="dark"] .atsCompareHeader h2,
 html[data-theme="dark"] .atsScanTopbar h1,
 html[data-theme="dark"] .atsSectionHead h2,
 html[data-theme="dark"] .atsReportHeader h1,
@@ -1080,6 +1081,7 @@ html[data-theme="dark"] .atsReportTable {
 
 html[data-theme="dark"] .atsScanTopbar span,
 html[data-theme="dark"] .atsScanTopbar p,
+html[data-theme="dark"] .atsCompareHeader p,
 html[data-theme="dark"] .atsDocumentSubline,
 html[data-theme="dark"] .atsSectionHead p,
 html[data-theme="dark"] .atsProgressRow span {
@@ -1344,6 +1346,38 @@ html[data-theme="light"] body {
     padding: 44px 24px 72px;
 }
 
+.atsCompareCanvas {
+    display: grid;
+    gap: 22px;
+    padding: 28px 24px 72px;
+}
+
+.atsCompareHeader {
+    align-items: end;
+    display: flex;
+    gap: 18px;
+    justify-content: space-between;
+}
+
+.atsCompareHeader h2 {
+    color: #172033;
+    font-size: 1.55rem;
+    margin: 4px 0 0;
+}
+
+.atsCompareHeader p {
+    color: #64748b;
+    margin: 0;
+    max-width: 520px;
+}
+
+.atsCompareSheets {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+}
+
 .atsDocumentSheet {
     background: #fff;
     box-shadow: 0 10px 24px rgba(31, 41, 55, .15);
@@ -1353,6 +1387,14 @@ html[data-theme="light"] body {
     max-width: 900px;
     padding: 68px 74px;
     width: min(900px, 100%);
+}
+
+.atsDocumentSheet.compactCompare {
+    min-height: 760px;
+    max-height: calc(100vh - 220px);
+    overflow: auto;
+    padding: 36px 42px;
+    width: 100%;
 }
 
 .atsDocumentSheet h2 {
@@ -1710,6 +1752,7 @@ html[data-theme="light"] body {
     }
 
     .atsScanTopbar,
+    .atsCompareHeader,
     .atsSectionHead,
     .atsTipBanner,
     .atsReportHeader {
@@ -1720,6 +1763,7 @@ html[data-theme="light"] body {
 
     .atsHighlightedGrid,
     .atsReportEvidenceGrid,
+    .atsCompareSheets,
     .atsReportSummary {
         grid-template-columns: 1fr;
     }
