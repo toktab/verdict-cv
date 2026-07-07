@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Moon, Save, Sun } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { javaApi } from '../api';
 import { Input } from '../components/ui';
 
-export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUserToken, theme = 'dark', setTheme }) {
+export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUserToken }) {
   const [form, setForm] = useState(() => ({
     fullName: user?.fullName || '',
     email: user?.email || '',
@@ -85,25 +85,6 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
           <Input label="Organization" value={form.organization} onChange={(organization) => setForm({ ...form, organization })} />
           <Input label="Role" value={form.role} onChange={(role) => setForm({ ...form, role })} />
           <Input type="password" label="New password optional" value={form.password} onChange={(password) => setForm({ ...form, password })} />
-        </section>
-        <section className="profileNotificationPanel">
-          <div>
-            <span className="eyebrow">Appearance</span>
-            <h2>Workspace theme</h2>
-            <p>Choose how VERDICT looks across every page, including ATS scans and reports.</p>
-          </div>
-          <div className="themePreferenceGrid">
-            <button className={theme === 'dark' ? 'active' : ''} type="button" onClick={() => setTheme?.('dark')}>
-              <Moon size={18} />
-              <strong>Dark mode</strong>
-              <span>High-contrast review workspace.</span>
-            </button>
-            <button className={theme === 'light' ? 'active' : ''} type="button" onClick={() => setTheme?.('light')}>
-              <Sun size={18} />
-              <strong>Light mode</strong>
-              <span>Bright ATS/report workspace.</span>
-            </button>
-          </div>
         </section>
         <section className="profileNotificationPanel">
           <div>
