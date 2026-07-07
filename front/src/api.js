@@ -167,6 +167,10 @@ export async function apiListMessages(token) {
     return rows.map(normaliseMessage);
 }
 
+export function apiRealtimeUrl(token) {
+    return `${BASE}/realtime?token=${encodeURIComponent(token || '')}`;
+}
+
 export async function apiSendMessage({ to, subject, body, replyToMessageId, forwardedFromMessageId }, token) {
     return normaliseMessage(await post('/messages', {
         to,

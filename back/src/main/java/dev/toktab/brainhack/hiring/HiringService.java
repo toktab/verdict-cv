@@ -25,6 +25,7 @@ import dev.toktab.brainhack.hiring.HiringDtos.ProjectResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.VoteRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.VoteSummaryResponse;
 import dev.toktab.brainhack.messaging.MessageService;
+import dev.toktab.brainhack.realtime.RealtimeService;
 import jakarta.transaction.Transactional;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -77,6 +78,7 @@ public class HiringService {
     private final MessageService messageService;
     private final UserAccountService userAccountService;
     private final AtsKeywordCatalog atsKeywordCatalog;
+    private final RealtimeService realtimeService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(java.time.Duration.ofSeconds(4))
@@ -92,7 +94,8 @@ public class HiringService {
             CandidateReviewNoteRepository noteRepository,
             MessageService messageService,
             UserAccountService userAccountService,
-            AtsKeywordCatalog atsKeywordCatalog) {
+            AtsKeywordCatalog atsKeywordCatalog,
+            RealtimeService realtimeService) {
         this.projectRepository = projectRepository;
         this.candidateRepository = candidateRepository;
         this.mapper = mapper;
@@ -103,6 +106,7 @@ public class HiringService {
         this.messageService = messageService;
         this.userAccountService = userAccountService;
         this.atsKeywordCatalog = atsKeywordCatalog;
+        this.realtimeService = realtimeService;
     }
 
     @Transactional
@@ -136,6 +140,7 @@ public class HiringService {
         project.setState(defaulted(request.state(), "WAR+AI State"));
         project.setStatus(defaulted(request.status(), "Screening"));
         HiringProject saved = projectRepository.save(project);
+        publishProjectChange(saved);
         return mapper.project(saved, actorRole(owner, saved), permissionsFor(owner, saved));
     }
 
@@ -162,13 +167,16 @@ public class HiringService {
         }
         project.setDeletedAt(Instant.now());
         projectRepository.save(project);
+        publishProjectChange(project);
     }
 
     @Transactional
     public CandidateResponse addCandidate(UserAccount owner, Long projectId, CandidateRequest request) {
         HiringProject project = projectEntity(owner, projectId);
         HiringCandidate candidate = buildCandidate(project, defaulted(request.name(), "Unnamed candidate"), defaulted(request.role(), project.getTitle()), defaulted(request.cvText(), ""), "");
-        return mapper.candidate(saveAnalyzedCandidate(candidate));
+        CandidateResponse response = mapper.candidate(saveAnalyzedCandidate(candidate));
+        publishProjectChange(project);
+        return response;
     }
 
     @Transactional
@@ -176,7 +184,9 @@ public class HiringService {
         HiringProject project = projectEntity(owner, projectId);
         String cvText = extractResumeText(resume);
         HiringCandidate candidate = buildCandidate(project, defaulted(name, "Unnamed candidate"), defaulted(role, project.getTitle()), cvText, resume == null ? "" : resume.getOriginalFilename());
-        return mapper.candidate(saveAnalyzedCandidate(candidate));
+        CandidateResponse response = mapper.candidate(saveAnalyzedCandidate(candidate));
+        publishProjectChange(project);
+        return response;
     }
 
     @Transactional
@@ -212,7 +222,9 @@ public class HiringService {
         candidate.setSummary(refreshed.getSummary());
         candidate.setClaimsJson(refreshed.getClaimsJson());
         candidate.setAuditPhraseMatchesJson(refreshed.getAuditPhraseMatchesJson());
-        return mapper.candidate(saveAnalyzedCandidate(candidate));
+        CandidateResponse response = mapper.candidate(saveAnalyzedCandidate(candidate));
+        publishProjectChange(candidate.getProject());
+        return response;
     }
 
     @Transactional
@@ -259,6 +271,7 @@ public class HiringService {
         int identityConfidence = Math.min(96, Math.max(24, 35 + corroborated * 14 - candidate.getUnsupported() * 4));
         candidate.setOsint(corroborated >= 3 ? "Ready" : corroborated >= 1 ? "Partial" : "Escalate");
         candidateRepository.save(candidate);
+        publishProjectChange(candidate.getProject());
 
         return new OsintRunResponse(
                 state,
@@ -277,6 +290,7 @@ public class HiringService {
         HiringCandidate candidate = candidateEntity(owner, projectId, candidateId);
         candidate.setDeletedAt(Instant.now());
         candidateRepository.save(candidate);
+        publishProjectChange(candidate.getProject());
     }
 
     @Transactional
@@ -378,6 +392,7 @@ public class HiringService {
         targetMembership.setRole(role);
         membershipRepository.save(targetMembership);
         projectRepository.save(project);
+        publishProjectChange(project);
         return members(actor, projectId);
     }
 
@@ -398,6 +413,7 @@ public class HiringService {
         invite.setToken(randomToken());
         ProjectInvite saved = inviteRepository.save(invite);
         messageService.createInviteMessage(actor, saved.getInvitedEmail(), project.getTitle(), project.getId(), saved.getToken());
+        publishProjectChange(project);
         return mapper.invite(saved);
     }
 
@@ -422,7 +438,9 @@ public class HiringService {
         }
         invite.setStatus("ACCEPTED");
         invite.setAcceptedAt(Instant.now());
-        return mapper.invite(inviteRepository.save(invite));
+        ProjectInvite saved = inviteRepository.save(invite);
+        publishProjectChange(saved.getProject());
+        return mapper.invite(saved);
     }
 
     @Transactional
@@ -443,7 +461,9 @@ public class HiringService {
         note.setType(defaulted(request.type(), "NOTE").toUpperCase(Locale.ROOT));
         note.setDecision(defaulted(request.decision(), "NONE").toUpperCase(Locale.ROOT));
         note.setBody(defaulted(request.body(), ""));
-        return mapper.note(noteRepository.save(note));
+        CandidateReviewNote saved = noteRepository.save(note);
+        publishProjectChange(candidate.getProject());
+        return mapper.note(saved);
     }
 
     @Transactional
@@ -467,6 +487,7 @@ public class HiringService {
         note.setDecision(action);
         note.setBody(action.equals("UPVOTE") ? "score=" + score : "");
         noteRepository.save(note);
+        publishProjectChange(candidate.getProject());
         return workflowResponse(actor, candidate);
     }
 
@@ -485,6 +506,7 @@ public class HiringService {
         note.setDecision(status.toUpperCase(Locale.ROOT));
         note.setBody("Changed candidate status to " + status);
         noteRepository.save(note);
+        publishProjectChange(candidate.getProject());
         return workflowResponse(actor, candidate);
     }
 
@@ -927,6 +949,21 @@ public class HiringService {
 
     private boolean hasHeadAdminAccess(UserAccount actor, HiringProject project) {
         return project.getOwner().getId().equals(actor.getId()) || permissionsFor(actor, project).contains("protectedAccount");
+    }
+
+    private void publishProjectChange(HiringProject project) {
+        if (project == null) {
+            return;
+        }
+        List<UserAccount> users = new ArrayList<>();
+        users.add(project.getOwner());
+        if (project.getOrganization() != null) {
+            membershipRepository.findByOrganizationId(project.getOrganization().getId()).stream()
+                    .map(TeamMembership::getUser)
+                    .filter(user -> users.stream().noneMatch(existing -> existing.getId().equals(user.getId())))
+                    .forEach(users::add);
+        }
+        realtimeService.publishProject(users);
     }
 
     private void requirePermission(UserAccount actor, HiringProject project, String permission) {

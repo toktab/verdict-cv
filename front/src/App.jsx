@@ -15,7 +15,7 @@ import { ProjectTeamPage } from './pages/projects/ProjectTeamPage';
 import { ProjectsPage } from './pages/projects/ProjectsPage';
 import { SignalTracePage } from './pages/projects/SignalTracePage';
 import { LanguageContext, translate, useLanguage } from './i18n';
-import { apiLogin, apiRegister, apiMe, apiLogout, apiListMessages, apiListProjects, apiLookupUser, apiSendMessage, javaApi, normaliseProject, normaliseUser } from './api';
+import { apiLogin, apiRegister, apiMe, apiLogout, apiListMessages, apiListProjects, apiLookupUser, apiRealtimeUrl, apiSendMessage, javaApi, normaliseProject, normaliseUser } from './api';
 import { appendMessage, createMessage, messageBelongsTo, readMessages } from './messageStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuditScoreExplainer } from './components/AuditScoreExplainer';
@@ -364,22 +364,19 @@ function App() {
     }, [userToken]);
 
     useEffect(() => {
-        if (!userToken) return undefined;
-        let cancelled = false;
-        const refreshProjectsQuietly = () => {
-            if (!cancelled) {
-                loadProjects({ silent: true });
-            }
+        if (!userToken || typeof EventSource === 'undefined') return undefined;
+        const source = new EventSource(apiRealtimeUrl(userToken));
+        source.addEventListener('project', () => {
+            loadProjects({ silent: true });
+            window.dispatchEvent(new Event('verdictProjectsChanged'));
+        });
+        source.addEventListener('message', () => {
+            window.dispatchEvent(new Event('verdictMessagesChanged'));
+        });
+        source.onerror = () => {
+            window.dispatchEvent(new Event('verdictRealtimeDisconnected'));
         };
-        const timer = window.setInterval(refreshProjectsQuietly, 3500);
-        window.addEventListener('focus', refreshProjectsQuietly);
-        document.addEventListener('visibilitychange', refreshProjectsQuietly);
-        return () => {
-            cancelled = true;
-            window.clearInterval(timer);
-            window.removeEventListener('focus', refreshProjectsQuietly);
-            document.removeEventListener('visibilitychange', refreshProjectsQuietly);
-        };
+        return () => source.close();
     }, [userToken]);
 
     useEffect(() => {
@@ -411,11 +408,11 @@ function App() {
         }
         refreshUnreadMessages();
         window.addEventListener('verdictMessagesChanged', refreshUnreadMessages);
-        const timer = window.setInterval(refreshUnreadMessages, 7000);
+        window.addEventListener('focus', refreshUnreadMessages);
         return () => {
             cancelled = true;
             window.removeEventListener('verdictMessagesChanged', refreshUnreadMessages);
-            window.clearInterval(timer);
+            window.removeEventListener('focus', refreshUnreadMessages);
         };
     }, [user, userToken]);
 

@@ -72,10 +72,10 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
             loadTeamData();
         }
         window.addEventListener('focus', refreshOnFocus);
-        const timer = window.setInterval(refreshOnFocus, 12000);
+        window.addEventListener('verdictProjectsChanged', refreshOnFocus);
         return () => {
             window.removeEventListener('focus', refreshOnFocus);
-            window.clearInterval(timer);
+            window.removeEventListener('verdictProjectsChanged', refreshOnFocus);
         };
     }, [loadTeamData, project?.id, userToken]);
 

@@ -5,6 +5,7 @@ import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageRequest;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageResponse;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageUpdateRequest;
+import dev.toktab.brainhack.realtime.RealtimeService;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.stereotype.Service;
@@ -15,11 +16,13 @@ public class MessageService {
     private final AppMessageRepository messageRepository;
     private final MessageFileLogger messageFileLogger;
     private final UserAccountService userAccountService;
+    private final RealtimeService realtimeService;
 
-    public MessageService(AppMessageRepository messageRepository, MessageFileLogger messageFileLogger, UserAccountService userAccountService) {
+    public MessageService(AppMessageRepository messageRepository, MessageFileLogger messageFileLogger, UserAccountService userAccountService, RealtimeService realtimeService) {
         this.messageRepository = messageRepository;
         this.messageFileLogger = messageFileLogger;
         this.userAccountService = userAccountService;
+        this.realtimeService = realtimeService;
     }
 
     @Transactional(readOnly = true)
@@ -34,6 +37,8 @@ public class MessageService {
         message.setForwardedFromMessageId(request.forwardedFromMessageId());
         message = messageRepository.save(message);
         messageFileLogger.sent(actor, message);
+        realtimeService.publishMessage(actor);
+        userAccountService.findActiveByUsernameOrEmail(message.getRecipientEmail()).ifPresent(realtimeService::publishMessage);
         return toResponse(message);
     }
 
@@ -54,6 +59,8 @@ public class MessageService {
         }
         AppMessage saved = messageRepository.save(message);
         messageFileLogger.updated(actor, saved);
+        realtimeService.publishMessage(actor);
+        userAccountService.findActiveByUsernameOrEmail(saved.getRecipientEmail()).ifPresent(realtimeService::publishMessage);
         return toResponse(saved);
     }
 
@@ -72,6 +79,8 @@ public class MessageService {
         message.setProjectTitle(projectTitle);
         AppMessage saved = messageRepository.save(message);
         messageFileLogger.sent(actor, saved);
+        realtimeService.publishMessage(actor);
+        userAccountService.findActiveByUsernameOrEmail(saved.getRecipientEmail()).ifPresent(realtimeService::publishMessage);
         return saved;
     }
 
