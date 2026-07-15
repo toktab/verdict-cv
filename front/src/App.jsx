@@ -1748,7 +1748,6 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
                                 <span>Credibility</span>
                                 <strong>{audit.credibilityScore}%</strong>
                             </div>
-                            <ExportActions auditId={audit.id} />
                         </section>
                         <StickyAuditBar audit={audit} />
                         <section className="detailMeta">
@@ -2442,7 +2441,6 @@ function AuditResult({ audit, setRoute }) {
                     <b>{audit.stretchedCount}</b> stretched
                     <b>{audit.unsupportedCount}</b> unsupported
                 </div>
-                <ExportActions auditId={audit.id} />
             </div>
             <AuditScoreExplainer audit={audit} />
             <DenseVerdictTable verdicts={audit.verdicts} />

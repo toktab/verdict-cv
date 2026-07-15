@@ -116,7 +116,7 @@ button {
     gap: 2px;
     padding: 3px;
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 0;
     background: rgba(255, 255, 255, 0.035);
 }
 
@@ -7685,7 +7685,7 @@ select {
     margin-bottom: 14px;
     background: rgba(11, 11, 13, 0.94);
     backdrop-filter: blur(16px);
-    box-shadow: 0 14px 45px rgba(0, 0, 0, 0.38);
+    box-shadow: none;
 }
 
 .stickyAuditBar > div:not(.exportActions) {
