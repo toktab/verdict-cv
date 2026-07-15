@@ -67,8 +67,14 @@ export function HistoryPage({
                 </section>
 
                 {(historyError || projectsError) && (
-                    <section className="error compact">
-                        {[historyError && `Audit history: ${historyError}`, projectsError && `Projects: ${projectsError}`].filter(Boolean).join(' / ')}
+                    <section className="retryNotice error compact">
+                        <div>
+                            <strong>History sync failed.</strong>
+                            <span>{[historyError && `Audit history: ${historyError}`, projectsError && `Projects: ${projectsError}`].filter(Boolean).join(' / ')}</span>
+                        </div>
+                        <div className="retryActions">
+                            <button className="secondary" disabled={loading} onClick={refreshAll} type="button"><RefreshCcw size={15} /> Retry</button>
+                        </div>
                     </section>
                 )}
 

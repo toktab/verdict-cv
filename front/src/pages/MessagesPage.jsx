@@ -8,7 +8,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     const [activeId, setActiveId] = useState(null);
     const [messages, setMessages] = useState(() => readMessages(user));
     const [actionMessage, setActionMessage] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(() => Boolean(userToken));
     const [loadError, setLoadError] = useState('');
     const [manualUnreadIds, setManualUnreadIds] = useState(() => readManualUnreadIds(user));
     const [highlightedId, setHighlightedId] = useState(null);
@@ -36,14 +36,15 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         } finally {
             setLoading(false);
         }
-        const nextIds = new Set(rows.map((message) => String(message.id)));
-        const fresh = rows.find((message) => !seenMessageIds.current.has(String(message.id)));
+        const safeRows = Array.isArray(rows) ? rows : [];
+        const nextIds = new Set(safeRows.map((message) => String(message.id)));
+        const fresh = safeRows.find((message) => !seenMessageIds.current.has(String(message.id)));
         if (seenMessageIds.current.size > 0 && fresh) {
             setHighlightedId(String(fresh.id));
             window.setTimeout(() => setHighlightedId(null), 1600);
         }
         seenMessageIds.current = nextIds;
-        setMessages(rows);
+        setMessages(safeRows);
     }, [user, userToken]);
 
     const updateMessage = useCallback((id, patch) => {

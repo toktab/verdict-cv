@@ -67,7 +67,7 @@ export function AdminPage({ Header, setRoute }) {
     const [editingUser, setEditingUser] = useState(null);
     const [adminConfirm, setAdminConfirm] = useState(null);
     const [userForm, setUserForm] = useState(emptyUserForm());
-    const [adminLoading, setAdminLoading] = useState(false);
+    const [adminLoading, setAdminLoading] = useState(() => Boolean(token));
     const [error, setError] = useState('');
     const selectedClearTargetRows = tableClearTargets.filter((target) => selectedClearTargets.includes(target.key));
     const selectedClearRowCount = selectedClearTargetRows.reduce((sum, target) => sum + Number(target.deletedRows || 0), 0);
@@ -89,6 +89,7 @@ export function AdminPage({ Header, setRoute }) {
     async function loadAdmin() {
         track('admin_refresh', 'admin_panel');
         setAdminLoading(true);
+        setError('');
         try {
             const [auditRows, logRows, userRows, settingRows, clearTargetRows, healthRows] = await Promise.all([
                 api.adminAudits(token, auditOffset, pageSize, auditSearch),
@@ -98,12 +99,15 @@ export function AdminPage({ Header, setRoute }) {
                 api.adminTableClearTargets(token),
                 api.adminHealth(token),
             ]);
-            setAudits(auditRows);
-            setLogs(logRows);
-            setUsers(userRows);
-            setSettings(settingRows);
-            setTableClearTargets(clearTargetRows);
+            setAudits(Array.isArray(auditRows) ? auditRows : []);
+            setLogs(Array.isArray(logRows) ? logRows : []);
+            setUsers(Array.isArray(userRows) ? userRows : []);
+            setSettings(settingRows || { requireEmailVerification: false });
+            setTableClearTargets(Array.isArray(clearTargetRows) ? clearTargetRows : []);
             setHealth(healthRows);
+        } catch (err) {
+            setError(err.message || 'Could not load the admin workspace.');
+            throw err;
         } finally {
             setAdminLoading(false);
         }
@@ -303,7 +307,12 @@ export function AdminPage({ Header, setRoute }) {
             <div className="pageGlow contentFadeIn" />
             <Header setRoute={setRoute} />
             <main className="adminGrid contentFadeIn">
-                {error && <div className="error">{error}</div>}
+                {error && (
+                    <div className="retryNotice error compact">
+                        <div><strong>Admin data could not be loaded.</strong><span>{error}</span></div>
+                        <div className="retryActions"><button className="secondary" disabled={adminLoading} onClick={() => loadAdmin().catch(() => null)} type="button"><RefreshCcw size={15} /> Retry</button></div>
+                    </div>
+                )}
                 <section className="adminSection adminWide adminStatusBar">
                     <div>
                         <span className="eyebrow">Admin session</span>
@@ -315,7 +324,7 @@ export function AdminPage({ Header, setRoute }) {
                 </section>
                 <section className="adminSection adminWide adminHealthPanel">
                     <h2><Gauge size={18} /> System health</h2>
-                    {health ? (
+                    {adminLoading && !health ? <SkeletonBlock rows={3} compact /> : health ? (
                         <div className="adminHealthGrid">
                             <HealthTile label="DB" value={health.db?.ok ? 'Online' : 'Down'} detail={`${health.db?.latencyMillis || 0}ms / ${health.db?.status || 'unknown'}`} good={health.db?.ok} />
                             <HealthTile label="LLM" value={health.llm?.configured ? 'Configured' : 'Fallback'} detail={`${health.llm?.model || 'local'} / ${health.llm?.mode || 'unknown'}`} good={health.llm?.configured} />

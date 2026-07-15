@@ -276,15 +276,15 @@ function App() {
     const [templates, setTemplates] = useState([]);
     const [states, setStates] = useState([]);
     const [projects, setProjects] = useState([]);
-    const [projectsLoading, setProjectsLoading] = useState(false);
+    const [projectsLoading, setProjectsLoading] = useState(() => Boolean(userToken));
     const [templateForm, setTemplateForm] = useState(emptyTemplateForm(demoCase.auditMode));
     const [selectedDemoId, setSelectedDemoId] = useState(demoCases[0]?.id || '');
     const [demoConfirmOpen, setDemoConfirmOpen] = useState(false);
     const [demoCountdown, setDemoCountdown] = useState(3);
     const [loading, setLoading] = useState(false);
-    const [detailLoading, setDetailLoading] = useState(false);
-    const [historyLoading, setHistoryLoading] = useState(false);
-    const [templateLoading, setTemplateLoading] = useState(false);
+    const [detailLoading, setDetailLoading] = useState(() => Boolean(userToken && (route === 'auditDetail' || route === 'auditProfile')));
+    const [historyLoading, setHistoryLoading] = useState(() => Boolean(userToken));
+    const [templateLoading, setTemplateLoading] = useState(() => Boolean(userToken));
     const [uploadingField, setUploadingField] = useState('');
     const [lastAuditUpload, setLastAuditUpload] = useState(null);
     const [stage, setStage] = useState('');
@@ -356,6 +356,8 @@ function App() {
     useEffect(() => {
         if ((route === 'auditDetail' || route === 'auditProfile') && detailAuditId && userToken) {
             loadAuditDetail(detailAuditId);
+        } else {
+            setDetailLoading(false);
         }
     }, [route, detailAuditId, userToken]);
 
