@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
-import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMemberPermissions, apiListProjectMembers, apiLookupUser, apiRemoveProjectMember, apiSaveProjectMemberPermissions, apiSendMessage, apiUpdateProjectMemberRole } from '../../api';
-import { readProjectActivity, recordProjectActivityOnServer } from './projectActivity';
+import { apiCreateProjectInvite, apiListProjectActivity, apiListProjectInvites, apiListProjectMemberPermissions, apiListProjectMembers, apiLookupUser, apiRemoveProjectMember, apiSaveProjectMemberPermissions, apiSendMessage, apiUpdateProjectMemberRole } from '../../api';
+import { recordProjectActivityOnServer } from './projectActivity';
 import { findProjectFromPath } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
 
@@ -34,7 +34,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [rankModal, setRankModal] = useState(null);
     const [memberModal, setMemberModal] = useState(null);
     const [confirmAction, setConfirmAction] = useState(null);
-    const [activityRows, setActivityRows] = useState(() => readProjectActivity(project?.id));
+    const [activityRows, setActivityRows] = useState([]);
     const members = useMemo(() => buildMembers(project, user, invites, serverMembers), [project, user, invites, serverMembers]);
     const updateRankModal = useCallback((patch) => {
         setRankModal((current) => {
@@ -62,6 +62,13 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         setInvites(inviteRows);
         setServerMembers(memberRows);
     }, [project?.id, userToken]);
+    const loadActivityData = useCallback(async () => {
+        if (!project?.id || !userToken) {
+            setActivityRows([]);
+            return;
+        }
+        setActivityRows(await apiListProjectActivity(project.id, userToken));
+    }, [project?.id, userToken]);
 
     useEffect(() => {
         if (!project?.id || !userToken) return;
@@ -78,15 +85,15 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     }, [loadTeamData, project?.id, userToken]);
 
     useEffect(() => {
-        setActivityRows(readProjectActivity(project?.id));
         if (!project?.id || !userToken) {
             setCustomPermissions({});
             return;
         }
+        loadActivityData().catch(() => setActivityRows([]));
         apiListProjectMemberPermissions(project.id, userToken)
             .then(setCustomPermissions)
             .catch(() => setCustomPermissions({}));
-    }, [project?.id, userToken]);
+    }, [loadActivityData, project?.id, userToken]);
 
     useEffect(() => {
         const query = email.trim();
@@ -125,7 +132,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
             severity: 'good',
             detail: `Invite token created with role ${row.role || 'Reviewer'}.`,
         }, userToken);
-        setActivityRows(readProjectActivity(project.id));
+        await loadActivityData();
     }
 
     async function applyRoleChange(emailAddress, role, notify = notifyRoleChange) {
@@ -164,7 +171,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
             severity: 'warn',
             detail: notify ? 'Member notification was requested.' : 'Member notification was skipped.',
         }, userToken);
-        setActivityRows(readProjectActivity(project.id));
+        await loadActivityData();
     }
 
     async function removeMember(emailAddress) {
@@ -185,7 +192,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
             }, userToken);
             await loadTeamData();
             await onProjectsChange?.();
-            setActivityRows(readProjectActivity(project.id));
+            await loadActivityData();
         } catch (error) {
             setMessage(error.message || 'Could not remove member.');
         }
@@ -245,7 +252,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
             projectTitle: project.title,
             severity: 'warn',
         }, userToken);
-        setActivityRows(readProjectActivity(project.id));
+        await loadActivityData();
     }
 
     return (
@@ -348,7 +355,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                     notifyRoleChange={notifyRoleChange}
                     onClose={() => setMemberModal(null)}
                     onActivity={(member) => {
-                        setActivityRows(readProjectActivity(project.id));
+                        loadActivityData().catch(() => setActivityRows([]));
                         setActivityMember(member);
                         setMemberModal(null);
                     }}

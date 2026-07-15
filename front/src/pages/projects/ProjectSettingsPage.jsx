@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, Bell, Database, Download, FileText, History, Lock, RotateCcw, Save, Settings, ShieldCheck, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
 import { apiDeleteProject, apiGetProjectSettings, apiListProjectActivity, apiSaveProjectSettings } from '../../api';
-import { downloadProjectActivity, formatActivityDate, projectActivityText, readProjectActivity, recordProjectActivityOnServer } from './projectActivity';
+import { downloadProjectActivity, formatActivityDate, projectActivityText, recordProjectActivityOnServer } from './projectActivity';
 import { findProjectFromPath } from './projectPageUtils';
 import './ProjectSettingsPage.css';
 import { ProjectRouteState } from './ProjectRouteState';
@@ -34,7 +34,7 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
     const [logsOpen, setLogsOpen] = useState(false);
     const [logsMode, setLogsMode] = useState('visual');
     const [logFilters, setLogFilters] = useState({ candidateId: 'ALL', reviewer: 'ALL' });
-    const [activityRows, setActivityRows] = useState(() => readProjectActivity(project?.id));
+    const [activityRows, setActivityRows] = useState([]);
     const [stateError, setStateError] = useState('');
     const deleteReady = deleteCountdown <= 0 && deletePhrase.trim() === 'I confirm';
     const settingRows = useMemo(() => projectSettingsRows(settings, setSettings, !canManage), [settings, canManage]);
@@ -44,7 +44,7 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
 
     useEffect(() => {
         setSettings(readProjectSettings(project?.id));
-        setActivityRows(readProjectActivity(project?.id));
+        setActivityRows([]);
         setStateError('');
         const pendingFilter = readPendingProjectLogFilter(project?.id);
         if (pendingFilter?.open) {
@@ -91,8 +91,8 @@ export function ProjectSettingsPage({ Header, navigateTo, setRoute, user, userTo
     async function refreshActivityRows() {
         try {
             setActivityRows(await apiListProjectActivity(project.id, userToken));
-        } catch {
-            setActivityRows(readProjectActivity(project.id));
+        } catch (error) {
+            setStateError(error.message || 'Could not refresh project activity.');
         }
     }
 
