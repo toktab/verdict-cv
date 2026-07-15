@@ -12,33 +12,42 @@ public interface HiringCandidateRepository extends JpaRepository<HiringCandidate
 
     @Query("""
             select distinct candidate from HiringCandidate candidate
-            left join TeamMembership membership on membership.organization = candidate.project.organization
+            left join ProjectInvite invite on invite.project = candidate.project
+            left join ProjectMemberPermission permission on permission.project = candidate.project
             where candidate.id = :candidateId
               and candidate.project.id = :projectId
               and candidate.deletedAt is null
               and candidate.project.deletedAt is null
-              and (candidate.project.owner.id = :userId or membership.user.id = :userId)
+              and (candidate.project.owner.id = :userId
+                or (lower(invite.invitedEmail) = lower(:email) and invite.status = 'ACCEPTED')
+                or lower(permission.memberEmail) = lower(:email))
             """)
-    Optional<HiringCandidate> findAccessibleById(@Param("candidateId") Long candidateId, @Param("projectId") Long projectId, @Param("userId") Long userId);
+    Optional<HiringCandidate> findAccessibleById(@Param("candidateId") Long candidateId, @Param("projectId") Long projectId, @Param("userId") Long userId, @Param("email") String email);
 
     @Query("""
             select candidate from HiringCandidate candidate
-            left join TeamMembership membership on membership.organization = candidate.project.organization
+            left join ProjectInvite invite on invite.project = candidate.project
+            left join ProjectMemberPermission permission on permission.project = candidate.project
             where candidate.project.id = :projectId
               and candidate.deletedAt is null
               and candidate.project.deletedAt is null
-              and (candidate.project.owner.id = :userId or membership.user.id = :userId)
+              and (candidate.project.owner.id = :userId
+                or (lower(invite.invitedEmail) = lower(:email) and invite.status = 'ACCEPTED')
+                or lower(permission.memberEmail) = lower(:email))
             order by candidate.createdAt desc
             """)
-    List<HiringCandidate> findAccessibleByProjectId(@Param("projectId") Long projectId, @Param("userId") Long userId, Pageable pageable);
+    List<HiringCandidate> findAccessibleByProjectId(@Param("projectId") Long projectId, @Param("userId") Long userId, @Param("email") String email, Pageable pageable);
 
     @Query("""
             select count(distinct candidate.id) from HiringCandidate candidate
-            left join TeamMembership membership on membership.organization = candidate.project.organization
+            left join ProjectInvite invite on invite.project = candidate.project
+            left join ProjectMemberPermission permission on permission.project = candidate.project
             where candidate.project.id = :projectId
               and candidate.deletedAt is null
               and candidate.project.deletedAt is null
-              and (candidate.project.owner.id = :userId or membership.user.id = :userId)
+              and (candidate.project.owner.id = :userId
+                or (lower(invite.invitedEmail) = lower(:email) and invite.status = 'ACCEPTED')
+                or lower(permission.memberEmail) = lower(:email))
             """)
-    long countAccessibleByProjectId(@Param("projectId") Long projectId, @Param("userId") Long userId);
+    long countAccessibleByProjectId(@Param("projectId") Long projectId, @Param("userId") Long userId, @Param("email") String email);
 }

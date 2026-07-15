@@ -602,6 +602,63 @@ class HiringFlowTest {
     }
 
     @Test
+    void acceptedInviteIsProjectScopedAndCustomPermissionsAreAuthoritative() throws Exception {
+        String ownerToken = register("permission_owner");
+        String memberEmail = "permission_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10) + "@example.com";
+        String memberToken = registerWithEmail("permission_member", memberEmail);
+        long sharedProjectId = createProject(ownerToken, "Scoped Shared Role", "Requirements:\n- Java", "[\"Java\"]");
+        long privateProjectId = createProject(ownerToken, "Owner Only Role", "Requirements:\n- SQL", "[\"SQL\"]");
+
+        MvcResult invite = mockMvc.perform(post("/api/projects/" + sharedProjectId + "/invites")
+                        .header("X-User-Token", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":%s,"role":"REVIEWER"}
+                                """.formatted(objectMapper.writeValueAsString(memberEmail))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        mockMvc.perform(post("/api/projects/invites/accept")
+                        .header("X-User-Token", memberToken)
+                        .param("token", objectMapper.readTree(invite.getResponse().getContentAsString()).get("token").asText()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/projects").header("X-User-Token", memberToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].id").value((int) sharedProjectId));
+
+        mockMvc.perform(get("/api/projects/" + privateProjectId).header("X-User-Token", memberToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Project not found"));
+
+        mockMvc.perform(patch("/api/projects/" + sharedProjectId + "/members/permissions")
+                        .header("X-User-Token", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email":%s,
+                                  "role":"Custom",
+                                  "permissions":["canView","canInvite","canTeamManage"]
+                                }
+                                """.formatted(objectMapper.writeValueAsString(memberEmail))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$['" + memberEmail + "']", hasItem("canInvite")));
+
+        mockMvc.perform(get("/api/projects").header("X-User-Token", memberToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].my_role").value("Custom"))
+                .andExpect(jsonPath("$[0].my_permissions", hasItem("canInvite")))
+                .andExpect(jsonPath("$[0].my_permissions", hasItem("canTeamManage")));
+
+        mockMvc.perform(post("/api/projects/" + sharedProjectId + "/invites")
+                        .header("X-User-Token", memberToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"custom-invite@example.com\",\"role\":\"VIEWER\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void signalTraceOnlyRunsForStrictWarAiAndReturnsExtractedEvidence() throws Exception {
         String token = register("hiring_osint");
         long projectId = createProject(token, "OSINT Role", "Requirements:\n- GitHub portfolio", "[\"GitHub portfolio\"]");

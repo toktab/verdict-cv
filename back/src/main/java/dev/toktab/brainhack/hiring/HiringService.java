@@ -81,6 +81,7 @@ public class HiringService {
     private final AtsKeywordCatalog atsKeywordCatalog;
     private final RealtimeService realtimeService;
     private final ProjectStateService projectStateService;
+    private final ProjectPermissionService permissionService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(java.time.Duration.ofSeconds(4))
@@ -98,7 +99,8 @@ public class HiringService {
             UserAccountService userAccountService,
             AtsKeywordCatalog atsKeywordCatalog,
             RealtimeService realtimeService,
-            ProjectStateService projectStateService) {
+            ProjectStateService projectStateService,
+            ProjectPermissionService permissionService) {
         this.projectRepository = projectRepository;
         this.candidateRepository = candidateRepository;
         this.mapper = mapper;
@@ -111,12 +113,13 @@ public class HiringService {
         this.atsKeywordCatalog = atsKeywordCatalog;
         this.realtimeService = realtimeService;
         this.projectStateService = projectStateService;
+        this.permissionService = permissionService;
     }
 
     @Transactional
     public List<ProjectResponse> projects(UserAccount owner) {
         ensureOrganization(owner);
-        return projectRepository.findAccessible(owner.getId()).stream()
+        return projectRepository.findAccessible(owner.getId(), owner.getEmail()).stream()
                 .map(project -> mapper.project(project, actorRole(owner, project), permissionsFor(owner, project)))
                 .toList();
     }
@@ -208,10 +211,10 @@ public class HiringService {
         int safeOffset = Math.max(0, offset);
         int safeLimit = Math.max(1, Math.min(100, limit));
         Pageable pageable = new OffsetLimitPageable(safeOffset, safeLimit, Sort.by(Sort.Direction.DESC, "createdAt"));
-        List<CandidateResponse> items = candidateRepository.findAccessibleByProjectId(projectId, owner.getId(), pageable).stream()
+        List<CandidateResponse> items = candidateRepository.findAccessibleByProjectId(projectId, owner.getId(), owner.getEmail(), pageable).stream()
                 .map(mapper::candidate)
                 .toList();
-        long total = candidateRepository.countAccessibleByProjectId(projectId, owner.getId());
+        long total = candidateRepository.countAccessibleByProjectId(projectId, owner.getId(), owner.getEmail());
         return new CandidatePageResponse(items, safeOffset, safeLimit, total);
     }
 
@@ -326,24 +329,6 @@ public class HiringService {
                 "OWNER",
                 true
         ));
-        if (project.getOrganization() != null) {
-            for (TeamMembership membership : membershipRepository.findByOrganizationId(project.getOrganization().getId())) {
-                UserAccount member = membership.getUser();
-                if (member.getId().equals(owner.getId())) {
-                    continue;
-                }
-                rows.add(new ProjectMemberResponse(
-                        member.getId(),
-                        displayName(member),
-                        member.getEmail(),
-                        displayRole(membership.getRole()),
-                        rolePermissions(membership.getRole()),
-                        "ACTIVE",
-                        "MEMBERSHIP",
-                        false
-                ));
-            }
-        }
         Set<String> knownEmails = new HashSet<>();
         rows.forEach(row -> knownEmails.add(row.email().toLowerCase(Locale.ROOT)));
         for (ProjectInvite invite : inviteRepository.findByProjectIdOrderByCreatedAtDesc(projectId)) {
@@ -351,16 +336,33 @@ public class HiringService {
             if (knownEmails.contains(email)) {
                 continue;
             }
+            UserAccount member = userAccountService.findActiveByUsernameOrEmail(email).orElse(null);
+            boolean active = "ACCEPTED".equals(invite.getStatus()) && member != null;
+            String role = active ? actorRole(member, project) : displayRole(invite.getRole());
+            List<String> permissions = active ? permissionsFor(member, project) : rolePermissions(role);
             rows.add(new ProjectMemberResponse(
-                    invite.getId(),
-                    invite.getInvitedEmail().split("@")[0],
+                    member == null ? invite.getId() : member.getId(),
+                    member == null ? invite.getInvitedEmail().split("@")[0] : displayName(member),
                     invite.getInvitedEmail(),
-                    displayRole(invite.getRole()),
-                    rolePermissions(invite.getRole()),
-                    invite.getStatus(),
-                    "INVITE",
-                    false
+                    role,
+                    permissions,
+                    active ? "ACTIVE" : invite.getStatus(),
+                    active ? "MEMBERSHIP" : "INVITE",
+                    permissions.contains("protectedAccount")
             ));
+            knownEmails.add(email);
+        }
+        for (ProjectMemberPermission override : permissionService.overrides(projectId)) {
+            String email = override.getMemberEmail().toLowerCase(Locale.ROOT);
+            if (knownEmails.contains(email)) continue;
+            UserAccount member = userAccountService.findActiveByUsernameOrEmail(email).orElse(null);
+            if (member == null) continue;
+            List<String> permissions = permissionsFor(member, project);
+            rows.add(new ProjectMemberResponse(
+                    member.getId(), displayName(member), member.getEmail(), actorRole(member, project), permissions,
+                    "ACTIVE", "MEMBERSHIP", permissions.contains("protectedAccount")
+            ));
+            knownEmails.add(email);
         }
         return rows;
     }
@@ -397,11 +399,18 @@ public class HiringService {
                         });
                 previousMembership.setRole("ADMIN");
                 membershipRepository.save(previousMembership);
+                permissionService.saveRole(project, previousOwner, "ADMIN", actor);
             }
         }
 
         targetMembership.setRole(role);
         membershipRepository.save(targetMembership);
+        permissionService.saveRole(project, target, role, actor);
+        inviteRepository.findFirstByProjectIdAndInvitedEmailIgnoreCaseAndStatusOrderByCreatedAtDesc(projectId, target.getEmail(), "ACCEPTED")
+                .ifPresent(invite -> {
+                    invite.setRole(role);
+                    inviteRepository.save(invite);
+                });
         projectRepository.save(project);
         recordActivity(project, actor, "rank_change", "Changed member role", "warn", request.email() + " is now " + displayRole(role) + ".");
         publishProjectChange(project);
@@ -420,22 +429,14 @@ public class HiringService {
             throw new IllegalArgumentException("Protected owner cannot be kicked");
         }
         boolean removed = false;
-        UserAccount target = userAccountService.findActiveByUsernameOrEmail(targetEmail).orElse(null);
-        if (target != null && project.getOrganization() != null) {
-            removed = membershipRepository.findByOrganizationIdAndUserId(project.getOrganization().getId(), target.getId())
-                    .map(membership -> {
-                        membershipRepository.delete(membership);
-                        return true;
-                    })
-                    .orElse(false);
-        }
         for (ProjectInvite invite : inviteRepository.findByProjectIdOrderByCreatedAtDesc(projectId)) {
-            if (invite.getInvitedEmail().equalsIgnoreCase(targetEmail) && "PENDING".equals(invite.getStatus())) {
+            if (invite.getInvitedEmail().equalsIgnoreCase(targetEmail) && Set.of("PENDING", "ACCEPTED").contains(invite.getStatus())) {
                 invite.setStatus("REVOKED");
                 inviteRepository.save(invite);
                 removed = true;
             }
         }
+        removed = permissionService.removeOverrides(projectId, targetEmail) || removed;
         if (!removed) {
             throw new IllegalArgumentException("Project member not found");
         }
@@ -969,12 +970,12 @@ public class HiringService {
     }
 
     private HiringProject projectEntity(UserAccount owner, Long id) {
-        return projectRepository.findAccessibleById(id, owner.getId())
+        return projectRepository.findAccessibleById(id, owner.getId(), owner.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
     }
 
     private HiringCandidate candidateEntity(UserAccount owner, Long projectId, Long candidateId) {
-        return candidateRepository.findAccessibleById(candidateId, projectId, owner.getId())
+        return candidateRepository.findAccessibleById(candidateId, projectId, owner.getId(), owner.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Candidate not found"));
     }
 
@@ -1189,63 +1190,19 @@ public class HiringService {
     }
 
     private String actorRole(UserAccount actor, HiringProject project) {
-        if (project.getOwner().getId().equals(actor.getId())) {
-            return "Head Admin";
-        }
-        if (project.getOrganization() == null) {
-            return "Viewer";
-        }
-        return membershipRepository.findByOrganizationIdAndUserId(project.getOrganization().getId(), actor.getId())
-                .map(TeamMembership::getRole)
-                .map(this::displayRole)
-                .orElse("Viewer");
+        return permissionService.roleFor(actor, project);
     }
 
     private List<String> permissionsFor(UserAccount actor, HiringProject project) {
-        return rolePermissions(actorRole(actor, project));
+        return permissionService.permissionsFor(actor, project);
     }
 
     private String canonicalRole(String role) {
-        String normalized = defaulted(role, "Reviewer").replace('_', ' ').replace('-', ' ').trim().toLowerCase(Locale.ROOT);
-        return switch (normalized) {
-            case "viewer" -> "VIEWER";
-            case "voter" -> "VOTER";
-            case "reviewer" -> "REVIEWER";
-            case "screener" -> "SCREENER";
-            case "coordinator" -> "COORDINATOR";
-            case "admin" -> "ADMIN";
-            case "head admin", "organization admin" -> "ORGANIZATION_ADMIN";
-            default -> throw new IllegalArgumentException("Unsupported member role");
-        };
+        return permissionService.canonicalRole(role);
     }
 
     private List<String> rolePermissions(String role) {
-        String normalized = displayRole(role).toLowerCase(Locale.ROOT);
-        List<String> permissions = new ArrayList<>();
-        permissions.add("canView");
-        if (normalized.contains("voter")) {
-            permissions.add("canVote");
-        } else if (normalized.contains("reviewer")) {
-            permissions.addAll(List.of("canVote", "canAddNote"));
-        } else if (normalized.contains("screener")) {
-            permissions.addAll(List.of("canVote", "canAddNote", "canMarkOnCheck"));
-        } else if (normalized.contains("coordinator")) {
-            permissions.addAll(List.of(
-                    "canVote", "canAddNote", "canMarkOnCheck", "canSetInterview", "canHire", "canClose",
-                    "canInvite", "canTeamManage", "canKickMembers", "canPromoteMembers", "canDemoteMembers",
-                    "canChangePermissions", "canMessage", "canViewActivityLog"
-            ));
-        } else if (normalized.contains("admin")) {
-            permissions.addAll(List.of(
-                    "canVote", "canAddNote", "canMarkOnCheck", "canSetInterview", "canHire", "canClose",
-                    "canInvite", "canTeamManage", "canKickMembers", "canPromoteMembers", "canDemoteMembers",
-                    "canChangePermissions", "canMessage", "canViewActivityLog"
-            ));
-            if (normalized.contains("head")) {
-                permissions.add("protectedAccount");
-            }
-        }
-        return permissions.stream().distinct().toList();
+        return permissionService.permissionsForRole(role);
     }
 
     private String displayName(UserAccount account) {
@@ -1253,25 +1210,7 @@ public class HiringService {
     }
 
     private String displayRole(String role) {
-        String normalized = defaulted(role, "Reviewer").replace('_', ' ').replace('-', ' ').toLowerCase(Locale.ROOT);
-        if (normalized.contains("head admin")) {
-            return "Head Admin";
-        }
-        if (normalized.contains("organization admin")) {
-            return "Head Admin";
-        }
-        if (normalized.contains("reviewer")) {
-            return "Reviewer";
-        }
-        if (normalized.contains("coordinator")) {
-            return "Coordinator";
-        }
-        if (normalized.contains("admin")) {
-            return "Admin";
-        }
-        return normalized.isBlank()
-                ? "Reviewer"
-                : normalized.substring(0, 1).toUpperCase(Locale.ROOT) + normalized.substring(1);
+        return permissionService.displayRole(role);
     }
 
     private String randomToken() {

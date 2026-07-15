@@ -13,19 +13,25 @@ public interface HiringProjectRepository extends JpaRepository<HiringProject, Lo
 
     @Query("""
             select distinct project from HiringProject project
-            left join TeamMembership membership on membership.organization = project.organization
+            left join ProjectInvite invite on invite.project = project
+            left join ProjectMemberPermission permission on permission.project = project
             where project.deletedAt is null
-              and (project.owner.id = :userId or membership.user.id = :userId)
+              and (project.owner.id = :userId
+                or (lower(invite.invitedEmail) = lower(:email) and invite.status = 'ACCEPTED')
+                or lower(permission.memberEmail) = lower(:email))
             order by project.createdAt desc
             """)
-    List<HiringProject> findAccessible(@Param("userId") Long userId);
+    List<HiringProject> findAccessible(@Param("userId") Long userId, @Param("email") String email);
 
     @Query("""
             select distinct project from HiringProject project
-            left join TeamMembership membership on membership.organization = project.organization
+            left join ProjectInvite invite on invite.project = project
+            left join ProjectMemberPermission permission on permission.project = project
             where project.id = :projectId
               and project.deletedAt is null
-              and (project.owner.id = :userId or membership.user.id = :userId)
+              and (project.owner.id = :userId
+                or (lower(invite.invitedEmail) = lower(:email) and invite.status = 'ACCEPTED')
+                or lower(permission.memberEmail) = lower(:email))
             """)
-    Optional<HiringProject> findAccessibleById(@Param("projectId") Long projectId, @Param("userId") Long userId);
+    Optional<HiringProject> findAccessibleById(@Param("projectId") Long projectId, @Param("userId") Long userId, @Param("email") String email);
 }

@@ -32,6 +32,7 @@ public class ProjectStateService {
     private final ProjectMemberPermissionRepository memberPermissionRepository;
     private final ObjectMapper objectMapper;
     private final RealtimeService realtimeService;
+    private final ProjectPermissionService permissionService;
 
     public ProjectStateService(
             HiringProjectRepository projectRepository,
@@ -41,7 +42,8 @@ public class ProjectStateService {
             ProjectAtsTemplateRepository atsTemplateRepository,
             ProjectMemberPermissionRepository memberPermissionRepository,
             ObjectMapper objectMapper,
-            RealtimeService realtimeService) {
+            RealtimeService realtimeService,
+            ProjectPermissionService permissionService) {
         this.projectRepository = projectRepository;
         this.membershipRepository = membershipRepository;
         this.settingRepository = settingRepository;
@@ -50,6 +52,7 @@ public class ProjectStateService {
         this.memberPermissionRepository = memberPermissionRepository;
         this.objectMapper = objectMapper;
         this.realtimeService = realtimeService;
+        this.permissionService = permissionService;
     }
 
     @Transactional
@@ -166,19 +169,13 @@ public class ProjectStateService {
     }
 
     private HiringProject accessibleProject(UserAccount actor, Long projectId) {
-        return projectRepository.findAccessibleById(projectId, actor.getId())
+        return projectRepository.findAccessibleById(projectId, actor.getId(), actor.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Project not found or access denied"));
     }
 
     private HiringProject manageableProject(UserAccount actor, Long projectId) {
         HiringProject project = accessibleProject(actor, projectId);
-        if (project.getOwner().getId().equals(actor.getId())) {
-            return project;
-        }
-        String role = project.getOrganization() == null ? "" : membershipRepository.findByOrganizationIdAndUserId(project.getOrganization().getId(), actor.getId())
-                .map(TeamMembership::getRole)
-                .orElse("");
-        if (List.of("Head Admin", "Admin", "Coordinator").contains(role)) {
+        if (permissionService.has(actor, project, "canTeamManage")) {
             return project;
         }
         throw new IllegalArgumentException("Project Head Admin permissions required");
