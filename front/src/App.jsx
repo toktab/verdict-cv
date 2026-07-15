@@ -293,7 +293,7 @@ function App() {
     const [historyError, setHistoryError] = useState('');
     const [projectsError, setProjectsError] = useState('');
     const [introVisible, setIntroVisible] = useState(() => shouldShowIntroOnBoot());
-    const [lang, setLangState] = useState(() => localStorage.getItem('verdictLang') || 'ge');
+    const [lang, setLangState] = useState('en');
     const [composeOpen, setComposeOpen] = useState(false);
     const [composeDraft, setComposeDraft] = useState({ to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null, candidateAttachments: [] });
     const [unreadMessages, setUnreadMessages] = useState(0);
@@ -301,8 +301,9 @@ function App() {
     const seenInboundMessageIds = useRef(new Set());
 
     function setLang(nextLang) {
-        localStorage.setItem('verdictLang', nextLang);
-        setLangState(nextLang);
+        if (nextLang !== 'en') return;
+        localStorage.setItem('verdictLang', 'en');
+        setLangState('en');
     }
 
     function t(key, replacements) {
@@ -1095,7 +1096,7 @@ function emptyComposeDraft() {
 }
 
 function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessages = 0 }) {
-    const { lang, setLang, t } = useLanguage();
+    const { t } = useLanguage();
     const [accountOpen, setAccountOpen] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     function navigate(next) {
@@ -1122,10 +1123,7 @@ function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessag
             <div className="topbarIdentity">
                 <div className="brandLine">
                     <div className="brand">VERDICT</div>
-                    <div className="languageSwitch" aria-label="Language switch">
-                        <button className={lang === 'en' ? 'active' : ''} type="button" onClick={() => setLang('en')}>EN</button>
-                        <button className={lang === 'ge' ? 'active' : ''} type="button" onClick={() => setLang('ge')}>GE</button>
-                    </div>
+                    <span className="languageCurrent" aria-label="Interface language">EN</span>
                 </div>
                 <div className="tagline">{t('brandTagline')}</div>
             </div>
