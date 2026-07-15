@@ -9,9 +9,13 @@ import dev.toktab.brainhack.messaging.MessageDtos.CandidateAttachment;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageResponse;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageUpdateRequest;
 import dev.toktab.brainhack.realtime.RealtimeService;
+import dev.toktab.brainhack.hiring.ProjectStateService;
+import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectActivityRequest;
 import java.util.List;
 import java.util.Locale;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,14 +26,16 @@ public class MessageService {
     private final UserAccountService userAccountService;
     private final RealtimeService realtimeService;
     private final ObjectMapper objectMapper;
+    private final ProjectStateService projectStateService;
     private static final TypeReference<List<CandidateAttachment>> ATTACHMENTS = new TypeReference<>() {};
 
-    public MessageService(AppMessageRepository messageRepository, MessageFileLogger messageFileLogger, UserAccountService userAccountService, RealtimeService realtimeService, ObjectMapper objectMapper) {
+    public MessageService(AppMessageRepository messageRepository, MessageFileLogger messageFileLogger, UserAccountService userAccountService, RealtimeService realtimeService, ObjectMapper objectMapper, ProjectStateService projectStateService) {
         this.messageRepository = messageRepository;
         this.messageFileLogger = messageFileLogger;
         this.userAccountService = userAccountService;
         this.realtimeService = realtimeService;
         this.objectMapper = objectMapper;
+        this.projectStateService = projectStateService;
     }
 
     @Transactional(readOnly = true)
@@ -46,6 +52,7 @@ public class MessageService {
         message.setForwardedFromMessageId(request.forwardedFromMessageId());
         message.setCandidateAttachmentsJson(writeAttachments(request.candidateAttachments()));
         message = messageRepository.save(message);
+        recordCandidateMessages(actor, message, request.candidateAttachments());
         messageFileLogger.sent(actor, message);
         realtimeService.publishMessage(actor);
         userAccountService.findActiveByUsernameOrEmail(message.getRecipientEmail()).ifPresent(realtimeService::publishMessage);
@@ -176,6 +183,22 @@ public class MessageService {
             return json == null || json.isBlank() ? List.of() : objectMapper.readValue(json, ATTACHMENTS);
         } catch (Exception ignored) {
             return List.of();
+        }
+    }
+
+    private void recordCandidateMessages(UserAccount actor, AppMessage message, List<CandidateAttachment> attachments) {
+        if (attachments == null || attachments.isEmpty()) return;
+        Set<String> recorded = new HashSet<>();
+        for (CandidateAttachment attachment : attachments.stream().limit(20).toList()) {
+            if (attachment.projectId() == null || attachment.candidateId() == null) continue;
+            String key = attachment.projectId() + ":" + attachment.candidateId();
+            if (!recorded.add(key)) continue;
+            projectStateService.record(actor, attachment.projectId(), new ProjectActivityRequest(
+                    "candidate_message",
+                    "Sent candidate package to " + message.getRecipientEmail(),
+                    message.getRecipientEmail(), message.getRecipientEmail(), attachment.candidateId(),
+                    defaulted(attachment.name(), "Candidate"), "info",
+                    "Message #" + message.getId() + ": " + message.getSubject()));
         }
     }
 }

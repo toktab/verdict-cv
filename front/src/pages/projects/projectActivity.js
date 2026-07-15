@@ -54,22 +54,17 @@ export function recordProjectActivity(projectId, user, details = {}) {
 }
 
 export async function recordProjectActivityOnServer(projectId, user, details = {}, token = '') {
-    const localEntry = recordProjectActivity(projectId, user, details);
-    if (!projectId || !token) return localEntry;
-    try {
-        return await apiRecordProjectActivity(projectId, {
-            type: details.type || localEntry.type,
-            action: details.action || localEntry.action,
+    if (!projectId || !token) return recordProjectActivity(projectId, user, details);
+    return apiRecordProjectActivity(projectId, {
+            type: details.type || 'activity',
+            action: details.action || 'updated project',
             target_email: details.targetEmail || '',
             target_name: details.targetName || '',
             candidate_id: details.candidateId || null,
             candidate_name: details.candidateName || '',
-            severity: details.severity || localEntry.severity,
+            severity: details.severity || severityFor(details.type || details.action),
             detail: details.detail || '',
         }, token);
-    } catch {
-        return localEntry;
-    }
 }
 
 export function projectActivityText(project, rows) {

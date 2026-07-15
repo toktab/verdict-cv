@@ -5,7 +5,7 @@ import { apiCreateCandidateNote, apiDeleteCandidate, apiGetCandidateWorkflow, ap
 import defaultAts from '../../data/default-ats.json';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
 import { buildAtsReport, candidateSourceText as atsCandidateSourceText, projectDescriptionText, splitTextByTerms } from './atsReportUtils';
-import { recordProjectActivity, recordProjectActivityOnServer } from './projectActivity';
+import { recordProjectActivityOnServer } from './projectActivity';
 import { findCandidateFromPath, scorePercent, scoreTone } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
 
@@ -93,7 +93,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
 
     useEffect(() => {
         if (!activeProject?.id || !activeCandidate?.id || !user) return;
-        writeActivity(activeProject.id, user, activeCandidate, 'opened candidate profile', userToken);
+        writeActivity(activeProject.id, user, activeCandidate, 'opened candidate profile', userToken, { type: 'candidate_view' });
     }, [activeProject?.id, activeCandidate?.id, activeCandidate, user, userToken]);
 
     const atsReport = useMemo(() => buildAtsReport(activeProject, activeCandidate), [activeProject, activeCandidate]);
@@ -178,13 +178,9 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                 body: noteBody.trim(),
             }, userToken);
             setReviewNotes((current) => [note, ...current]);
+            setWorkflow(await apiGetCandidateWorkflow(activeProject.id, activeCandidate.id, userToken));
             setNoteBody('');
             setNoteMessage('Reviewer note saved.');
-            writeActivity(activeProject.id, user, activeCandidate, `added reviewer note: ${noteDecision}`, userToken, {
-                type: 'candidate_note',
-                severity: 'info',
-                detail: noteBody.trim(),
-            });
         } catch (error) {
             setNoteMessage(error.message || 'Could not save reviewer note.');
         } finally {
@@ -216,10 +212,6 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
             const next = await apiVoteCandidate(activeProject.id, activeCandidate.id, { action, score }, userToken);
             setWorkflow(next);
             setWorkflowMessage('Workflow saved.');
-            writeActivity(activeProject.id, user, activeCandidate, `candidate vote: ${action}${score ? ` ${score}/5` : ''}`, userToken, {
-                type: 'candidate_vote',
-                severity: action === 'DOWNVOTE' ? 'warn' : 'good',
-            });
         } catch (error) {
             setWorkflowMessage(error.message || 'Could not save workflow vote.');
         }
@@ -237,10 +229,6 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
             setWorkflow(next);
             await onProjectsChange?.();
             setWorkflowMessage('Candidate status saved.');
-            writeActivity(activeProject.id, user, activeCandidate, `candidate moved to ${status}`, userToken, {
-                type: 'candidate_status',
-                severity: status === 'Closed' ? 'warn' : status === 'Hired' ? 'good' : 'info',
-            });
         } catch (error) {
             setWorkflowMessage(error.message || 'Could not save candidate status.');
         }
@@ -252,15 +240,6 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         setDeleteMessage('');
         try {
             await apiDeleteCandidate(activeProject.id, activeCandidate.id, userToken);
-            recordProjectActivity(activeProject.id, user, {
-                type: 'candidate_delete',
-                action: `Deleted candidate ${activeCandidate.name}`,
-                candidateId: activeCandidate.id,
-                candidateName: activeCandidate.name,
-                projectTitle: activeProject.title,
-                severity: 'danger',
-                detail: `${activeCandidate.name} was removed from ${activeProject.title}.`,
-            });
             await onProjectsChange?.();
             navigateTo(setRoute, 'projectDetail', activeProject.id);
         } catch (error) {
@@ -1408,20 +1387,13 @@ function normalizeLocal(value) {
 }
 
 function writeActivity(projectId, user, candidate, action, token = '', details = {}) {
-    recordProjectActivity(projectId, user, {
-        ...details,
-        type: details.type || 'candidate_workflow',
-        action,
-        candidateId: candidate?.id,
-        candidateName: candidate?.name,
-    });
     recordProjectActivityOnServer(projectId, user, {
         ...details,
         type: details.type || 'candidate_workflow',
         action,
         candidateId: candidate?.id,
         candidateName: candidate?.name,
-    }, token);
+    }, token).catch(() => null);
 }
 
 function buildEvidenceRows(project, candidate, t) {

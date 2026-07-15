@@ -447,6 +447,13 @@ class HiringFlowTest {
                 .andExpect(jsonPath("$.vote_summary.average").value("4.5"))
                 .andExpect(jsonPath("$.vote_summary.attribution", hasItem(containsString("upvote 4.5/5"))));
 
+        mockMvc.perform(post("/api/projects/" + projectId + "/candidates/" + candidateId + "/votes")
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"action\":\"UPVOTE\",\"score\":4.3}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Upvote score must be between 0.5 and 5 in 0.5 increments"));
+
         mockMvc.perform(patch("/api/projects/" + projectId + "/candidates/" + candidateId + "/status")
                         .header("X-User-Token", reviewerToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -556,6 +563,28 @@ class HiringFlowTest {
                 .andExpect(jsonPath("$[?(@.subject == 'Manual message')].starred").value(hasItem(true)))
                 .andExpect(jsonPath("$[?(@.subject == 'Re: Manual message')].reply_to_message_id").value(hasItem((int) messageId)))
                 .andExpect(jsonPath("$[?(@.subject == 'Re: Manual message')].candidate_attachments[0].name").value(hasItem("Shared Candidate")));
+
+        mockMvc.perform(post("/api/projects/" + projectId + "/activity")
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "type":"candidate_view",
+                                  "action":"opened candidate profile",
+                                  "candidate_id":%d,
+                                  "candidate_name":"Shared Candidate",
+                                  "severity":"info",
+                                  "detail":"Candidate detail viewed"
+                                }
+                                """.formatted(candidateId)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/candidates/" + candidateId + "/workflow")
+                        .header("X-User-Token", reviewerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activity[?(@.action == 'added reviewer note: INTERVIEW')]").exists())
+                .andExpect(jsonPath("$.activity[?(@.action == 'Sent candidate package to " + reviewerEmail + "')]").exists())
+                .andExpect(jsonPath("$.activity[?(@.action == 'opened candidate profile')]").exists());
 
         String log = Files.readString(messageLog);
         org.assertj.core.api.Assertions.assertThat(log)

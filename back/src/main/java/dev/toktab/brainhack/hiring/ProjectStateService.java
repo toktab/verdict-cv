@@ -88,6 +88,14 @@ public class ProjectStateService {
     @Transactional
     public ProjectActivityResponse record(UserAccount actor, Long projectId, ProjectActivityRequest request) {
         HiringProject project = accessibleProject(actor, projectId);
+        if ("candidate_view".equalsIgnoreCase(clean(request.type(), "")) && request.candidateId() != null) {
+            ProjectActivityLog recent = activityRepository
+                    .findFirstByProjectIdAndCandidateIdAndActorIdAndTypeOrderByCreatedAtDesc(projectId, request.candidateId(), actor.getId(), "candidate_view")
+                    .orElse(null);
+            if (recent != null && recent.getCreatedAt().isAfter(Instant.now().minusSeconds(300))) {
+                return activityResponse(recent);
+            }
+        }
         ProjectActivityLog saved = record(project, actor, request);
         publish(project);
         return activityResponse(saved);

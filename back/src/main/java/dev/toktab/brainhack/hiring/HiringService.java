@@ -38,6 +38,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -82,6 +83,7 @@ public class HiringService {
     private final RealtimeService realtimeService;
     private final ProjectStateService projectStateService;
     private final ProjectPermissionService permissionService;
+    private final ProjectActivityLogRepository activityRepository;
     private final SecureRandom secureRandom = new SecureRandom();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(java.time.Duration.ofSeconds(4))
@@ -100,7 +102,8 @@ public class HiringService {
             AtsKeywordCatalog atsKeywordCatalog,
             RealtimeService realtimeService,
             ProjectStateService projectStateService,
-            ProjectPermissionService permissionService) {
+            ProjectPermissionService permissionService,
+            ProjectActivityLogRepository activityRepository) {
         this.projectRepository = projectRepository;
         this.candidateRepository = candidateRepository;
         this.mapper = mapper;
@@ -114,6 +117,7 @@ public class HiringService {
         this.realtimeService = realtimeService;
         this.projectStateService = projectStateService;
         this.permissionService = permissionService;
+        this.activityRepository = activityRepository;
     }
 
     @Transactional
@@ -184,7 +188,7 @@ public class HiringService {
         HiringProject project = projectEntity(owner, projectId);
         HiringCandidate candidate = buildCandidate(project, defaulted(request.name(), "Unnamed candidate"), defaulted(request.role(), project.getTitle()), defaulted(request.cvText(), ""), "");
         CandidateResponse response = mapper.candidate(saveAnalyzedCandidate(candidate));
-        recordActivity(project, owner, "candidate_create", "Added candidate " + candidate.getName(), "good", "Candidate was added to the project.");
+        recordCandidateActivity(candidate, owner, "candidate_create", "Added candidate " + candidate.getName(), "good", "Candidate was added to the project.");
         publishProjectChange(project);
         return response;
     }
@@ -195,7 +199,7 @@ public class HiringService {
         String cvText = extractResumeText(resume);
         HiringCandidate candidate = buildCandidate(project, defaulted(name, "Unnamed candidate"), defaulted(role, project.getTitle()), cvText, resume == null ? "" : resume.getOriginalFilename());
         CandidateResponse response = mapper.candidate(saveAnalyzedCandidate(candidate));
-        recordActivity(project, owner, "candidate_upload", "Uploaded candidate " + candidate.getName(), "good", "Candidate resume was uploaded and analyzed.");
+        recordCandidateActivity(candidate, owner, "candidate_upload", "Uploaded candidate " + candidate.getName(), "good", "Candidate resume was uploaded and analyzed.");
         publishProjectChange(project);
         return response;
     }
@@ -234,7 +238,7 @@ public class HiringService {
         candidate.setClaimsJson(refreshed.getClaimsJson());
         candidate.setAuditPhraseMatchesJson(refreshed.getAuditPhraseMatchesJson());
         CandidateResponse response = mapper.candidate(saveAnalyzedCandidate(candidate));
-        recordActivity(candidate.getProject(), owner, "candidate_reanalyze", "Reanalyzed candidate " + candidate.getName(), "info", "Candidate scoring and phrase checks were refreshed.");
+        recordCandidateActivity(candidate, owner, "candidate_reanalyze", "Reanalyzed candidate " + candidate.getName(), "info", "Candidate scoring and phrase checks were refreshed.");
         publishProjectChange(candidate.getProject());
         return response;
     }
@@ -303,7 +307,7 @@ public class HiringService {
         HiringCandidate candidate = candidateEntity(owner, projectId, candidateId);
         candidate.setDeletedAt(Instant.now());
         candidateRepository.save(candidate);
-        recordActivity(candidate.getProject(), owner, "candidate_delete", "Deleted candidate " + candidate.getName(), "danger", "Candidate was removed from active review lists.");
+        recordCandidateActivity(candidate, owner, "candidate_delete", "Deleted candidate " + candidate.getName(), "danger", "Candidate was removed from active review lists.");
         publishProjectChange(candidate.getProject());
     }
 
@@ -506,6 +510,7 @@ public class HiringService {
     @Transactional
     public NoteResponse addNote(UserAccount actor, Long projectId, Long candidateId, NoteRequest request) {
         HiringCandidate candidate = candidateEntity(actor, projectId, candidateId);
+        requirePermission(actor, candidate.getProject(), "canAddNote");
         CandidateReviewNote note = new CandidateReviewNote();
         note.setCandidate(candidate);
         note.setAuthor(actor);
@@ -513,7 +518,7 @@ public class HiringService {
         note.setDecision(defaulted(request.decision(), "NONE").toUpperCase(Locale.ROOT));
         note.setBody(defaulted(request.body(), ""));
         CandidateReviewNote saved = noteRepository.save(note);
-        recordActivity(candidate.getProject(), actor, "candidate_note", "Added candidate note", "info", candidate.getName() + ": " + note.getDecision());
+        recordCandidateActivity(candidate, actor, "candidate_note", "Added candidate note", "info", candidate.getName() + ": " + note.getDecision());
         publishProjectChange(candidate.getProject());
         return mapper.note(saved);
     }
@@ -531,7 +536,10 @@ public class HiringService {
         if (!Set.of("UPVOTE", "DOWNVOTE", "STAR", "UNSTAR").contains(action)) {
             throw new IllegalArgumentException("Unsupported vote action");
         }
-        double score = request.score() == null ? 0.0 : Math.max(0.0, Math.min(5.0, request.score()));
+        double score = request.score() == null ? 0.0 : request.score();
+        if ("UPVOTE".equals(action) && (score < 0.5 || score > 5.0 || Math.abs(score * 2 - Math.rint(score * 2)) > 0.0001)) {
+            throw new IllegalArgumentException("Upvote score must be between 0.5 and 5 in 0.5 increments");
+        }
         CandidateReviewNote note = new CandidateReviewNote();
         note.setCandidate(candidate);
         note.setAuthor(actor);
@@ -539,7 +547,7 @@ public class HiringService {
         note.setDecision(action);
         note.setBody(action.equals("UPVOTE") ? "score=" + score : "");
         noteRepository.save(note);
-        recordActivity(candidate.getProject(), actor, "candidate_vote", "Recorded candidate vote", "info", candidate.getName() + ": " + action);
+        recordCandidateActivity(candidate, actor, "candidate_vote", activityLabel(note), "info", candidate.getName() + ": " + action);
         publishProjectChange(candidate.getProject());
         return workflowResponse(actor, candidate);
     }
@@ -559,7 +567,7 @@ public class HiringService {
         note.setDecision(status.toUpperCase(Locale.ROOT));
         note.setBody("Changed candidate status to " + status);
         noteRepository.save(note);
-        recordActivity(candidate.getProject(), actor, "candidate_status", "Changed candidate status", "warn", candidate.getName() + " moved to " + status + ".");
+        recordCandidateActivity(candidate, actor, "candidate_status", activityLabel(note), "warn", candidate.getName() + " moved to " + status + ".");
         publishProjectChange(candidate.getProject());
         return workflowResponse(actor, candidate);
     }
@@ -1054,23 +1062,22 @@ public class HiringService {
     }
 
     private CandidateWorkflowResponse workflowResponse(UserAccount actor, HiringCandidate candidate) {
-        List<CandidateReviewNote> events = noteRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getId()).stream()
-                .filter(note -> Set.of("VOTE", "STATUS", "ACTIVITY").contains(defaulted(note.getType(), "").toUpperCase(Locale.ROOT)))
-                .toList();
+        List<CandidateReviewNote> events = noteRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getId());
+        List<ActivityResponse> activity = new ArrayList<>(events.stream()
+                .map(note -> new ActivityResponse(
+                        note.getId(), activityLabel(note), candidate.getName(), displayName(note.getAuthor()),
+                        note.getAuthor().getEmail(), note.getCreatedAt()))
+                .toList());
+        activity.addAll(activityRepository.findTop200ByProjectIdAndCandidateIdOrderByCreatedAtDesc(candidate.getProject().getId(), candidate.getId()).stream()
+                .filter(log -> Set.of("candidate_view", "candidate_message").contains(defaulted(log.getType(), "").toLowerCase(Locale.ROOT)))
+                .map(log -> new ActivityResponse(
+                        -log.getId(), log.getAction(), candidate.getName(), log.getActorName(), log.getActorEmail(), log.getCreatedAt()))
+                .toList());
+        activity.sort(Comparator.comparing(ActivityResponse::createdAt).reversed());
         return new CandidateWorkflowResponse(
                 workflowStatus(defaulted(candidate.getState(), "Unreviewed")),
                 voteSummary(actor, events),
-                events.stream()
-                        .limit(80)
-                        .map(note -> new ActivityResponse(
-                                note.getId(),
-                                activityLabel(note),
-                                candidate.getName(),
-                                displayName(note.getAuthor()),
-                                note.getAuthor().getEmail(),
-                                note.getCreatedAt()
-                        ))
-                        .toList()
+                activity.stream().limit(80).toList()
         );
     }
 
@@ -1157,7 +1164,15 @@ public class HiringService {
                 return "unstarred candidate";
             }
         }
+        if (!Set.of("VOTE", "STATUS", "ACTIVITY").contains(defaulted(note.getType(), "").toUpperCase(Locale.ROOT))) {
+            return "added reviewer note: " + displayRoleish(defaulted(note.getDecision(), "NOTE"));
+        }
         return defaulted(note.getBody(), note.getDecision());
+    }
+
+    private void recordCandidateActivity(HiringCandidate candidate, UserAccount actor, String type, String action, String severity, String detail) {
+        projectStateService.record(candidate.getProject(), actor, new ProjectActivityRequest(
+                type, action, "", "", candidate.getId(), candidate.getName(), severity, detail));
     }
 
     private String displayRoleish(String value) {
