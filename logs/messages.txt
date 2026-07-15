@@ -1033,3 +1033,171 @@ starred=false
 reply_to_message_id=
 forwarded_from_message_id=
 
+--- MESSAGE SENT ---
+logged_at=2026-07-06T16:00:23.703625600Z
+message_id=11
+type=MESSAGE
+sent_at=2026-07-06T16:00:23.697626300Z
+from_user_id=2
+from_username=toko1
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=You were removed from Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-06T16:01:09.333158200Z
+message_id=11
+type=MESSAGE
+sent_at=2026-07-06T16:00:23.697626Z
+from_user_id=3
+from_username=toko2
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=You were removed from Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-06T16:01:09.352167200Z
+message_id=7
+type=MESSAGE
+sent_at=2026-07-05T12:18:10.505528Z
+from_user_id=3
+from_username=toko2
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Screener to Coordinator on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-06T16:01:09.467158100Z
+message_id=5
+type=MESSAGE
+sent_at=2026-07-05T12:18:07.803751Z
+from_user_id=3
+from_username=toko2
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Voter to Reviewer on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-06T16:01:09.595172Z
+message_id=4
+type=MESSAGE
+sent_at=2026-07-05T12:17:41.602693Z
+from_user_id=3
+from_username=toko2
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Viewer to Voter on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-06T16:01:09.664157100Z
+message_id=3
+type=MESSAGE
+sent_at=2026-07-05T12:17:36.779692Z
+from_user_id=3
+from_username=toko2
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Project team update: Junior Java Backend Developer
+body=Your role changed from Reviewer to Viewer on Junior Java Backend Developer.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE SENT ---
+logged_at=2026-07-06T16:01:42.589349900Z
+message_id=12
+type=MESSAGE
+sent_at=2026-07-06T16:01:42.585332200Z
+from_user_id=2
+from_username=toko1
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Kicking
+body=I am sorry we had to let you go.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=false
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+
+--- MESSAGE UPDATED ---
+logged_at=2026-07-06T16:01:53.233022200Z
+message_id=12
+type=MESSAGE
+sent_at=2026-07-06T16:01:42.585332Z
+from_user_id=3
+from_username=toko2
+from_email=toko1@gmail.com
+from_name=Toko Tabagari
+to_email=toko2@gmail.com
+subject=Kicking
+body=I am sorry we had to let you go.
+project_id=
+project_title=
+invite_token=
+invite_status=
+read=true
+starred=false
+reply_to_message_id=
+forwarded_from_message_id=
+

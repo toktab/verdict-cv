@@ -1,0 +1,54 @@
+Asterbit is an international software development company and a subsidiary of JSC "Oppa".
+
+We build software solutions for fintech and energy companies, working with both local and international clients.
+
+Our parent company, JSC "Oppa", is also behind PayBox is a well-known payment terminal service in Georgia.
+
+We`re now looking for a Java Intern to join our development team and get real hands-on experience working on real systems.
+
+This role is a good fit if you`re at the beginning of your career and want to learn backend development in a real engineering environment.
+
+What you`ll do:
+
+** Help build and maintain Java applications using Spring Boot and Spring MVC
+** Support development of REST APIs for backend services and client integrations
+** Work on external system integrations using REST, SOAP, and HTTP clients
+** Write and improve unit tests with JUnit, Spock, or Mockito
+** Work with middle and senior developers and learn from code reviews
+** Use Git, Maven, and Gradle in multi-module projects
+** Work with Oracle and PostgreSQL using JPA/Hibernate and JDBC
+** Learn how real production systems are built and maintained
+
+What we`re looking for:
+
+** Basic knowledge of Java (study projects or personal practice is fine)
+** Understanding of OOP principles
+** Some awareness of Spring Boot is a plus, but not required
+** Basic understanding of REST APIs and JSON
+** Interest in backend development, databases, and system integrations
+** Willingness to learn and improve every day
+** Responsible and motivated attitude.
+
+What We Offer:
+
+** A dynamic and supportive work culture
+** Professional growth and learning opportunities
+** Work-Life Balance
+** Team Building and Social Events
+
+How to apply:
+
+If you are interested in this position and would like to join our team, please send us your resume: talent@asterbit.io Only short-listed candidates will be contacted for interviews.
+
+Important Information:
+
+The resume and any other information you submit may contain personal data, including sensitive data, as defined by the Law of Georgia on Personal Data Protection. Please note that this data will be processed by Asterbit LLC for the purpose of making a decision regarding the establishment of an employment relationship with you.
+
+The information you provide may also be considered for other vacancies depending on your qualifications, or reserved for future relevant openings.
+
+Submitted data may be stored for a period of 12 months. Additionally, your name, surname, phone number, expected salary, and vacancy-related details may be stored for up to three years for company statistical and evaluation purposes.
+If you agree with the above, please send us your resume.
+
+If you would like to request the termination of your personal data processing by Asterbit LLC, please contact us at the following email address: talent@asterbit.io
+
+We are looking forward to meeting you!
