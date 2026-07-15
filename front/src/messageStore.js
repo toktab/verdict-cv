@@ -27,7 +27,7 @@ export function writeMessages(messages) {
     window.dispatchEvent(new Event('verdictMessagesChanged'));
 }
 
-export function createMessage({ from, fromName, to, subject, body, type = 'message', meta = {}, replyToMessageId = null, forwardedFromMessageId = null }) {
+export function createMessage({ from, fromName, to, subject, body, type = 'message', meta = {}, replyToMessageId = null, forwardedFromMessageId = null, candidateAttachments = [] }) {
     return {
         id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
         from,
@@ -42,6 +42,9 @@ export function createMessage({ from, fromName, to, subject, body, type = 'messa
         meta,
         replyToMessageId,
         forwardedFromMessageId,
+        candidateAttachments,
+        archived: false,
+        deliveryStatus: 'SAVED_OFFLINE',
     };
 }
 

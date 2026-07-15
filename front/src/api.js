@@ -207,13 +207,14 @@ export function apiRealtimeUrl(token) {
     return `${BASE}/realtime?token=${encodeURIComponent(token || '')}`;
 }
 
-export async function apiSendMessage({ to, subject, body, replyToMessageId, forwardedFromMessageId }, token) {
+export async function apiSendMessage({ to, subject, body, replyToMessageId, forwardedFromMessageId, candidateAttachments = [] }, token) {
     return normaliseMessage(await post('/messages', {
         to,
         subject,
         body,
         reply_to_message_id: replyToMessageId || null,
         forwarded_from_message_id: forwardedFromMessageId || null,
+        candidate_attachments: candidateAttachments,
     }, token));
 }
 
@@ -432,8 +433,12 @@ export function normaliseMessage(raw) {
         },
         read: Boolean(raw.read),
         starred: Boolean(raw.starred),
+        readAt: raw.read_at || raw.readAt || null,
+        archived: Boolean(raw.archived),
+        deliveryStatus: raw.delivery_status || raw.deliveryStatus || 'SENT',
         replyToMessageId: raw.reply_to_message_id || raw.replyToMessageId || null,
         forwardedFromMessageId: raw.forwarded_from_message_id || raw.forwardedFromMessageId || null,
+        candidateAttachments: raw.candidate_attachments || raw.candidateAttachments || [],
         createdAt: raw.created_at || raw.createdAt || new Date().toISOString(),
         serverBacked: true,
     };

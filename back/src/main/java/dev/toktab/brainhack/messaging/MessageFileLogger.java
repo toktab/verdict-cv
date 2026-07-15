@@ -60,8 +60,11 @@ public class MessageFileLogger {
                 invite_status=%s
                 read=%s
                 starred=%s
+                read_at=%s
+                archived=%s
                 reply_to_message_id=%s
                 forwarded_from_message_id=%s
+                candidate_attachments=%s
 
                 """.formatted(
                 event,
@@ -82,8 +85,11 @@ public class MessageFileLogger {
                 clean(message.getInviteStatus()),
                 value(message.isRead()),
                 value(message.isStarred()),
+                value(message.getReadAt()),
+                value(message.isArchived()),
                 value(message.getReplyToMessageId()),
-                value(message.getForwardedFromMessageId())
+                value(message.getForwardedFromMessageId()),
+                clean(message.getCandidateAttachmentsJson())
         );
     }
 

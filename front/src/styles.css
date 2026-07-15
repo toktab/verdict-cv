@@ -4282,6 +4282,34 @@ mark {
     margin: 0;
 }
 
+.composeCandidateAttachments {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.composeCandidateAttachments span {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+}
+
+.composeCandidateAttachments strong,
+.composeCandidateAttachments small {
+    overflow-wrap: anywhere;
+}
+
+.composeCandidateAttachments small {
+    color: var(--soft);
+}
+
 .routeStatePanel p {
     max-width: 680px;
     color: var(--soft);

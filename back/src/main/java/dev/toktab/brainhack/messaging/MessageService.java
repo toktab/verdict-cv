@@ -1,13 +1,17 @@
 package dev.toktab.brainhack.messaging;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.toktab.brainhack.account.UserAccountService;
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageRequest;
+import dev.toktab.brainhack.messaging.MessageDtos.CandidateAttachment;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageResponse;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageUpdateRequest;
 import dev.toktab.brainhack.realtime.RealtimeService;
 import java.util.List;
 import java.util.Locale;
+import java.time.Instant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,12 +21,15 @@ public class MessageService {
     private final MessageFileLogger messageFileLogger;
     private final UserAccountService userAccountService;
     private final RealtimeService realtimeService;
+    private final ObjectMapper objectMapper;
+    private static final TypeReference<List<CandidateAttachment>> ATTACHMENTS = new TypeReference<>() {};
 
-    public MessageService(AppMessageRepository messageRepository, MessageFileLogger messageFileLogger, UserAccountService userAccountService, RealtimeService realtimeService) {
+    public MessageService(AppMessageRepository messageRepository, MessageFileLogger messageFileLogger, UserAccountService userAccountService, RealtimeService realtimeService, ObjectMapper objectMapper) {
         this.messageRepository = messageRepository;
         this.messageFileLogger = messageFileLogger;
         this.userAccountService = userAccountService;
         this.realtimeService = realtimeService;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional(readOnly = true)
@@ -33,8 +40,11 @@ public class MessageService {
     @Transactional
     public MessageResponse send(UserAccount actor, MessageRequest request) {
         AppMessage message = baseMessage(actor, request.to(), defaulted(request.subject(), "No subject"), request.body());
+        validateReference(actor, request.replyToMessageId(), "Reply message");
+        validateReference(actor, request.forwardedFromMessageId(), "Forwarded message");
         message.setReplyToMessageId(request.replyToMessageId());
         message.setForwardedFromMessageId(request.forwardedFromMessageId());
+        message.setCandidateAttachmentsJson(writeAttachments(request.candidateAttachments()));
         message = messageRepository.save(message);
         messageFileLogger.sent(actor, message);
         realtimeService.publishMessage(actor);
@@ -50,9 +60,13 @@ public class MessageService {
         }
         if (request.read() != null) {
             message.setRead(request.read());
+            message.setReadAt(request.read() ? Instant.now() : null);
         }
         if (request.starred() != null) {
             message.setStarred(request.starred());
+        }
+        if (request.archived() != null) {
+            message.setArchived(request.archived());
         }
         if (request.inviteStatus() != null && !request.inviteStatus().isBlank()) {
             message.setInviteStatus(request.inviteStatus().toUpperCase(Locale.ROOT));
@@ -119,8 +133,12 @@ public class MessageService {
                 message.getProjectTitle(),
                 message.isRead(),
                 message.isStarred(),
+                message.getReadAt(),
+                message.isArchived(),
+                "SENT",
                 message.getReplyToMessageId(),
                 message.getForwardedFromMessageId(),
+                readAttachments(message.getCandidateAttachmentsJson()),
                 message.getCreatedAt()
         );
     }
@@ -134,5 +152,30 @@ public class MessageService {
 
     private String defaulted(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private void validateReference(UserAccount actor, Long messageId, String label) {
+        if (messageId == null) return;
+        AppMessage referenced = messageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException(label + " not found"));
+        if (!ownsMailboxMessage(actor, referenced)) {
+            throw new IllegalArgumentException(label + " not found");
+        }
+    }
+
+    private String writeAttachments(List<CandidateAttachment> attachments) {
+        try {
+            return objectMapper.writeValueAsString(attachments == null ? List.of() : attachments.stream().limit(20).toList());
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("Could not save candidate attachments");
+        }
+    }
+
+    private List<CandidateAttachment> readAttachments(String json) {
+        try {
+            return json == null || json.isBlank() ? List.of() : objectMapper.readValue(json, ATTACHMENTS);
+        } catch (Exception ignored) {
+            return List.of();
+        }
     }
 }

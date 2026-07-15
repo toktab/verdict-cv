@@ -295,7 +295,7 @@ function App() {
     const [introVisible, setIntroVisible] = useState(() => shouldShowIntroOnBoot());
     const [lang, setLangState] = useState(() => localStorage.getItem('verdictLang') || 'ge');
     const [composeOpen, setComposeOpen] = useState(false);
-    const [composeDraft, setComposeDraft] = useState({ to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null });
+    const [composeDraft, setComposeDraft] = useState({ to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null, candidateAttachments: [] });
     const [unreadMessages, setUnreadMessages] = useState(0);
     const [messageNotice, setMessageNotice] = useState(null);
     const seenInboundMessageIds = useRef(new Set());
@@ -409,7 +409,7 @@ function App() {
                     seenInboundMessageIds.current = nextIds;
                 }
             } catch {
-                if (!cancelled) {
+                if (!cancelled && !userToken) {
                     setUnreadMessages(readMessages(user).filter((message) => !message.read && messageBelongsTo(message, user, 'to')).length);
                 }
             }
@@ -922,6 +922,7 @@ function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
                     body: draft.body,
                     replyToMessageId: draft.replyToMessageId,
                     forwardedFromMessageId: draft.forwardedFromMessageId,
+                    candidateAttachments: draft.candidateAttachments || [],
                 }, token);
                 window.dispatchEvent(new Event('verdictMessagesChanged'));
             } else {
@@ -948,6 +949,7 @@ function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
             body: draft.body,
             replyToMessageId: draft.replyToMessageId,
             forwardedFromMessageId: draft.forwardedFromMessageId,
+            candidateAttachments: draft.candidateAttachments || [],
         }), user);
         window.dispatchEvent(new Event('verdictMessagesChanged'));
     }
@@ -975,9 +977,16 @@ function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
             <RecipientPreview lookup={recipientLookup} rawValue={draft.to} />
             <input value={draft.subject} disabled={!canEdit} onChange={(event) => setDraft({ ...draft, subject: event.target.value })} placeholder="Subject" />
             <textarea value={draft.body} disabled={!canEdit} onChange={(event) => setDraft({ ...draft, body: event.target.value })} placeholder="Description" required />
+            {Boolean(draft.candidateAttachments?.length) && (
+                <div className="composeCandidateAttachments">
+                    {draft.candidateAttachments.map((candidate) => (
+                        <span key={`${candidate.projectId}-${candidate.candidateId}`}><strong>{candidate.name}</strong><small>{candidate.role} / {candidate.score}%</small></span>
+                    ))}
+                </div>
+            )}
             <div className="composeActions">
                 <button className="primary composeSendButton" disabled={!canEdit} type="submit"><Send size={16} /> {composeState === 'failed' ? 'Retry' : composeState === 'sending' ? 'Sending' : composeState === 'sent' ? 'Sent' : 'Send'}</button>
-                {composeState === 'failed' && <button className="secondary" type="button" onClick={saveOfflineAndClose}>Save offline</button>}
+                {composeState === 'failed' && !localStorage.getItem('verdictUserToken') && <button className="secondary" type="button" onClick={saveOfflineAndClose}>Save offline</button>}
             </div>
         </form>
     );
@@ -1082,7 +1091,7 @@ function userInitials(user) {
 }
 
 function emptyComposeDraft() {
-    return { to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null };
+    return { to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null, candidateAttachments: [] };
 }
 
 function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessages = 0 }) {

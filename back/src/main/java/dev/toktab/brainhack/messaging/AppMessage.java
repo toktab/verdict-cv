@@ -11,7 +11,6 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 import java.time.Instant;
 
 @Entity
@@ -67,13 +66,19 @@ public class AppMessage {
     @Column(nullable = false)
     private boolean starred;
 
+    private Instant readAt;
+
+    @Column(nullable = false)
+    private boolean archived;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String candidateAttachmentsJson = "[]";
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
-    @Transient
     private Long replyToMessageId;
 
-    @Transient
     private Long forwardedFromMessageId;
 
     public Long getId() { return id; }
@@ -103,6 +108,12 @@ public class AppMessage {
     public void setRead(boolean read) { this.read = read; }
     public boolean isStarred() { return starred; }
     public void setStarred(boolean starred) { this.starred = starred; }
+    public Instant getReadAt() { return readAt; }
+    public void setReadAt(Instant readAt) { this.readAt = readAt; }
+    public boolean isArchived() { return archived; }
+    public void setArchived(boolean archived) { this.archived = archived; }
+    public String getCandidateAttachmentsJson() { return candidateAttachmentsJson; }
+    public void setCandidateAttachmentsJson(String candidateAttachmentsJson) { this.candidateAttachmentsJson = candidateAttachmentsJson; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Long getReplyToMessageId() { return replyToMessageId; }

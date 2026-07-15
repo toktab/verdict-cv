@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
 import { apiCreateProjectInvite, apiListProjectInvites, apiListProjectMemberPermissions, apiListProjectMembers, apiLookupUser, apiRemoveProjectMember, apiSaveProjectMemberPermissions, apiSendMessage, apiUpdateProjectMemberRole } from '../../api';
-import { appendMessage, createMessage } from '../../messageStore';
 import { readProjectActivity, recordProjectActivityOnServer } from './projectActivity';
 import { findProjectFromPath } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
@@ -198,13 +197,7 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
             to,
             subject: `Project team update: ${project.title}`,
             body,
-        }, userToken).catch(() => appendMessage(createMessage({
-            from: user?.email || 'system@verdict.local',
-            fromName: user?.fullName || user?.username || 'Team admin',
-            to,
-            subject: `Project team update: ${project.title}`,
-            body,
-        }), user));
+        }, userToken).catch((error) => setMessage(error.message || 'Could not send the role notification.'));
     }
 
     function toggleCandidateSelection(candidateId, event) {
@@ -222,6 +215,14 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
         openCompose?.({
             subject: `Candidate package: ${project.title}`,
             body: `Project: ${project.title}\n\n${selected.map(candidatePackageLine).join('\n\n')}`,
+            candidateAttachments: selected.map((candidate) => ({
+                candidateId: candidate.id,
+                projectId: project.id,
+                name: candidate.name,
+                role: candidate.role,
+                projectTitle: project.title,
+                score: candidate.score,
+            })),
         });
         setCandidateSenderOpen(false);
     }

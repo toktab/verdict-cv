@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, CornerUpLeft, Forward, Mail, MailOpen, RefreshCcw, Star, X } from 'lucide-react';
+import { Archive, CheckCircle2, CornerUpLeft, Forward, Mail, MailOpen, RefreshCcw, Star, X } from 'lucide-react';
 import { apiAcceptProjectInvite, apiListMessages, apiUpdateMessage } from '../api';
 import { messageBelongsTo, readMessages, writeMessages } from '../messageStore';
 
 export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUserToken, openCompose, onProjectsChange }) {
     const [folder, setFolder] = useState('inbox');
     const [activeId, setActiveId] = useState(null);
-    const [messages, setMessages] = useState(() => readMessages(user));
+    const [messages, setMessages] = useState(() => userToken ? [] : readMessages(user));
     const [actionMessage, setActionMessage] = useState('');
     const [loading, setLoading] = useState(() => Boolean(userToken));
     const [loadError, setLoadError] = useState('');
@@ -14,6 +14,8 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     const [highlightedId, setHighlightedId] = useState(null);
     const seenMessageIds = useRef(new Set());
     const visible = useMemo(() => messages.filter((message) => {
+        if (folder === 'archived') return message.archived;
+        if (message.archived) return false;
         if (folder === 'sent') return messageBelongsTo(message, user, 'from');
         if (folder === 'starred') return message.starred;
         return messageBelongsTo(message, user, 'to');
@@ -31,11 +33,12 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                 rows = await apiListMessages(userToken);
             }
         } catch (error) {
-            rows = readMessages(user);
-            setLoadError(error.message || 'Could not refresh messages. Showing saved local messages.');
+            rows = userToken ? null : readMessages(user);
+            setLoadError(error.message || 'Could not refresh messages. Your server mailbox was left unchanged.');
         } finally {
             setLoading(false);
         }
+        if (rows === null) return;
         const safeRows = Array.isArray(rows) ? rows : [];
         const nextIds = new Set(safeRows.map((message) => String(message.id)));
         const fresh = safeRows.find((message) => !seenMessageIds.current.has(String(message.id)));
@@ -52,7 +55,10 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         setMessages(updated);
         const message = messages.find((row) => row.id === id);
         if (message?.serverBacked) {
-            apiUpdateMessage(id, serverPatch(patch), userToken).then(loadMessages).catch(() => writeMessages(updated));
+            apiUpdateMessage(id, serverPatch(patch), userToken).then(loadMessages).catch((error) => {
+                setLoadError(error.message || 'Could not update this message.');
+                loadMessages();
+            });
         } else {
             writeMessages(updated);
         }
@@ -105,12 +111,15 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         });
         setManualUnreadIds(readManualUnreadIds(user));
         setMessages(updated);
-        writeMessages(updated);
+        if (!userToken) writeMessages(updated);
         Promise.all(unreadRows
             .filter((message) => message.serverBacked)
             .map((message) => apiUpdateMessage(message.id, serverPatch({ read: true }), userToken)))
             .then(loadMessages)
-            .catch(() => writeMessages(updated));
+            .catch((error) => {
+                setLoadError(error.message || 'Could not mark all messages as read.');
+                loadMessages();
+            });
     }
 
     async function acceptInvite(message) {
@@ -157,6 +166,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                     <button className={folder === 'inbox' ? 'active' : ''} onClick={() => setFolder('inbox')}>Inbox</button>
                     <button className={folder === 'sent' ? 'active' : ''} onClick={() => setFolder('sent')}>Sent</button>
                     <button className={folder === 'starred' ? 'active' : ''} onClick={() => setFolder('starred')}>Starred</button>
+                    <button className={folder === 'archived' ? 'active' : ''} onClick={() => setFolder('archived')}>Archived</button>
                 </aside>
                 <section className="messageListPanel">
                     <div className="tableToolbar">
@@ -238,6 +248,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                             <button className="secondary" type="button" onClick={() => forwardMessage(active)}><Forward size={16} /> Forward</button>
                             <button className="secondary" type="button" onClick={() => toggleRead(active.id)}><MailOpen size={15} /> Mark {active.read ? 'unread' : 'read'}</button>
                             <button className="secondary" type="button" onClick={() => toggleStar(active.id)}><Star size={15} className={active.starred ? 'filled' : ''} /> {active.starred ? 'Unstar' : 'Star'}</button>
+                            <button className="secondary" type="button" onClick={() => updateMessage(active.id, { archived: !active.archived })}><Archive size={15} /> {active.archived ? 'Restore' : 'Archive'}</button>
                         </div>
                         <div className="messageModalScroll">
                         <div className="messagePeopleCard">
@@ -275,6 +286,14 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                             <span className="eyebrow">Message</span>
                             <p>{active.body}</p>
                         </section>
+                        {Boolean(active.candidateAttachments?.length) && (
+                            <section className="messageInfoCard messageCandidateAttachments">
+                                <strong>Candidate attachments</strong>
+                                {active.candidateAttachments.map((candidate) => (
+                                    <span key={`${candidate.projectId}-${candidate.candidateId}`}><b>{candidate.name}</b> / {candidate.role} / {candidate.projectTitle} / score {candidate.score}%</span>
+                                ))}
+                            </section>
+                        )}
                         <section className="messageInfoCard">
                             <strong>Delivery details</strong>
                             <span>Message ID: {active.id}</span>
@@ -294,6 +313,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
 function folderLabel(folder) {
     if (folder === 'sent') return 'Sent';
     if (folder === 'starred') return 'Starred';
+    if (folder === 'archived') return 'Archived';
     return 'Inbox';
 }
 
@@ -326,6 +346,7 @@ function serverPatch(patch) {
     const next = {};
     if (patch.read !== undefined) next.read = patch.read;
     if (patch.starred !== undefined) next.starred = patch.starred;
+    if (patch.archived !== undefined) next.archived = patch.archived;
     if (patch.meta?.inviteStatus) next.invite_status = patch.meta.inviteStatus;
     return next;
 }

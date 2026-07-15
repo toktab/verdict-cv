@@ -521,12 +521,41 @@ class HiringFlowTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.read").value(true))
-                .andExpect(jsonPath("$.starred").value(true));
+                .andExpect(jsonPath("$.starred").value(true))
+                .andExpect(jsonPath("$.read_at").isNotEmpty());
+
+        mockMvc.perform(post("/api/messages")
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "to":%s,
+                                  "subject":"Re: Manual message",
+                                  "body":"Reply with candidate package",
+                                  "reply_to_message_id":%d,
+                                  "forwarded_from_message_id":%d,
+                                  "candidate_attachments":[{
+                                    "candidate_id":%d,
+                                    "project_id":%d,
+                                    "name":"Shared Candidate",
+                                    "role":"Engineer",
+                                    "project_title":"Shared Role",
+                                    "score":75
+                                  }]
+                                }
+                                """.formatted(objectMapper.writeValueAsString(reviewerEmail), messageId, messageId, candidateId, projectId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reply_to_message_id").value((int) messageId))
+                .andExpect(jsonPath("$.forwarded_from_message_id").value((int) messageId))
+                .andExpect(jsonPath("$.delivery_status").value("SENT"))
+                .andExpect(jsonPath("$.candidate_attachments[0].candidate_id").value((int) candidateId));
 
         mockMvc.perform(get("/api/messages").header("X-User-Token", reviewerToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].read").value(true))
-                .andExpect(jsonPath("$[0].starred").value(true));
+                .andExpect(jsonPath("$[?(@.subject == 'Manual message')].read").value(hasItem(true)))
+                .andExpect(jsonPath("$[?(@.subject == 'Manual message')].starred").value(hasItem(true)))
+                .andExpect(jsonPath("$[?(@.subject == 'Re: Manual message')].reply_to_message_id").value(hasItem((int) messageId)))
+                .andExpect(jsonPath("$[?(@.subject == 'Re: Manual message')].candidate_attachments[0].name").value(hasItem("Shared Candidate")));
 
         String log = Files.readString(messageLog);
         org.assertj.core.api.Assertions.assertThat(log)
