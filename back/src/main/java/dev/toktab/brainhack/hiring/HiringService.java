@@ -250,6 +250,16 @@ public class HiringService {
         if (!CheckStateIds.STRICT_WAR_AI.equals(state)) {
             throw new IllegalArgumentException("SignalTrace OSINT is only available in WAR_AI State.");
         }
+        if (request == null || !request.consent()) {
+            throw new IllegalArgumentException("Explicit consent is required before SignalTrace can check public sources.");
+        }
+        List<String> consentedChecks = request.checks() == null ? List.of() : request.checks().stream()
+                .filter(check -> check != null && !check.isBlank())
+                .map(String::trim)
+                .distinct()
+                .sorted()
+                .toList();
+        Instant checkedAt = Instant.now();
 
         String cvText = defaulted(candidate.getCvText(), "");
         List<String> links = discoveredLinks(cvText);
@@ -293,6 +303,8 @@ public class HiringService {
         return new OsintRunResponse(
                 state,
                 candidate.getOsint(),
+                checkedAt,
+                consentedChecks,
                 identityConfidence,
                 corroborated,
                 candidate.getUnsupported(),

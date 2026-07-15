@@ -31,7 +31,8 @@ public class HiringDtos {
 
     public record OsintRunRequest(
             String state,
-            List<String> checks
+            List<String> checks,
+            boolean consent
     ) {
     }
 
@@ -48,6 +49,8 @@ public class HiringDtos {
     public record OsintRunResponse(
             String state,
             String status,
+            @JsonProperty("checked_at") Instant checkedAt,
+            @JsonProperty("consented_checks") List<String> consentedChecks,
             int identityConfidence,
             int corroboratedSources,
             int contradictions,

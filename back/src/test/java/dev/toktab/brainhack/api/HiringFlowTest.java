@@ -747,8 +747,18 @@ class HiringFlowTest {
                         .header("X-User-Token", token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"state\":\"strict-war-ai\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Explicit consent is required before SignalTrace can check public sources."));
+
+        mockMvc.perform(post("/api/projects/" + projectId + "/candidates/" + candidateId + "/osint/run")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"state\":\"strict-war-ai\",\"consent\":true,\"checks\":[\"profile-search\",\"project-scan\"]}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("strict-war-ai"))
+                .andExpect(jsonPath("$.checked_at").isNotEmpty())
+                .andExpect(jsonPath("$.consented_checks", hasItem("profile-search")))
+                .andExpect(jsonPath("$.consented_checks", hasItem("project-scan")))
                 .andExpect(jsonPath("$.discoveredLinks", hasItem("https://example.com/osint")))
                 .andExpect(jsonPath("$.discoveredUsernames", hasItem("osint_candidate")))
                 .andExpect(jsonPath("$.sources", hasSize(greaterThan(1))));

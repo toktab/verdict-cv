@@ -177,12 +177,12 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
 
     useEffect(() => {
         const runKey = `${activeProject?.id || ''}:${activeCandidate?.id || ''}:${activeStateId}`;
-        if (!activeProject || !activeCandidate || !signalTraceUnlocked || !selectedStateInitialized || autoRunKey.current === runKey) {
+        if (!activeProject || !activeCandidate || !signalTraceUnlocked || !consentAccepted || !selectedStateInitialized || autoRunKey.current === runKey) {
             return;
         }
         autoRunKey.current = runKey;
         runOsintCheck();
-    }, [activeProject, activeCandidate, activeStateId, selectedStateInitialized, signalTraceUnlocked]);
+    }, [activeProject, activeCandidate, activeStateId, consentAccepted, selectedStateInitialized, signalTraceUnlocked]);
 
     if (!activeProject || !activeCandidate) {
         return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow={activeProject ? 'SignalTrace' : undefined} title={activeProject ? 'Candidate signal route not found' : undefined} message={activeProject ? 'This SignalTrace route points to a candidate that is unavailable.' : undefined} />;
@@ -210,11 +210,15 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
     }
 
     async function runOsintCheck() {
-        if (!activeProject || !activeCandidate || !signalTraceUnlocked) return;
+        if (!activeProject || !activeCandidate || !signalTraceUnlocked || !consentAccepted) return;
         setOsintLoading(true);
         setOsintError('');
         try {
-            const payload = await apiRunCandidateOsint(activeProject.id, activeCandidate.id, { state: activeStateId, checks: [...selected] }, userToken);
+            const payload = await apiRunCandidateOsint(activeProject.id, activeCandidate.id, {
+                state: activeStateId,
+                checks: [...selected],
+                consent: consentAccepted,
+            }, userToken);
             setOsintResult(payload);
         } catch (error) {
             setOsintError(error.message || 'OSINT check failed');
@@ -237,9 +241,9 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
                     <button className="secondary" onClick={() => navigateTo(setRoute, 'candidateDetail', activeProject.id, activeCandidate.id)}><ArrowRight size={16} /> {t('backToCandidate')}</button>
                     <button
                         className="primary"
-                        disabled={osintLoading || !signalTraceUnlocked}
+                        disabled={osintLoading || !signalTraceUnlocked || !consentAccepted}
                         onClick={initializeSelectedState}
-                        title={signalTraceUnlocked ? '' : lockedTraceMessage}
+                        title={!signalTraceUnlocked ? lockedTraceMessage : !consentAccepted ? 'Accept the consent terms before starting SignalTrace.' : ''}
                     >
                         <Radar size={18} /> {osintLoading ? 'Running OSINT...' : t('startTrace')}
                     </button>
