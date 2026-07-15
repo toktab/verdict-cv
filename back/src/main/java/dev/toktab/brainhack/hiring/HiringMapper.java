@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 public class HiringMapper {
     private static final TypeReference<List<List<String>>> CLAIMS = new TypeReference<>() {};
     private static final TypeReference<List<Map<String, Object>>> MATCHES = new TypeReference<>() {};
+    private static final TypeReference<List<Map<String, Object>>> MEMORY_HISTORY = new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
     private final ObjectMapper objectMapper;
 
@@ -80,6 +81,7 @@ public class HiringMapper {
         return new CandidateResponse(
                 candidate.getId(),
                 candidate.getName(),
+                candidate.getCandidateEmail(),
                 candidate.getRole(),
                 candidate.getScore(),
                 candidate.getMatchScore(),
@@ -87,6 +89,7 @@ public class HiringMapper {
                 candidate.getState(),
                 candidate.getOsint(),
                 candidate.getMemory(),
+                read(candidate.getMemoryHistoryJson(), MEMORY_HISTORY, List.of()),
                 candidate.getCvText(),
                 candidate.getResumeFilename(),
                 "core-" + candidate.getId(),

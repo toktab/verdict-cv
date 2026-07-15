@@ -50,4 +50,19 @@ public interface HiringCandidateRepository extends JpaRepository<HiringCandidate
                 or lower(permission.memberEmail) = lower(:email))
             """)
     long countAccessibleByProjectId(@Param("projectId") Long projectId, @Param("userId") Long userId, @Param("email") String email);
+
+    @Query("""
+            select candidate from HiringCandidate candidate
+            where candidate.project.organization.id = :organizationId
+              and candidate.deletedAt is null
+              and candidate.project.deletedAt is null
+              and (lower(candidate.name) = lower(:name)
+                or (:email <> '' and lower(candidate.candidateEmail) = lower(:email)))
+            order by candidate.createdAt desc
+            """)
+    List<HiringCandidate> findPriorApplications(
+            @Param("organizationId") Long organizationId,
+            @Param("name") String name,
+            @Param("email") String email,
+            Pageable pageable);
 }

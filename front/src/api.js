@@ -364,6 +364,7 @@ export function normaliseCandidate(raw) {
     return {
         id: raw.id,
         name: raw.name,
+        email: raw.email || '',
         role: raw.role || '',
         score: raw.score || 0,
         match: raw.match || 0,
@@ -371,6 +372,7 @@ export function normaliseCandidate(raw) {
         state: raw.state || 'Pending',
         osint: raw.osint || 'Not started',
         memory: raw.memory || 'No prior record',
+        memoryHistory: raw.memory_history || raw.memoryHistory || [],
         cvText: raw.cv_text || raw.cvText || '',
         resumeFilename: raw.resume_filename || '',
         coreCandidateId: raw.core_candidate_id || '',

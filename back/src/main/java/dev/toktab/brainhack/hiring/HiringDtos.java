@@ -82,6 +82,7 @@ public class HiringDtos {
     public record CandidateResponse(
             Long id,
             String name,
+            String email,
             String role,
             int score,
             int match,
@@ -89,6 +90,7 @@ public class HiringDtos {
             String state,
             String osint,
             String memory,
+            @JsonProperty("memory_history") List<Map<String, Object>> memoryHistory,
             @JsonProperty("cv_text") String cvText,
             @JsonProperty("resume_filename") String resumeFilename,
             @JsonProperty("core_candidate_id") String coreCandidateId,

@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -762,6 +763,32 @@ class HiringFlowTest {
                 .andExpect(jsonPath("$.discoveredLinks", hasItem("https://example.com/osint")))
                 .andExpect(jsonPath("$.discoveredUsernames", hasItem("osint_candidate")))
                 .andExpect(jsonPath("$.sources", hasSize(greaterThan(1))));
+    }
+
+    @Test
+    void candidateMemoryUsesPriorApplicationsFromTheSameOrganization() throws Exception {
+        String token = register("hiring_memory");
+        long firstProjectId = createProject(token, "Backend Engineer", "Java and Spring", "[\"Java\",\"Spring\"]");
+        long secondProjectId = createProject(token, "Platform Engineer", "Java and APIs", "[\"Java\",\"REST APIs\"]");
+        String cv = "Memory Candidate memory.candidate@example.com built Java Spring REST APIs in production.";
+
+        mockMvc.perform(post("/api/projects/" + firstProjectId + "/candidates")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "Memory Candidate", "role", "Engineer", "cv_text", cv))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("memory.candidate@example.com"))
+                .andExpect(jsonPath("$.memory").value("No prior record"))
+                .andExpect(jsonPath("$.memory_history", hasSize(0)));
+
+        mockMvc.perform(post("/api/projects/" + secondProjectId + "/candidates")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "Memory Candidate", "role", "Engineer", "cv_text", cv))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memory").value("Returning candidate"))
+                .andExpect(jsonPath("$.memory_history", hasSize(1)))
+                .andExpect(jsonPath("$.memory_history[0].projectTitle").value("Backend Engineer"));
     }
 
     private String register(String label) throws Exception {

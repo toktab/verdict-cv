@@ -68,6 +68,7 @@ public class HiringService {
     private static final Pattern SENTENCE = Pattern.compile("(?<=[.!?])\\s+|\\R+");
     private static final Pattern URL = Pattern.compile("https?://[^\\s)>,]+", Pattern.CASE_INSENSITIVE);
     private static final Pattern HANDLE = Pattern.compile("(?<![\\w.])@([a-zA-Z0-9][a-zA-Z0-9_.-]{2,38})");
+    private static final Pattern EMAIL = Pattern.compile("(?i)(?<![a-z0-9._%+-])([a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,})(?![a-z0-9._%+-])");
     private static final Pattern GITHUB_URL = Pattern.compile("https?://(?:www\\.)?github\\.com/([a-zA-Z0-9-]{1,39})(?:[/\\s?#]|$)", Pattern.CASE_INSENSITIVE);
 
     private final HiringProjectRepository projectRepository;
@@ -225,10 +226,13 @@ public class HiringService {
     @Transactional
     public CandidateResponse reanalyzeCandidate(UserAccount owner, Long projectId, Long candidateId) {
         HiringCandidate candidate = candidateEntity(owner, projectId, candidateId);
-        HiringCandidate refreshed = buildCandidate(candidate.getProject(), candidate.getName(), candidate.getRole(), candidate.getCvText(), candidate.getResumeFilename());
+        HiringCandidate refreshed = buildCandidate(candidate.getProject(), candidate.getName(), candidate.getRole(), candidate.getCvText(), candidate.getResumeFilename(), candidate.getId());
         candidate.setScore(refreshed.getScore());
         candidate.setMatchScore(refreshed.getMatchScore());
         candidate.setRisk(refreshed.getRisk());
+        candidate.setCandidateEmail(refreshed.getCandidateEmail());
+        candidate.setMemory(refreshed.getMemory());
+        candidate.setMemoryHistoryJson(refreshed.getMemoryHistoryJson());
         candidate.setState(refreshed.getState());
         candidate.setFlags(refreshed.getFlags());
         candidate.setSupported(refreshed.getSupported());
@@ -585,6 +589,10 @@ public class HiringService {
     }
 
     private HiringCandidate buildCandidate(HiringProject project, String name, String role, String cvText, String filename) {
+        return buildCandidate(project, name, role, cvText, filename, null);
+    }
+
+    private HiringCandidate buildCandidate(HiringProject project, String name, String role, String cvText, String filename, Long excludedCandidateId) {
         List<String> requirements = splitLines(project.getRequirementsText());
         if (requirements.isEmpty()) {
             requirements = extractRequirements(project.getDescription());
@@ -601,8 +609,11 @@ public class HiringService {
         int score = Math.max(8, Math.min(99, match + positiveEvidence - unsupported * 6 - stretched * 2 - Math.min(12, flags)));
 
         HiringCandidate candidate = new HiringCandidate();
+        String candidateEmail = extractCandidateEmail(cvText);
+        List<HiringCandidate> priorApplications = priorApplications(project, name, candidateEmail, excludedCandidateId);
         candidate.setProject(project);
         candidate.setName(name);
+        candidate.setCandidateEmail(candidateEmail);
         candidate.setRole(role);
         candidate.setCvText(cvText);
         candidate.setResumeFilename(defaulted(filename, "manual-entry.txt"));
@@ -614,12 +625,50 @@ public class HiringService {
         candidate.setRisk(score < 45 || unsupported >= 3 ? "High" : score < 70 || stretched >= 3 ? "Medium" : "Low");
         candidate.setState("Unreviewed");
         candidate.setOsint("Partial");
-        candidate.setMemory("No prior record");
+        candidate.setMemory(memoryStatus(priorApplications, unsupported));
+        candidate.setMemoryHistoryJson(mapper.json(priorApplications.stream().map(prior -> Map.<String, Object>of(
+                "candidateId", prior.getId(),
+                "projectId", prior.getProject().getId(),
+                "projectTitle", prior.getProject().getTitle(),
+                "score", prior.getScore(),
+                "risk", prior.getRisk(),
+                "unsupported", prior.getUnsupported(),
+                "submittedAt", prior.getCreatedAt().toString()
+        )).toList()));
         candidate.setFlags(flags);
         candidate.setSummary(summary(candidate, project));
         candidate.setClaimsJson(mapper.json(claims));
         candidate.setAuditPhraseMatchesJson(mapper.json(riskyMatches(cvText)));
         return candidate;
+    }
+
+    private List<HiringCandidate> priorApplications(HiringProject project, String name, String email, Long excludedCandidateId) {
+        if (project.getOrganization() == null) {
+            return List.of();
+        }
+        return candidateRepository.findPriorApplications(
+                        project.getOrganization().getId(),
+                        defaulted(name, ""),
+                        defaulted(email, ""),
+                        new OffsetLimitPageable(0, 6, Sort.by(Sort.Direction.DESC, "createdAt")))
+                .stream()
+                .filter(candidate -> excludedCandidateId == null || !excludedCandidateId.equals(candidate.getId()))
+                .limit(5)
+                .toList();
+    }
+
+    private String memoryStatus(List<HiringCandidate> priorApplications, int unsupported) {
+        if (priorApplications.isEmpty()) {
+            return "No prior record";
+        }
+        boolean mismatch = priorApplications.stream().anyMatch(prior ->
+                "High".equalsIgnoreCase(prior.getRisk()) || Math.abs(prior.getUnsupported() - unsupported) >= 2);
+        return mismatch ? "Previous mismatch" : "Returning candidate";
+    }
+
+    private String extractCandidateEmail(String cvText) {
+        var matcher = EMAIL.matcher(defaulted(cvText, ""));
+        return matcher.find() ? matcher.group(1).toLowerCase(Locale.ROOT) : "";
     }
 
     private HiringCandidate saveAnalyzedCandidate(HiringCandidate candidate) {

@@ -1230,19 +1230,20 @@ function scoreLevelLabel(level, t) {
 }
 
 function buildMemoryProfile(candidate, t) {
+    const history = candidate.memoryHistory || [];
     const hasMismatch = candidate.memory === 'Previous mismatch';
-    const hasPrior = candidate.memory !== 'No prior record';
+    const hasPrior = history.length > 0;
+    const latest = history[0];
     return {
         tone: hasMismatch ? 'bad' : hasPrior ? 'good' : 'neutral',
         state: hasMismatch ? t('priorMismatch') : hasPrior ? t('noContradiction') : candidate.memory,
-        priorScore: hasPrior ? `${Math.max(18, candidate.score - (hasMismatch ? 17 : 3))}%` : 'N/A',
+        priorScore: hasPrior ? `${latest.score}%` : 'N/A',
         repeatedRisk: hasMismatch ? t('priorMismatch') : t('noContradiction'),
-        delta: hasMismatch ? t('changedClaims') : '+0',
-        timeline: [
-            { label: t('firstSeen'), value: hasPrior ? '2025-06' : 'New' },
-            { label: t('lastReview'), value: hasPrior ? '2026-02' : 'N/A' },
-            { label: t('currentSubmission'), value: candidate.submittedAt },
-        ],
+        delta: hasPrior ? `${candidate.score - Number(latest.score) >= 0 ? '+' : ''}${candidate.score - Number(latest.score)}` : '+0',
+        timeline: history.length ? history.map((item) => ({
+            label: item.projectTitle,
+            value: `${String(item.submittedAt || '').slice(0, 10)} / ${item.score}% / ${item.risk}`,
+        })) : [{ label: t('firstSeen'), value: 'New' }],
     };
 }
 

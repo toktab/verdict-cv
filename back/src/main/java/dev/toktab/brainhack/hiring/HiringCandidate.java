@@ -18,6 +18,7 @@ import java.time.Instant;
         name = "hiring_candidates",
         indexes = {
                 @Index(name = "idx_hiring_candidates_project", columnList = "project_id"),
+                @Index(name = "idx_hiring_candidates_email", columnList = "candidate_email"),
                 @Index(name = "idx_hiring_candidates_created_at", columnList = "created_at")
         }
 )
@@ -32,6 +33,9 @@ public class HiringCandidate {
 
     @Column(nullable = false, length = 160)
     private String name;
+
+    @Column(name = "candidate_email", length = 160)
+    private String candidateEmail;
 
     @Column(nullable = false, length = 160)
     private String role;
@@ -60,6 +64,10 @@ public class HiringCandidate {
 
     @Column(nullable = false, length = 120)
     private String memory;
+
+    @Lob
+    @Column(nullable = false, columnDefinition = "LONGTEXT")
+    private String memoryHistoryJson = "[]";
 
     @Column(nullable = false)
     private int flags;
@@ -95,6 +103,8 @@ public class HiringCandidate {
     public void setProject(HiringProject project) { this.project = project; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+    public String getCandidateEmail() { return candidateEmail; }
+    public void setCandidateEmail(String candidateEmail) { this.candidateEmail = candidateEmail; }
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
     public String getCvText() { return cvText; }
@@ -113,6 +123,8 @@ public class HiringCandidate {
     public void setOsint(String osint) { this.osint = osint; }
     public String getMemory() { return memory; }
     public void setMemory(String memory) { this.memory = memory; }
+    public String getMemoryHistoryJson() { return memoryHistoryJson; }
+    public void setMemoryHistoryJson(String memoryHistoryJson) { this.memoryHistoryJson = memoryHistoryJson; }
     public int getFlags() { return flags; }
     public void setFlags(int flags) { this.flags = flags; }
     public int getSupported() { return supported; }
