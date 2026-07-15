@@ -8121,6 +8121,123 @@ select {
     }
 }
 
+/* Mobile readability and density pass. */
+@media (max-width: 640px) {
+    :root {
+        --muted: #b8b8bf;
+        --soft: #dedee3;
+        --line: rgba(255, 255, 255, 0.14);
+        --line-strong: rgba(255, 255, 255, 0.24);
+    }
+
+    body {
+        background:
+                linear-gradient(180deg, #101012 0%, #080809 28%, #050505 100%);
+        background-attachment: scroll;
+    }
+
+    .shell::before {
+        opacity: 0.32;
+        background-size: 44px 44px;
+    }
+
+    .pageGlow {
+        opacity: 0.14;
+    }
+
+    .dashboardHero h1,
+    .detailHero h1,
+    .profileHero h1,
+    .authCard h1 {
+        font-size: 36px;
+        line-height: 1.08;
+    }
+
+    .heroCopy h1 {
+        font-size: 42px;
+        line-height: 1.05;
+    }
+
+    .dashboardHero p,
+    .detailHero p,
+    .profileHero p,
+    .heroCopy p,
+    .mutedPanelText,
+    .emptyState span,
+    .panelHead small {
+        color: var(--soft);
+        opacity: 1;
+    }
+
+    .dashboardHero,
+    .detailHero,
+    .profileHero,
+    .dashboardPanel,
+    .panel,
+    .results,
+    .history,
+    .adminSection {
+        box-shadow: none;
+    }
+
+    button,
+    input,
+    select {
+        min-height: 44px;
+    }
+
+    .heroActions,
+    .routeRecoveryActions,
+    .routeStateActions,
+    .rowActions,
+    .toolbarActions {
+        display: grid;
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+
+    .heroActions button,
+    .routeRecoveryActions button,
+    .routeStateActions button,
+    .rowActions button,
+    .toolbarActions button {
+        width: 100%;
+    }
+
+    .messagesPage,
+    .projectTeamPage {
+        width: calc(100vw - 16px);
+    }
+
+    .messagesPage {
+        grid-template-columns: 1fr;
+    }
+
+    .messagesSidebar {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .messagesSidebar .primary {
+        grid-column: 1 / -1;
+    }
+
+    .messageModal,
+    .candidateSendModal,
+    .memberActionModal {
+        width: calc(100vw - 16px);
+        max-height: calc(100vh - 16px);
+    }
+
+    .candidateTableRow,
+    .historyIndexRow,
+    .adminRow,
+    .logRow {
+        gap: 10px;
+        padding: 12px;
+    }
+}
+
 .adminDangerZone {
     border-color: rgba(255, 105, 105, 0.5);
     background:
@@ -9150,5 +9267,36 @@ select {
 
     .stepDots {
         grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+/* Keep readability overrides last so feature-level responsive rules cannot dim them. */
+@media (max-width: 640px) {
+    .pageGlow {
+        opacity: 0.14;
+    }
+
+    .dashboardHero h1,
+    .detailHero h1,
+    .profileHero h1,
+    .authCard h1 {
+        font-size: 36px;
+        line-height: 1.08;
+    }
+
+    .heroCopy h1 {
+        font-size: 42px;
+        line-height: 1.05;
+    }
+
+    .dashboardHero p,
+    .detailHero p,
+    .profileHero p,
+    .heroCopy p,
+    .mutedPanelText,
+    .emptyState span,
+    .panelHead small {
+        color: #dedee3;
+        opacity: 1;
     }
 }
