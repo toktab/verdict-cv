@@ -23,7 +23,13 @@ export class ErrorBoundary extends Component {
     }
 
     recover(action) {
-        this.setState({ error: null }, action);
+        this.setState({ error: null }, () => {
+            if (typeof action !== 'function') return;
+            Promise.resolve(action()).catch((error) => {
+                console.error('VERDICT recovery action failed', error);
+                this.setState({ error });
+            });
+        });
     }
 
     render() {

@@ -21,7 +21,8 @@ export function routeFromPath(pathname = window.location.pathname) {
     if (pathname === '/audit') return { route: 'app' };
     if (pathname === '/login') return { route: 'login' };
     if (pathname === '/register') return { route: 'register' };
-    return { route: 'home' };
+    if (pathname === '/') return { route: 'home' };
+    return { route: 'notFound', pathname };
 }
 
 export function pathForRoute(next, id, childId) {
@@ -45,12 +46,16 @@ export function pathForRoute(next, id, childId) {
     if (next === 'app') return '/projects';
     if (next === 'login') return '/login';
     if (next === 'register') return '/register';
+    if (next === 'notFound') return id || window.location.pathname;
     return '/';
 }
 
 export function navigateTo(setRoute, next, id, childId) {
     setRoute(next);
-    window.history.replaceState(null, '', pathForRoute(next, id, childId));
+    const nextPath = pathForRoute(next, id, childId);
+    if (window.location.pathname !== nextPath) {
+        window.history.pushState(null, '', nextPath);
+    }
     scrollToPageTop();
 }
 

@@ -443,7 +443,8 @@ function App() {
         setHistoryLoading(true);
         setHistoryError('');
         try {
-            setHistory(await api.history(userToken));
+            const rows = await api.history(userToken);
+            setHistory(Array.isArray(rows) ? rows : []);
         } catch (err) {
             setHistory([]);
             setHistoryError(err.message || 'Could not load audit history.');
@@ -460,8 +461,9 @@ function App() {
         setTemplateLoading(true);
         try {
             const rows = await api.templates(userToken);
-            setTemplates(rows);
-            setForm((current) => current.templateId ? current : { ...current, templateId: rows.find((template) => template.mode === (current.auditMode || 'cv'))?.id || rows[0]?.id || '' });
+            const safeRows = Array.isArray(rows) ? rows : [];
+            setTemplates(safeRows);
+            setForm((current) => current.templateId ? current : { ...current, templateId: safeRows.find((template) => template.mode === (current.auditMode || 'cv'))?.id || safeRows[0]?.id || '' });
         } catch {
             setTemplates([]);
         } finally {
@@ -476,8 +478,9 @@ function App() {
         }
         try {
             const rows = await api.states(userToken);
-            setStates(rows);
-            setForm((current) => current.checkStateId ? current : { ...current, checkStateId: rows[0]?.id || '' });
+            const safeRows = Array.isArray(rows) ? rows : [];
+            setStates(safeRows);
+            setForm((current) => current.checkStateId ? current : { ...current, checkStateId: safeRows[0]?.id || '' });
         } catch {
             setStates([]);
         }
@@ -497,7 +500,7 @@ function App() {
         }
         try {
             const rows = await apiListProjects(userToken);
-            setProjects(rows.map(normaliseProject));
+            setProjects((Array.isArray(rows) ? rows : []).filter(Boolean).map(normaliseProject));
         } catch (err) {
             if (!silent) {
                 setProjects([]);
@@ -694,6 +697,27 @@ function App() {
         content = <AuthPage mode="register" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} authProblem={authProblem} clearAuthProblem={() => setAuthProblem('')} />;
     } else if (route === 'home') {
         content = <HomePage Header={AppHeader} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
+    } else if (route === 'notFound') {
+        content = (
+            <div className="shell">
+                <div className="pageGlow contentFadeIn" />
+                <AppHeader setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
+                <main className="workspace contentFadeIn">
+                    <section className="routeStatePanel" role="status">
+                        <span className="eyebrow">Not found</span>
+                        <h1>This page does not exist anymore.</h1>
+                        <p>The address may be outdated, or the project, candidate, message, or audit may have been removed.</p>
+                        <div className="routeStateActions">
+                            <button className="primary" type="button" onClick={() => navigateTo(setRoute, userToken ? 'dashboard' : 'home')}>
+                                <LayoutDashboard size={16} /> {userToken ? 'Dashboard' : 'Home'}
+                            </button>
+                            {userToken && <button className="secondary" type="button" onClick={() => navigateTo(setRoute, 'projects')}><ArrowRight size={16} /> Projects</button>}
+                            <button className="secondary" type="button" onClick={() => window.location.reload()}><RefreshCcw size={16} /> Reload</button>
+                        </div>
+                    </section>
+                </main>
+            </div>
+        );
     } else {
         content = (
             <div className="shell">
