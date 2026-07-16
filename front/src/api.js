@@ -290,6 +290,15 @@ export const javaApi = {
     adminHealth(token) {
         return adminRequest('GET', '/admin/health', undefined, token);
     },
+    adminAtsTemplates(token) {
+        return adminRequest('GET', '/admin/ats-templates', undefined, token);
+    },
+    publishAdminAtsTemplate(token, catalogJson, changeNote) {
+        return adminRequest('POST', '/admin/ats-templates', { catalogJson, changeNote }, token);
+    },
+    rollbackAdminAtsTemplate(token, id, changeNote) {
+        return adminRequest('POST', `/admin/ats-templates/${id}/rollback`, { changeNote }, token);
+    },
     updateAdminSettings(token, payload) {
         return adminRequest('PATCH', '/admin/settings', payload, token);
     },

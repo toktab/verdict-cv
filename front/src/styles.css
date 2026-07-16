@@ -8121,6 +8121,107 @@ select {
     }
 }
 
+.adminSectionHeading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.adminSectionHeading h2,
+.adminAtsHistory h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.adminVersionBadge {
+    flex: 0 0 auto;
+    border: 1px solid rgba(102, 217, 145, 0.45);
+    background: rgba(102, 217, 145, 0.12);
+    color: #bdf5cf;
+    border-radius: 8px;
+    padding: 8px 11px;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.adminAtsGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.75fr);
+    gap: 16px;
+    margin-top: 18px;
+}
+
+.adminAtsEditor,
+.adminAtsHistory {
+    min-width: 0;
+    border: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 14px;
+}
+
+.adminAtsEditor textarea {
+    min-height: 520px;
+    resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    tab-size: 2;
+}
+
+.adminAtsPublishRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.adminAtsHistory {
+    align-content: start;
+    display: grid;
+    gap: 10px;
+    max-height: 660px;
+    overflow: auto;
+}
+
+.adminAtsHistory h3 {
+    margin: 0 0 4px;
+}
+
+.adminAtsHistory article {
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.035);
+    border-radius: 8px;
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+}
+
+.adminAtsHistory article.active {
+    border-color: rgba(102, 217, 145, 0.45);
+    background: rgba(102, 217, 145, 0.08);
+}
+
+.adminAtsHistory article strong,
+.adminAtsHistory article span,
+.adminAtsHistory article small {
+    display: block;
+}
+
+.adminAtsHistory article span {
+    color: var(--soft);
+    margin-top: 5px;
+    line-height: 1.4;
+}
+
+.adminAtsHistory article small {
+    color: var(--muted);
+    margin-top: 7px;
+}
+
 /* Mobile readability and density pass. */
 @media (max-width: 640px) {
     :root {
@@ -8686,12 +8787,27 @@ select {
     .tableClearGrid,
     .tableClearSummary,
     .tableClearConfirm,
+    .adminAtsGrid,
+    .adminAtsPublishRow,
     .firstRunGuide,
     .firstRunChecks,
     .dashboardStats,
     .dashboardGrid,
     .jobListingGrid {
         grid-template-columns: 1fr;
+    }
+
+    .adminSectionHeading {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .adminVersionBadge {
+        width: fit-content;
+    }
+
+    .adminAtsEditor textarea {
+        min-height: 360px;
     }
 
     .projectFunnelSteps {

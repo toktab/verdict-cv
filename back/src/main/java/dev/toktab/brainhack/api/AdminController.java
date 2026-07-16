@@ -22,6 +22,8 @@ import dev.toktab.brainhack.audit.AuditMapper;
 import dev.toktab.brainhack.audit.AuditService;
 import dev.toktab.brainhack.audit.Verdict;
 import dev.toktab.brainhack.audit.VerdictRepository;
+import dev.toktab.brainhack.ats.AtsKeywordCatalog;
+import dev.toktab.brainhack.ats.AtsKeywordCatalog.OfficialAtsVersionResponse;
 import dev.toktab.brainhack.log.AppEventLog;
 import dev.toktab.brainhack.log.AppEventLogRepository;
 import dev.toktab.brainhack.log.AuditLogService;
@@ -57,6 +59,7 @@ public class AdminController {
     private final AccountSettingsService accountSettingsService;
     private final AdminTableMaintenanceService tableMaintenanceService;
     private final AdminHealthService adminHealthService;
+    private final AtsKeywordCatalog atsKeywordCatalog;
 
     public AdminController(
             AdminSessionService adminSessionService,
@@ -69,7 +72,8 @@ public class AdminController {
             UserMapper userMapper,
             AccountSettingsService accountSettingsService,
             AdminTableMaintenanceService tableMaintenanceService,
-            AdminHealthService adminHealthService) {
+            AdminHealthService adminHealthService,
+            AtsKeywordCatalog atsKeywordCatalog) {
         this.adminSessionService = adminSessionService;
         this.auditService = auditService;
         this.auditMapper = auditMapper;
@@ -81,6 +85,7 @@ public class AdminController {
         this.accountSettingsService = accountSettingsService;
         this.tableMaintenanceService = tableMaintenanceService;
         this.adminHealthService = adminHealthService;
+        this.atsKeywordCatalog = atsKeywordCatalog;
     }
 
     @PostMapping("/login")
@@ -155,6 +160,25 @@ public class AdminController {
         boolean required = accountSettingsService.setRequireEmailVerification(request.requireEmailVerification());
         logService.recordSystem("ADMIN_UPDATE_SETTINGS", "requireEmailVerification=" + required);
         return new AdminSettingsResponse(required);
+    }
+
+    @GetMapping("/ats-templates")
+    public List<OfficialAtsVersionResponse> officialAtsTemplates() {
+        return atsKeywordCatalog.versions();
+    }
+
+    @PostMapping("/ats-templates")
+    public OfficialAtsVersionResponse publishOfficialAtsTemplate(@RequestBody OfficialAtsPublishRequest request) {
+        OfficialAtsVersionResponse published = atsKeywordCatalog.publish(request.catalogJson(), request.changeNote(), adminSessionService.username());
+        logService.recordSystem("ADMIN_PUBLISH_ATS_TEMPLATE", "version=" + published.version() + ", note=" + published.changeNote());
+        return published;
+    }
+
+    @PostMapping("/ats-templates/{id}/rollback")
+    public OfficialAtsVersionResponse rollbackOfficialAtsTemplate(@PathVariable Long id, @RequestBody OfficialAtsRollbackRequest request) {
+        OfficialAtsVersionResponse published = atsKeywordCatalog.rollback(id, request.changeNote(), adminSessionService.username());
+        logService.recordSystem("ADMIN_ROLLBACK_ATS_TEMPLATE", "sourceId=" + id + ", newVersion=" + published.version());
+        return published;
     }
 
     @PatchMapping("/verdicts/{id}")
@@ -239,4 +263,10 @@ public class AdminController {
 }
 
 record ClearTablesRequest(List<String> targets, String confirmation) {
+}
+
+record OfficialAtsPublishRequest(String catalogJson, String changeNote) {
+}
+
+record OfficialAtsRollbackRequest(String changeNote) {
 }

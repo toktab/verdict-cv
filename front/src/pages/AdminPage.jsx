@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, Edit3, Gauge, Lock, LogOut, RefreshCcw, Save, Trash2, UserPlus, X } from 'lucide-react';
+import { Activity, Code2, Edit3, Gauge, History, Lock, LogOut, RefreshCcw, RotateCcw, Save, Trash2, UserPlus, X } from 'lucide-react';
 import { javaApi } from '../api';
 
 const api = {
@@ -9,6 +9,9 @@ const api = {
     adminUsers: (token, offset, limit, search) => javaApi.adminUsers(token, offset, limit, search),
     adminSettings: (token) => javaApi.adminSettings(token),
     adminHealth: (token) => javaApi.adminHealth(token),
+    adminAtsTemplates: (token) => javaApi.adminAtsTemplates(token),
+    publishAdminAtsTemplate: (token, catalogJson, changeNote) => javaApi.publishAdminAtsTemplate(token, catalogJson, changeNote),
+    rollbackAdminAtsTemplate: (token, id, changeNote) => javaApi.rollbackAdminAtsTemplate(token, id, changeNote),
     adminTableClearTargets: (token) => javaApi.adminTableClearTargets(token),
     clearAdminTables: (token, targets, confirmation) => javaApi.clearAdminTables(token, targets, confirmation),
     updateAdminSettings: (token, settings) => javaApi.updateAdminSettings(token, settings),
@@ -52,6 +55,10 @@ export function AdminPage({ Header, setRoute }) {
     const [users, setUsers] = useState([]);
     const [settings, setSettings] = useState({ requireEmailVerification: false });
     const [health, setHealth] = useState(null);
+    const [atsVersions, setAtsVersions] = useState([]);
+    const [atsDraft, setAtsDraft] = useState('');
+    const [atsChangeNote, setAtsChangeNote] = useState('');
+    const [atsSaving, setAtsSaving] = useState(false);
     const [tableClearTargets, setTableClearTargets] = useState([]);
     const [selectedClearTargets, setSelectedClearTargets] = useState([]);
     const [clearConfirmText, setClearConfirmText] = useState('');
@@ -92,13 +99,14 @@ export function AdminPage({ Header, setRoute }) {
         setAdminLoading(true);
         setError('');
         try {
-            const [auditRows, logRows, userRows, settingRows, clearTargetRows, healthRows] = await Promise.all([
+            const [auditRows, logRows, userRows, settingRows, clearTargetRows, healthRows, atsRows] = await Promise.all([
                 api.adminAudits(token, auditOffset, pageSize, auditSearch),
                 api.adminLogs(token, logOffset, pageSize, logSearch),
                 api.adminUsers(token, userOffset, pageSize, userSearch),
                 api.adminSettings(token),
                 api.adminTableClearTargets(token),
                 api.adminHealth(token),
+                api.adminAtsTemplates(token),
             ]);
             setAudits(Array.isArray(auditRows) ? auditRows : []);
             setLogs(Array.isArray(logRows) ? logRows : []);
@@ -106,6 +114,9 @@ export function AdminPage({ Header, setRoute }) {
             setSettings(settingRows || { requireEmailVerification: false });
             setTableClearTargets(Array.isArray(clearTargetRows) ? clearTargetRows : []);
             setHealth(healthRows);
+            const versions = Array.isArray(atsRows) ? atsRows : [];
+            setAtsVersions(versions);
+            setAtsDraft((current) => current || versions.find((row) => row.active)?.catalogJson || '');
         } catch (err) {
             setError(err.message || 'Could not load the admin workspace.');
             throw err;
@@ -223,6 +234,45 @@ export function AdminPage({ Header, setRoute }) {
         const next = !settings.requireEmailVerification;
         track('admin_toggle_mail_verification', 'admin_settings', `required=${next}`);
         setSettings(await api.updateAdminSettings(token, { requireEmailVerification: next }));
+    }
+
+    async function publishAtsTemplate() {
+        setAtsSaving(true);
+        setError('');
+        try {
+            JSON.parse(atsDraft);
+            const published = await api.publishAdminAtsTemplate(token, atsDraft, atsChangeNote);
+            setAtsDraft(published.catalogJson);
+            setAtsChangeNote('');
+            await loadAdmin();
+        } catch (err) {
+            setError(err instanceof SyntaxError ? `Invalid JSON: ${err.message}` : err.message);
+        } finally {
+            setAtsSaving(false);
+        }
+    }
+
+    function requestAtsRollback(version) {
+        setAdminConfirm({
+            title: `Restore ATS version ${version.version}`,
+            detail: 'The selected catalog will be validated and published as a new active version. Existing history remains unchanged.',
+            confirmLabel: 'Publish rollback',
+            onConfirm: () => rollbackAtsTemplate(version),
+        });
+    }
+
+    async function rollbackAtsTemplate(version) {
+        setAtsSaving(true);
+        setError('');
+        try {
+            const published = await api.rollbackAdminAtsTemplate(token, version.id, `Restored version ${version.version} from admin history`);
+            setAtsDraft(published.catalogJson);
+            await loadAdmin();
+        } catch (err) {
+            setError(err.message || 'Could not restore this ATS version.');
+        } finally {
+            setAtsSaving(false);
+        }
     }
 
     function toggleClearTarget(key) {
@@ -353,6 +403,48 @@ export function AdminPage({ Header, setRoute }) {
                         </div>
                     ) : (
                         <div className="emptyState">Health data has not loaded yet.</div>
+                    )}
+                </section>
+                <section className="adminSection adminWide adminAtsGovernance">
+                    <div className="adminSectionHeading">
+                        <div>
+                            <span className="eyebrow">Official rules</span>
+                            <h2><Code2 size={18} /> ATS catalog governance</h2>
+                            <p className="mutedPanelText">Publish validated, immutable versions of the rule catalog used by backend candidate and local audit analysis.</p>
+                        </div>
+                        <span className="adminVersionBadge">Active v{atsVersions.find((row) => row.active)?.version || '-'}</span>
+                    </div>
+                    {adminLoading && !atsDraft ? <SkeletonBlock rows={5} /> : (
+                        <div className="adminAtsGrid">
+                            <div className="adminAtsEditor">
+                                <label className="field">
+                                    <span>Catalog JSON</span>
+                                    <textarea spellCheck="false" value={atsDraft} onChange={(event) => setAtsDraft(event.target.value)} />
+                                </label>
+                                <div className="adminAtsPublishRow">
+                                    <Input label="Change note" value={atsChangeNote} onChange={setAtsChangeNote} />
+                                    <button className="primary" disabled={atsSaving || !atsDraft.trim()} onClick={publishAtsTemplate} type="button">
+                                        <Save size={16} /> {atsSaving ? 'Validating...' : 'Publish version'}
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="adminAtsHistory">
+                                <h3><History size={16} /> Version history</h3>
+                                {atsVersions.map((version) => (
+                                    <article className={version.active ? 'active' : ''} key={version.id}>
+                                        <div>
+                                            <strong>Version {version.version}{version.active ? ' / Active' : ''}</strong>
+                                            <span>{version.changeNote}</span>
+                                            <small>{version.createdBy} / {new Date(version.createdAt).toLocaleString()}</small>
+                                        </div>
+                                        <div className="rowActions">
+                                            <button className="secondary" onClick={() => setAtsDraft(version.catalogJson)} type="button"><Edit3 size={14} /> Load</button>
+                                            <button className="secondary" disabled={version.active || atsSaving} onClick={() => requestAtsRollback(version)} type="button"><RotateCcw size={14} /> Restore</button>
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        </div>
                     )}
                 </section>
                 <section className="adminSection adminWide adminDangerZone">
@@ -508,7 +600,7 @@ function AdminConfirmModal({ action, onClose, onConfirm }) {
                 </div>
                 <div className="editActions">
                     <button className="secondary" onClick={onClose}>Cancel</button>
-                    <button className="destructive" onClick={onConfirm}><Trash2 size={15} /> {action.confirmLabel || 'Confirm'}</button>
+                    <button className="destructive" onClick={onConfirm}>{action.confirmLabel?.toLowerCase().includes('rollback') ? <RotateCcw size={15} /> : <Trash2 size={15} />} {action.confirmLabel || 'Confirm'}</button>
                 </div>
             </section>
         </div>

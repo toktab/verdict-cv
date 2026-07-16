@@ -247,6 +247,49 @@ class AuthAuditAdminFlowTest {
     }
 
     @Test
+    void adminCanPublishAndRestoreValidatedOfficialAtsVersions() throws Exception {
+        String adminToken = adminToken();
+
+        MvcResult initial = mockMvc.perform(get("/api/admin/ats-templates").header("X-Admin-Token", adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].active").value(true))
+                .andReturn();
+        JsonNode initialVersion = objectMapper.readTree(initial.getResponse().getContentAsString()).get(0);
+        long initialId = initialVersion.get("id").asLong();
+        JsonNode catalog = objectMapper.readTree(initialVersion.get("catalogJson").asText());
+        ((com.fasterxml.jackson.databind.node.ArrayNode) catalog.path("analyzers").path("techTerms")).add("ats-governance-test");
+
+        String publishBody = objectMapper.writeValueAsString(java.util.Map.of(
+                "catalogJson", objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(catalog),
+                "changeNote", "Add governed ATS test term"));
+        mockMvc.perform(post("/api/admin/ats-templates")
+                        .header("X-Admin-Token", adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(publishBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.changeNote").value("Add governed ATS test term"));
+
+        mockMvc.perform(post("/api/admin/ats-templates")
+                        .header("X-Admin-Token", adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"catalogJson\":\"{bad-json\",\"changeNote\":\"invalid\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("not valid JSON")));
+
+        mockMvc.perform(post("/api/admin/ats-templates/" + initialId + "/rollback")
+                        .header("X-Admin-Token", adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"changeNote\":\"Restore bundled catalog\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.changeNote").value("Restore bundled catalog"));
+
+        mockMvc.perform(get("/api/admin/ats-templates"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void userCanLoadDefaultsAndCreatePrivateAuditTemplate() throws Exception {
         String token = register("template_user");
 
