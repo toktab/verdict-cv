@@ -60,6 +60,13 @@ test('message normalization preserves explicit unread state', async () => {
     assert.equal(message.manualUnread, true);
 });
 
+test('registration API accepts the reviewed profile fields', async () => {
+    const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/api.js', import.meta.url), 'utf8'));
+    assert.match(source, /country:\s*country \|\| 'Unspecified'/);
+    assert.match(source, /address:\s*address \|\| 'Unspecified'/);
+    assert.match(source, /role:\s*role \|\| 'Analyst'/);
+});
+
 test('project normalization preserves server permissions and candidates', () => {
     const project = normaliseProject({
         id: 3,

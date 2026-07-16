@@ -107,7 +107,10 @@ const api = {
             email: form.email,
             password: form.password,
             fullName: form.fullName || `${form.firstName || ''} ${form.lastName || ''}`.trim(),
+            country: form.country || '',
+            address: form.address || '',
             organization: form.organization || '',
+            role: form.role || '',
         });
         return { token: res.token, user: normaliseUser(res.user) };
     },

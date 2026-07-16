@@ -57,16 +57,16 @@ const post = (path, body, token) => request('POST', path, body, token);
 const patch = (path, body, token) => request('PATCH', path, body, token);
 const del = (path, token) => request('DELETE', path, undefined, token);
 
-export async function apiRegister({ username, email, password, fullName, organization }) {
+export async function apiRegister({ username, email, password, fullName, country, address, organization, role }) {
     return post('/auth/register', {
         username,
         email,
         password,
         fullName: fullName || username,
-        country: 'Unspecified',
-        address: 'Unspecified',
+        country: country || 'Unspecified',
+        address: address || 'Unspecified',
         organization: organization || 'Independent',
-        role: 'Analyst',
+        role: role || 'Analyst',
     });
 }
 
