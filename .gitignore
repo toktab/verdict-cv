@@ -52,3 +52,5 @@ __pycache__/
 
 ### Local environment ###
 .env
+front/playwright-report/
+front/test-results/

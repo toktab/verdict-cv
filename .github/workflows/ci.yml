@@ -35,5 +35,11 @@ jobs:
       - name: Frontend build
         working-directory: front
         run: npm run build
+      - name: Install Playwright browser
+        working-directory: front
+        run: npx playwright install --with-deps chromium
+      - name: Frontend browser smoke tests
+        working-directory: front
+        run: npm run e2e
       - name: Backend tests
         run: ./mvnw test
