@@ -182,6 +182,18 @@ test('candidate match report includes requirement coverage and independent expor
     assert.match(exportSource, /URL\.createObjectURL/);
 });
 
+test('global compose behavior is isolated from the application router', async () => {
+    const [appSource, composeSource] = await Promise.all([
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8')),
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/components/GlobalCompose.jsx', import.meta.url), 'utf8')),
+    ]);
+    assert.match(appSource, /import \{ GlobalCompose \}/);
+    assert.doesNotMatch(appSource, /function GlobalCompose/);
+    assert.match(composeSource, /apiLookupUser/);
+    assert.match(composeSource, /apiSendMessage/);
+    assert.match(composeSource, /role="dialog"/);
+});
+
 function memoryStorage(initial = {}) {
     const rows = new Map(Object.entries(initial));
     return {
