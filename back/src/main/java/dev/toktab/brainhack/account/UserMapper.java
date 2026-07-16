@@ -16,6 +16,8 @@ public class UserMapper {
                 account.getOrganization(),
                 account.getRole(),
                 account.isEmailVerified(),
+                account.isMessageNotificationsEnabled(),
+                account.getMessageNotificationsMutedUntil(),
                 account.getCreatedAt(),
                 account.getLastLoginAt()
         );

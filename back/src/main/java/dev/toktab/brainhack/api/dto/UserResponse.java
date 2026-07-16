@@ -12,6 +12,8 @@ public record UserResponse(
         String organization,
         String role,
         boolean emailVerified,
+        boolean messageNotificationsEnabled,
+        Instant messageNotificationsMutedUntil,
         Instant createdAt,
         Instant lastLoginAt
 ) {

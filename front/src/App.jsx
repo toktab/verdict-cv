@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, RefreshCcw, Save, Send, ShieldCheck, User, UserPlus, X } from 'lucide-react';
 import IntroAnimation from './IntroAnimation';
 import { LanguageContext, translate, useLanguage } from './i18n';
-import { apiLogin, apiRegister, apiMe, apiLogout, apiListMessages, apiListProjects, apiLookupUser, apiRealtimeUrl, apiSendMessage, javaApi, normaliseProject, normaliseUser } from './api';
+import { apiLogin, apiRegister, apiMe, apiLogout, apiListMessages, apiListProjects, apiLookupUser, apiRealtimeUrl, apiSendMessage, apiUpdateNotificationPreferences, javaApi, normaliseProject, normaliseUser } from './api';
 import { appendMessage, createMessage, messageBelongsTo, readMessages } from './messageStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { DialogKeyboardManager } from './components/DialogKeyboardManager';
@@ -861,8 +861,9 @@ function App() {
                     setMessageNotice(null);
                     navigateTo(setRoute, 'messages');
                 }}
-                onMute={(duration) => {
-                    muteMessageNotices(user, duration);
+                onMute={async (duration) => {
+                    const updated = await muteMessageNotices(userToken, duration).catch(() => null);
+                    if (updated) setUser(updated);
                     setMessageNotice(null);
                 }}
             />
@@ -1051,38 +1052,26 @@ function MessageNoticeToast({ message, onDismiss, onGo, onMute }) {
     );
 }
 
-function notificationSettingsKey(user) {
-    return `verdictNotificationSettings:${(user?.email || user?.username || 'guest').toLowerCase()}`;
-}
-
 function readNotificationSettings(user) {
-    try {
-        return JSON.parse(localStorage.getItem(notificationSettingsKey(user)) || '{}');
-    } catch {
-        return {};
-    }
-}
-
-function writeNotificationSettings(user, settings) {
-    localStorage.setItem(notificationSettingsKey(user), JSON.stringify(settings));
-    window.dispatchEvent(new Event('verdictNotificationSettingsChanged'));
+    return {
+        messageNoticesEnabled: user?.messageNotificationsEnabled !== false,
+        mutedUntil: user?.messageNotificationsMutedUntil || null,
+    };
 }
 
 function shouldShowMessageNotice(user) {
     const settings = readNotificationSettings(user);
     if (settings.messageNoticesEnabled === false) return false;
-    if (settings.mutedUntil === 'forever') return false;
-    if (Number(settings.mutedUntil || 0) > Date.now()) return false;
+    if (settings.mutedUntil && new Date(settings.mutedUntil).getTime() > Date.now()) return false;
     return true;
 }
 
-function muteMessageNotices(user, duration) {
-    const settings = readNotificationSettings(user);
+async function muteMessageNotices(token, duration) {
     const durations = { '5m': 5 * 60 * 1000, '15m': 15 * 60 * 1000, '1h': 60 * 60 * 1000 };
-    writeNotificationSettings(user, {
-        ...settings,
-        mutedUntil: duration === 'forever' ? 'forever' : Date.now() + (durations[duration] || 0),
-    });
+    return apiUpdateNotificationPreferences({
+        enabled: duration !== 'forever',
+        mutedUntil: duration === 'forever' ? null : new Date(Date.now() + (durations[duration] || 0)).toISOString(),
+    }, token);
 }
 
 function userInitials(user) {

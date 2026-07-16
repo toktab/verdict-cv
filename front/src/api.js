@@ -82,6 +82,10 @@ export async function apiLogout(token) {
     return post('/auth/logout', {}, token);
 }
 
+export async function apiUpdateNotificationPreferences({ enabled, mutedUntil = null }, token) {
+    return normaliseUser(await patch('/auth/me/notifications', { enabled, mutedUntil }, token));
+}
+
 export async function apiLookupUser(query, token) {
     return normaliseUser(await get(`/auth/users/lookup?q=${encodeURIComponent(query)}`, token));
 }
@@ -429,9 +433,13 @@ export function normaliseUser(raw) {
         username: raw.username,
         email: raw.email,
         fullName: raw.full_name || raw.fullName || '',
+        country: raw.country || '',
+        address: raw.address || '',
         organization: raw.organization || '',
         role: raw.role || 'user',
         emailVerified: raw.email_verified ?? raw.emailVerified ?? true,
+        messageNotificationsEnabled: raw.message_notifications_enabled ?? raw.messageNotificationsEnabled ?? true,
+        messageNotificationsMutedUntil: raw.message_notifications_muted_until ?? raw.messageNotificationsMutedUntil ?? null,
     };
 }
 

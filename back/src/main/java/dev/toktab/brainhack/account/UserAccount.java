@@ -54,6 +54,11 @@ public class UserAccount {
     private boolean emailVerified = true;
 
     @Column(nullable = false)
+    private boolean messageNotificationsEnabled = true;
+
+    private Instant messageNotificationsMutedUntil;
+
+    @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
     private Instant lastLoginAt;
@@ -149,6 +154,22 @@ public class UserAccount {
 
     public void setEmailVerified(boolean emailVerified) {
         this.emailVerified = emailVerified;
+    }
+
+    public boolean isMessageNotificationsEnabled() {
+        return messageNotificationsEnabled;
+    }
+
+    public void setMessageNotificationsEnabled(boolean messageNotificationsEnabled) {
+        this.messageNotificationsEnabled = messageNotificationsEnabled;
+    }
+
+    public Instant getMessageNotificationsMutedUntil() {
+        return messageNotificationsMutedUntil;
+    }
+
+    public void setMessageNotificationsMutedUntil(Instant messageNotificationsMutedUntil) {
+        this.messageNotificationsMutedUntil = messageNotificationsMutedUntil;
     }
 
     public Instant getCreatedAt() {

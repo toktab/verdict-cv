@@ -124,6 +124,16 @@ public class UserAccountService {
         return userRepository.save(account);
     }
 
+    @Transactional
+    public UserAccount updateNotificationPreferences(UserAccount account, boolean enabled, Instant mutedUntil) {
+        if (mutedUntil != null && mutedUntil.isBefore(Instant.now())) {
+            mutedUntil = null;
+        }
+        account.setMessageNotificationsEnabled(enabled);
+        account.setMessageNotificationsMutedUntil(enabled ? mutedUntil : null);
+        return userRepository.save(account);
+    }
+
     private void apply(UserAccount account, UserAdminRequest request) {
         account.setFullName(clean(request.fullName()));
         account.setCountry(clean(request.country()));

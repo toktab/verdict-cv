@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { routeFromPath, pathForRoute } from '../src/navigation.js';
 import { auditScoreLevel } from '../src/utils/auditScore.js';
-import { normaliseCandidate, normaliseProject } from '../src/api.js';
+import { normaliseCandidate, normaliseProject, normaliseUser } from '../src/api.js';
 import { clearAdminToken, clearUserToken, readAdminToken, readUserToken, writeAdminToken, writeUserToken } from '../src/sessionAuth.js';
 
 test('direct routes resolve to the expected application view', () => {
@@ -39,6 +39,18 @@ test('candidate API payloads keep server memory and evidence fields', () => {
     assert.deepEqual(candidate.initializedAnalysisStates, ['strict-war-ai', 'war']);
     assert.equal(candidate.memoryHistory.length, 1);
     assert.equal(candidate.auditPhraseMatches[0].keyword, 'expert');
+});
+
+test('user normalization keeps server notification preferences', () => {
+    const user = normaliseUser({
+        id: 4,
+        username: 'nino',
+        email: 'nino@example.com',
+        messageNotificationsEnabled: false,
+        messageNotificationsMutedUntil: null,
+    });
+    assert.equal(user.messageNotificationsEnabled, false);
+    assert.equal(user.messageNotificationsMutedUntil, null);
 });
 
 test('project normalization preserves server permissions and candidates', () => {

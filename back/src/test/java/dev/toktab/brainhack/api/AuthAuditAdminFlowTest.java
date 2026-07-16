@@ -45,6 +45,41 @@ class AuthAuditAdminFlowTest {
     }
 
     @Test
+    void notificationPreferencesPersistWithTheUserAccount() throws Exception {
+        String token = register("notification_owner");
+
+        mockMvc.perform(get("/api/auth/me").header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.messageNotificationsEnabled").value(true))
+                .andExpect(jsonPath("$.messageNotificationsMutedUntil").value(blankOrNullString()));
+
+        mockMvc.perform(patch("/api/auth/me/notifications")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "enabled":true,
+                                  "mutedUntil":"2099-01-01T00:00:00Z"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.messageNotificationsEnabled").value(true))
+                .andExpect(jsonPath("$.messageNotificationsMutedUntil").value("2099-01-01T00:00:00Z"));
+
+        mockMvc.perform(patch("/api/auth/me/notifications")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\":false,\"mutedUntil\":null}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.messageNotificationsEnabled").value(false))
+                .andExpect(jsonPath("$.messageNotificationsMutedUntil").value(blankOrNullString()));
+
+        mockMvc.perform(get("/api/auth/me").header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.messageNotificationsEnabled").value(false));
+    }
+
+    @Test
     void auditApisRequireUserTokenAndOnlyReturnOwnedAudits() throws Exception {
         String firstToken = register("ownerone");
         String secondToken = register("ownertwo");

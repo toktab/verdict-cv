@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Save } from 'lucide-react';
-import { javaApi } from '../api';
+import { apiUpdateNotificationPreferences, javaApi, normaliseUser } from '../api';
 import { Input } from '../components/ui';
 
 export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUserToken }) {
@@ -16,7 +16,7 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
   const [error, setError] = useState('');
   const [saved, setSaved] = useState('');
   const [loading, setLoading] = useState(false);
-  const [notificationSettings, setNotificationSettings] = useState(() => readNotificationSettings(user));
+  const [notificationSettings, setNotificationSettings] = useState(() => notificationSettingsFromUser(user));
 
   useEffect(() => {
     if (user) {
@@ -29,15 +29,25 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
         role: user.role || '',
         password: '',
       });
-      setNotificationSettings(readNotificationSettings(user));
+      setNotificationSettings(notificationSettingsFromUser(user));
     }
   }, [user]);
 
-  function updateNotifications(patch) {
+  async function updateNotifications(patch) {
     const next = { ...notificationSettings, ...patch };
     setNotificationSettings(next);
-    writeNotificationSettings(user, next);
-    setSaved('Notification settings saved.');
+    setError('');
+    try {
+      const updated = await apiUpdateNotificationPreferences({
+        enabled: next.messageNoticesEnabled !== false,
+        mutedUntil: next.mutedUntil || null,
+      }, userToken);
+      setUser(updated);
+      setSaved('Notification settings saved to your account.');
+    } catch (err) {
+      setNotificationSettings(notificationSettingsFromUser(user));
+      setError(err.message || 'Could not save notification settings.');
+    }
   }
 
   async function saveProfile() {
@@ -50,7 +60,7 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
     }
     setLoading(true);
     try {
-      const updated = await javaApi.updateMe(userToken, form);
+      const updated = normaliseUser(await javaApi.updateMe(userToken, form));
       setUser(updated);
       setForm((current) => ({ ...current, password: '' }));
       setSaved('Profile saved.');
@@ -96,13 +106,13 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
             <input
               type="checkbox"
               checked={notificationSettings.messageNoticesEnabled !== false}
-              onChange={(event) => updateNotifications({ messageNoticesEnabled: event.target.checked, mutedUntil: event.target.checked ? 0 : 'forever' })}
+              onChange={(event) => updateNotifications({ messageNoticesEnabled: event.target.checked, mutedUntil: null })}
             />
             <span>Show new message popups</span>
           </label>
           <div className="notificationStatusRow">
             <span>{notificationStatus(notificationSettings)}</span>
-            <button className="secondary" type="button" onClick={() => updateNotifications({ messageNoticesEnabled: true, mutedUntil: 0 })}>Unmute messages</button>
+            <button className="secondary" type="button" onClick={() => updateNotifications({ messageNoticesEnabled: true, mutedUntil: null })}>Unmute messages</button>
           </div>
         </section>
       </main>
@@ -119,28 +129,18 @@ function profileValidation(form) {
   return '';
 }
 
-function notificationSettingsKey(user) {
-  return `verdictNotificationSettings:${(user?.email || user?.username || 'guest').toLowerCase()}`;
-}
-
-function readNotificationSettings(user) {
-  try {
-    return JSON.parse(localStorage.getItem(notificationSettingsKey(user)) || '{}');
-  } catch {
-    return {};
-  }
-}
-
-function writeNotificationSettings(user, settings) {
-  localStorage.setItem(notificationSettingsKey(user), JSON.stringify(settings));
-  window.dispatchEvent(new Event('verdictNotificationSettingsChanged'));
+function notificationSettingsFromUser(user) {
+  return {
+    messageNoticesEnabled: user?.messageNotificationsEnabled !== false,
+    mutedUntil: user?.messageNotificationsMutedUntil || null,
+  };
 }
 
 function notificationStatus(settings) {
-  if (settings.messageNoticesEnabled === false || settings.mutedUntil === 'forever') {
+  if (settings.messageNoticesEnabled === false) {
     return 'Message popups are muted until you turn them back on.';
   }
-  if (Number(settings.mutedUntil || 0) > Date.now()) {
+  if (settings.mutedUntil && new Date(settings.mutedUntil).getTime() > Date.now()) {
     return `Message popups muted until ${new Date(settings.mutedUntil).toLocaleTimeString()}.`;
   }
   return 'Message popups are active.';

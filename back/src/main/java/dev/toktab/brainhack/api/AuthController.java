@@ -7,6 +7,7 @@ import dev.toktab.brainhack.account.UserSessionService;
 import dev.toktab.brainhack.account.AuthTokenResolver;
 import dev.toktab.brainhack.api.dto.AuthResponse;
 import dev.toktab.brainhack.api.dto.LoginRequest;
+import dev.toktab.brainhack.api.dto.NotificationPreferencesRequest;
 import dev.toktab.brainhack.api.dto.RefreshTokenRequest;
 import dev.toktab.brainhack.api.dto.RegisterRequest;
 import dev.toktab.brainhack.api.dto.UserProfileRequest;
@@ -88,6 +89,21 @@ public class AuthController {
             HttpServletRequest httpRequest) {
         UserAccount account = accountService.updateProfile(sessionService.me(tokenResolver.userToken(authorization, legacyToken, null)), request);
         logService.record("USER_PROFILE_UPDATE", httpRequest, 200, 0, account.getUsername(), "userId=" + account.getId());
+        return userMapper.toResponse(account);
+    }
+
+    @PatchMapping("/me/notifications")
+    public UserResponse updateNotificationPreferences(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+            @RequestBody NotificationPreferencesRequest request,
+            HttpServletRequest httpRequest) {
+        UserAccount account = accountService.updateNotificationPreferences(
+                sessionService.me(tokenResolver.userToken(authorization, legacyToken, null)),
+                request.enabled(),
+                request.mutedUntil());
+        logService.record("USER_NOTIFICATION_PREFERENCES", httpRequest, 200, 0, account.getUsername(),
+                "enabled=" + account.isMessageNotificationsEnabled() + ", mutedUntil=" + account.getMessageNotificationsMutedUntil());
         return userMapper.toResponse(account);
     }
 
