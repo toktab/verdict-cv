@@ -16,6 +16,7 @@ import { auditScoreLevel } from './utils/auditScore';
 import defaultAts from './data/default-ats.json';
 import { clearUserToken, readUserToken } from './sessionAuth';
 import './styles.css';
+import './styles/auth.css';
 import './styles/reports.css';
 
 const lazyNamed = (loader, name) => lazy(() => loader().then((module) => ({ default: module[name] })));
