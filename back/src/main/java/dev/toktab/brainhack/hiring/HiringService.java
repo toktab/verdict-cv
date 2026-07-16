@@ -165,7 +165,10 @@ public class HiringService {
             if (projectRepository.existsByOwnerIdAndTitleIgnoreCaseAndDeletedAtIsNull(owner.getId(), sample.title())) {
                 skipped++;
             } else {
-                createProject(owner, sample);
+                ProjectResponse project = createProject(owner, sample);
+                for (CandidateRequest candidate : sampleCandidates(sample.title())) {
+                    addCandidate(owner, project.id(), candidate);
+                }
                 imported++;
             }
         }
@@ -1314,6 +1317,33 @@ public class HiringService {
                         "Person State",
                         "Screening")
         );
+    }
+
+    private List<CandidateRequest> sampleCandidates(String projectTitle) {
+        if (projectTitle.toLowerCase(Locale.ROOT).contains("backend")) {
+            return List.of(
+                    new CandidateRequest(
+                            "Nino Kapanadze",
+                            "Java Backend Engineer",
+                            "Nino Kapanadze nino.kapanadze@example.com. Built Spring Boot REST APIs with Java, PostgreSQL, JWT authentication, Docker, and integration tests. Reduced API latency by 31% across three production services. Portfolio: https://github.com/octocat"),
+                    new CandidateRequest(
+                            "Giorgi Maisuradze",
+                            "Backend Developer",
+                            "Giorgi Maisuradze giorgi.maisuradze@example.com. Experienced with Java and SQL. World-class architect who single-handedly transformed enterprise systems. Familiar with REST and Docker but no public repository or production metrics supplied."),
+                    new CandidateRequest(
+                            "Mariam Beridze",
+                            "Junior Java Developer",
+                            "Mariam Beridze mariam.beridze@example.com. University projects using Java, Spring Boot, MySQL, JUnit, Git, and Docker Compose. Built an authenticated task API and documented it with OpenAPI."));
+        }
+        return List.of(
+                new CandidateRequest(
+                        "Ana Gelashvili",
+                        "Verification Analyst",
+                        "Ana Gelashvili ana.gelashvili@example.com. Reviewed technical portfolios, wrote evidence-based reports, and built React dashboards. Improved review turnaround by 24% while maintaining a documented quality checklist."),
+                new CandidateRequest(
+                        "Luka Chikovani",
+                        "Frontend Analyst",
+                        "Luka Chikovani luka.chikovani@example.com. React and JavaScript experience with candidate research and technical writing. Claims unmatched attention to detail without samples or measurable review outcomes."));
     }
 
     private List<String> extractRequirements(String description) {
