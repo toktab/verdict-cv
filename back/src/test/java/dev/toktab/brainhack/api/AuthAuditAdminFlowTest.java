@@ -202,7 +202,7 @@ class AuthAuditAdminFlowTest {
     }
 
     @Test
-    void adminCanManageUsersAndEmailVerificationSetting() throws Exception {
+      void adminCanManageUsersAndEmailVerificationSetting() throws Exception {
         String adminToken = adminToken();
 
         mockMvc.perform(patch("/api/admin/settings")
@@ -226,7 +226,26 @@ class AuthAuditAdminFlowTest {
                                   "role":"Tester",
                                   "password":"password123",
                                   "emailVerified":false
-                                }
+      }
+
+      @Test
+      void adminHealthReportsLiveInfrastructureAndRuntimeDetails() throws Exception {
+          String adminToken = adminToken();
+
+          mockMvc.perform(get("/api/admin/health").header("X-Admin-Token", adminToken))
+                  .andExpect(status().isOk())
+                  .andExpect(jsonPath("$.overallStatus").value("HEALTHY"))
+                  .andExpect(jsonPath("$.db.ok").value(true))
+                  .andExpect(jsonPath("$.llm.status").value("local-fallback"))
+                  .andExpect(jsonPath("$.rabbitmq.enabled").value(false))
+                  .andExpect(jsonPath("$.rabbitmq.connected").value(false))
+                  .andExpect(jsonPath("$.runtime.uptimeSeconds").isNumber())
+                  .andExpect(jsonPath("$.runtime.heapMaxMb").isNumber())
+                  .andExpect(jsonPath("$.audits.available").value(true))
+                  .andExpect(jsonPath("$.audits.completed").isNumber())
+                  .andExpect(jsonPath("$.audits.averageProcessingMillis").isNumber())
+                  .andExpect(jsonPath("$.buildVersion").isString());
+      }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.emailVerified").value(false))

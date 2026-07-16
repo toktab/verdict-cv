@@ -53,6 +53,31 @@ public interface AuditRepository extends JpaRepository<Audit, Long> {
     long countByStatusAndDeletedAtIsNull(AuditStatus status);
     long countByDeletedAtIsNull();
 
+    @Query("""
+            select coalesce(avg(audit.processingMillis), 0)
+            from Audit audit
+            where audit.status = dev.toktab.brainhack.audit.AuditStatus.COMPLETED
+              and audit.processingMillis > 0
+              and audit.deletedAt is null
+            """)
+    double averageCompletedProcessingMillis();
+
+    @Query("""
+            select count(audit)
+            from Audit audit
+            where lower(audit.engine) like '%fallback%'
+              and audit.deletedAt is null
+            """)
+    long countFallbackAudits();
+
+    @Query("""
+            select min(audit.startedAt)
+            from Audit audit
+            where audit.status = dev.toktab.brainhack.audit.AuditStatus.RUNNING
+              and audit.deletedAt is null
+            """)
+    Instant oldestRunningStartedAt();
+
     List<Audit> findByStatusAndDeletedAtIsNull(AuditStatus status);
 
     @Query("""

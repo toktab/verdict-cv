@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, Code2, Edit3, Gauge, History, Lock, LogOut, RefreshCcw, RotateCcw, Save, Trash2, UserPlus, X } from 'lucide-react';
+import { Activity, Bot, Code2, Cpu, Database, Edit3, Gauge, GitCommitHorizontal, History, ListTodo, Lock, LogOut, RefreshCcw, RotateCcw, Save, Server, Trash2, UserPlus, X } from 'lucide-react';
 import { javaApi } from '../api';
 import { clearAdminToken, readAdminToken, writeAdminToken } from '../sessionAuth';
 
@@ -76,6 +76,8 @@ export function AdminPage({ Header, setRoute }) {
     const [adminConfirm, setAdminConfirm] = useState(null);
     const [userForm, setUserForm] = useState(emptyUserForm());
     const [adminLoading, setAdminLoading] = useState(() => Boolean(token));
+    const [healthLoading, setHealthLoading] = useState(false);
+    const [healthError, setHealthError] = useState('');
     const [error, setError] = useState('');
     const loadAdminRef = useRef(null);
     const selectedClearTargetRows = tableClearTargets.filter((target) => selectedClearTargets.includes(target.key));
@@ -115,6 +117,7 @@ export function AdminPage({ Header, setRoute }) {
             setSettings(settingRows || { requireEmailVerification: false });
             setTableClearTargets(Array.isArray(clearTargetRows) ? clearTargetRows : []);
             setHealth(healthRows);
+            setHealthError('');
             const versions = Array.isArray(atsRows) ? atsRows : [];
             setAtsVersions(versions);
             setAtsDraft((current) => current || versions.find((row) => row.active)?.catalogJson || '');
@@ -151,6 +154,18 @@ export function AdminPage({ Header, setRoute }) {
             confirmLabel: 'Delete audit',
             onConfirm: () => deleteAudit(id),
         });
+    }
+
+    async function loadHealth() {
+        setHealthLoading(true);
+        setHealthError('');
+        try {
+            setHealth(await api.adminHealth(token));
+        } catch (err) {
+            setHealthError(err.message || 'Could not refresh server health.');
+        } finally {
+            setHealthLoading(false);
+        }
     }
 
     async function deleteAudit(id) {
@@ -393,15 +408,36 @@ export function AdminPage({ Header, setRoute }) {
                     </div>
                 </section>
                 <section className="adminSection adminWide adminHealthPanel">
-                    <h2><Gauge size={18} /> System health</h2>
-                    {adminLoading && !health ? <SkeletonBlock rows={3} compact /> : health ? (
-                        <div className="adminHealthGrid">
-                            <HealthTile label="DB" value={health.db?.ok ? 'Online' : 'Down'} detail={`${health.db?.latencyMillis || 0}ms / ${health.db?.status || 'unknown'}`} good={health.db?.ok} />
-                            <HealthTile label="LLM" value={health.llm?.configured ? 'Configured' : 'Fallback'} detail={`${health.llm?.model || 'local'} / ${health.llm?.mode || 'unknown'}`} good={health.llm?.configured} />
-                            <HealthTile label="RabbitMQ" value={health.rabbitmq?.auditQueueEnabled ? 'Queue on' : 'Queue off'} detail={`${health.rabbitmq?.host || 'localhost'} / ${health.rabbitmq?.status || 'local-worker'}`} good={health.rabbitmq?.auditQueueEnabled || health.rabbitmq?.eventsEnabled} />
-                            <HealthTile label="Audits" value={`${health.audits?.failureRate || 0}% failed`} detail={`${health.audits?.running || 0} running / ${health.audits?.failed || 0} failed / ${health.audits?.total || 0} total`} good={(health.audits?.failureRate || 0) < 5} />
-                            <HealthTile label="Build" value={health.buildHash || 'dev'} detail={health.checkedAt ? new Date(health.checkedAt).toLocaleString() : 'not checked'} good />
+                    <div className="adminSectionHeading">
+                        <div>
+                            <span className="eyebrow">Operations</span>
+                            <h2><Gauge size={18} /> System health</h2>
+                            <p className="mutedPanelText">Live server readiness, infrastructure connectivity, audit throughput, and runtime capacity.</p>
                         </div>
+                        <div className="rowActions">
+                            {health && <span className={`adminHealthStatus ${(health.overallStatus || 'unknown').toLowerCase()}`}>{health.overallStatus || 'Unknown'}</span>}
+                            <button className="secondary" disabled={healthLoading} type="button" onClick={loadHealth}>
+                                <RefreshCcw size={15} /> {healthLoading ? 'Checking...' : 'Check health'}
+                            </button>
+                        </div>
+                    </div>
+                    {healthError && <div className="retryNotice error compact"><div><strong>Health check failed.</strong><span>{healthError}</span></div></div>}
+                    {adminLoading && !health ? <SkeletonBlock rows={3} compact /> : health ? (
+                        <>
+                            <div className="adminHealthGrid">
+                                <HealthTile icon={Database} label="Database" value={health.db?.ok ? 'Online' : 'Down'} detail={`${health.db?.latencyMillis || 0}ms response / ${health.db?.status || 'unknown'}`} good={health.db?.ok} />
+                                <HealthTile icon={Bot} label="LLM analyzer" value={health.llm?.configured ? 'Ready' : 'Local fallback'} detail={`${health.llm?.model || 'local'} / ${health.llm?.endpointHost || 'none'} / ${health.llm?.timeoutSeconds || 0}s`} good={health.llm?.configured} neutral={!health.llm?.configured} />
+                                <HealthTile icon={Server} label="RabbitMQ" value={!health.rabbitmq?.enabled ? 'Disabled' : health.rabbitmq?.connected ? 'Connected' : 'Disconnected'} detail={`${health.rabbitmq?.host || 'localhost'}:${health.rabbitmq?.port || 5672} / ${health.rabbitmq?.queuedMessages || 0} queued / ${health.rabbitmq?.consumers || 0} consumers`} good={!health.rabbitmq?.enabled || health.rabbitmq?.connected} neutral={!health.rabbitmq?.enabled} />
+                                <HealthTile icon={ListTodo} label="Audit pipeline" value={!health.audits?.available ? 'Unavailable' : `${health.audits?.failureRate || 0}% failed`} detail={!health.audits?.available ? health.audits?.status || 'metrics unavailable' : `${health.audits?.completed || 0} completed / ${health.audits?.running || 0} running / ${formatDuration(health.audits?.averageProcessingMillis || 0)} avg`} good={health.audits?.available && (health.audits?.failureRate || 0) < 5 && (health.audits?.oldestRunningSeconds || 0) < 300} />
+                                <HealthTile icon={Cpu} label="Runtime" value={formatUptime(health.runtime?.uptimeSeconds || 0)} detail={`${health.runtime?.heapUsedMb || 0}/${health.runtime?.heapMaxMb || 0} MB heap / ${health.runtime?.processors || 0} CPU / ${formatMegabytes(health.runtime?.diskFreeMb || 0)} free`} good={(health.runtime?.heapMaxMb || 0) === 0 || (health.runtime?.heapUsedMb || 0) / health.runtime.heapMaxMb < 0.9} />
+                                <HealthTile icon={GitCommitHorizontal} label="Build" value={health.buildVersion || 'development'} detail={`${health.buildHash || 'dev'} / Java ${health.runtime?.javaVersion || 'unknown'}`} good />
+                            </div>
+                            <div className="adminHealthFoot">
+                                <span><Activity size={14} /> Fallback audits: <strong>{health.audits?.fallback || 0} ({health.audits?.fallbackRate || 0}%)</strong></span>
+                                <span><Gauge size={14} /> Oldest running: <strong>{formatDuration((health.audits?.oldestRunningSeconds || 0) * 1000)}</strong></span>
+                                <span><RefreshCcw size={14} /> Checked: <strong>{health.checkedAt ? new Date(health.checkedAt).toLocaleString() : 'not checked'}</strong></span>
+                            </div>
+                        </>
                     ) : (
                         <div className="emptyState">Health data has not loaded yet.</div>
                     )}
@@ -608,14 +644,34 @@ function AdminConfirmModal({ action, onClose, onConfirm }) {
     );
 }
 
-function HealthTile({ label, value, detail, good }) {
+function HealthTile({ icon: Icon, label, value, detail, good, neutral = false }) {
     return (
-        <article className={`healthTile ${good ? 'good' : 'warn'}`}>
-            <span>{label}</span>
+        <article className={`healthTile ${neutral ? 'neutral' : good ? 'good' : 'warn'}`}>
+            <span>{Icon && <Icon size={15} />}{label}</span>
             <strong>{value}</strong>
             <small>{detail}</small>
         </article>
     );
+}
+
+function formatDuration(milliseconds) {
+    const value = Number(milliseconds || 0);
+    if (value < 1000) return `${Math.round(value)}ms`;
+    if (value < 60000) return `${(value / 1000).toFixed(1)}s`;
+    return `${Math.floor(value / 60000)}m ${Math.round((value % 60000) / 1000)}s`;
+}
+
+function formatUptime(seconds) {
+    const value = Math.max(0, Number(seconds || 0));
+    const days = Math.floor(value / 86400);
+    const hours = Math.floor((value % 86400) / 3600);
+    const minutes = Math.floor((value % 3600) / 60);
+    return days ? `${days}d ${hours}h up` : hours ? `${hours}h ${minutes}m up` : `${minutes}m up`;
+}
+
+function formatMegabytes(megabytes) {
+    const value = Number(megabytes || 0);
+    return value >= 1024 ? `${(value / 1024).toFixed(1)} GB` : `${Math.round(value)} MB`;
 }
 
 function emptyUserForm() {
