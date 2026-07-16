@@ -2,7 +2,7 @@ export const MESSAGE_STORE_KEY = 'verdictMessages';
 
 export function readMessages(user) {
     try {
-        const rows = JSON.parse(localStorage.getItem(MESSAGE_STORE_KEY) || '[]');
+        const rows = JSON.parse(sessionStorage.getItem(MESSAGE_STORE_KEY) || '[]');
         if (Array.isArray(rows) && rows.length) {
             return rows.map((message) => ({ read: false, ...message }));
         }
@@ -23,7 +23,7 @@ export function readMessages(user) {
 }
 
 export function writeMessages(messages) {
-    localStorage.setItem(MESSAGE_STORE_KEY, JSON.stringify(messages));
+    sessionStorage.setItem(MESSAGE_STORE_KEY, JSON.stringify(messages));
     window.dispatchEvent(new Event('verdictMessagesChanged'));
 }
 

@@ -138,6 +138,25 @@ test('admin destructive maintenance separates demo data from real table groups',
     assert.match(source, /target\?\.demoPreset/);
 });
 
+test('logged-in messages never fall back to persistent browser authority', async () => {
+    const [storeSource, pageSource] = await Promise.all([
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/messageStore.js', import.meta.url), 'utf8')),
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/MessagesPage.jsx', import.meta.url), 'utf8')),
+    ]);
+    assert.match(storeSource, /sessionStorage\.getItem/);
+    assert.match(storeSource, /sessionStorage\.setItem/);
+    assert.doesNotMatch(storeSource, /localStorage\.setItem/);
+    assert.match(pageSource, /if \(userToken\) \{\s*apiUpdateMessage/);
+});
+
+test('project and audit route failures expose retry actions without clearing saved data', async () => {
+    const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8'));
+    assert.doesNotMatch(source, /catch \(err\) \{\s*setHistory\(\[\]\)/);
+    assert.match(source, /PROJECT_DATA_ROUTES\.has\(route\).*projectsError/s);
+    assert.match(source, /Audit detail failed to load\./);
+    assert.match(source, /Profiling mode failed to load\./);
+});
+
 function memoryStorage(initial = {}) {
     const rows = new Map(Object.entries(initial));
     return {

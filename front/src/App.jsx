@@ -9,6 +9,7 @@ import { DialogKeyboardManager } from './components/DialogKeyboardManager';
 import { AuditTemplatePanel, CheckStatePanel } from './components/AuditConfigurationPanels';
 import { DenseVerdictTable, VerdictCard } from './components/VerdictEvidence';
 import { AuditScoreExplainer } from './components/AuditScoreExplainer';
+import { ProjectRouteState } from './pages/projects/ProjectRouteState';
 import { navigateTo, routeFromPath, scrollToPageTop } from './navigation';
 import { auditScoreLevel } from './utils/auditScore';
 import defaultAts from './data/default-ats.json';
@@ -88,6 +89,7 @@ const demoStates = [
 ];
 
 const MAX_DOCUMENT_UPLOAD_BYTES = 8 * 1024 * 1024;
+const PROJECT_DATA_ROUTES = new Set(['projectDetail', 'projectSettings', 'projectTeam', 'addCandidate', 'candidateDetail', 'candidateReport', 'candidateProfile', 'signalTrace']);
 
 const api = {
     telemetry: async (payload) => fetch('/api/telemetry', {
@@ -396,7 +398,6 @@ function App() {
             const rows = await api.history(userToken);
             setHistory(Array.isArray(rows) ? rows : []);
         } catch (err) {
-            setHistory([]);
             setHistoryError(err.message || 'Could not load audit history.');
         } finally {
             setHistoryLoading(false);
@@ -453,7 +454,6 @@ function App() {
             setProjects((Array.isArray(rows) ? rows : []).filter(Boolean).map(normaliseProject));
         } catch (err) {
             if (!silent) {
-                setProjects([]);
                 setProjectsError(err.message || 'Could not load projects.');
             }
         } finally {
@@ -621,6 +621,8 @@ function App() {
         content = <ProjectsPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} projectsError={projectsError} onProjectsChange={loadProjects} />;
     } else if (route === 'newProject') {
         content = <NewJobPage Header={AppHeader} Metric={Metric} Textarea={Textarea} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} onProjectsChange={loadProjects} />;
+    } else if (PROJECT_DATA_ROUTES.has(route) && projectsError && !projectsLoading && projects.length === 0) {
+        content = <ProjectRouteState Header={AppHeader} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} eyebrow="Project loading failed" title="Your project workspace could not be loaded." message={projectsError} retryLabel="Retry projects" onRetry={loadProjects} />;
     } else if (route === 'projectDetail') {
         content = <ProjectDetailPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} />;
     } else if (route === 'projectSettings') {
@@ -638,9 +640,9 @@ function App() {
     } else if (route === 'signalTrace') {
         content = <SignalTracePage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} onProjectsChange={loadProjects} />;
     } else if (route === 'auditDetail') {
-        content = <AuditDetailPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} />;
+        content = <AuditDetailPage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} onRetry={() => loadAuditDetail(detailAuditId)} />;
     } else if (route === 'auditProfile') {
-        content = <ProfilingModePage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} />;
+        content = <ProfilingModePage setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} onRetry={() => loadAuditDetail(detailAuditId)} />;
     } else if (route === 'profile') {
         content = <ProfilePage Header={AppHeader} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
     } else if (route === 'messages') {
@@ -919,10 +921,10 @@ function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
     }
 
     return (
-        <form className={`gmailCompose ${composeState}`} onSubmit={sendMessage}>
+        <form className={`gmailCompose ${composeState}`} onSubmit={sendMessage} role="dialog" aria-modal="true" aria-labelledby="compose-title">
             <div className="composeHead">
-                <strong>{composeState === 'sent' ? 'Message sent' : composeState === 'sending' ? 'Sending...' : composeState === 'failed' ? 'Delivery failed' : 'New Message'}</strong>
-                <button type="button" disabled={composeState === 'sending'} onClick={() => setOpen(false)}><X size={16} /></button>
+                <strong id="compose-title">{composeState === 'sent' ? 'Message sent' : composeState === 'sending' ? 'Sending...' : composeState === 'failed' ? 'Delivery failed' : 'New Message'}</strong>
+                <button type="button" aria-label="Close compose" data-dialog-close disabled={composeState === 'sending'} onClick={() => setOpen(false)}><X size={16} /></button>
             </div>
             <div className="composeSendTrack"><span /></div>
             {composeError && <div className="composeError">{composeError}</div>}
@@ -1012,6 +1014,20 @@ function readNotificationSettings(user) {
         messageNoticesEnabled: user?.messageNotificationsEnabled !== false,
         mutedUntil: user?.messageNotificationsMutedUntil || null,
     };
+}
+
+function RouteRetryNotice({ title, message, onRetry }) {
+    return (
+        <section className="retryNotice error">
+            <div>
+                <strong>{title}</strong>
+                <span>{message}</span>
+            </div>
+            <div className="retryActions">
+                <button className="secondary" type="button" onClick={onRetry}><RefreshCcw size={15} /> Retry</button>
+            </div>
+        </section>
+    );
 }
 
 function shouldShowMessageNotice(user) {
@@ -1663,7 +1679,7 @@ function ValidationList({ checks }) {
     );
 }
 
-function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, audit, loading, error }) {
+function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, audit, loading, error, onRetry }) {
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [confidenceFilter, setConfidenceFilter] = useState('ALL');
     const [severityFilter, setSeverityFilter] = useState('ALL');
@@ -1688,7 +1704,8 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
                 <button className="ghost" onClick={() => navigateTo(setRoute, 'dashboard')}>Back to dashboard</button>
                 {error && <div className="error">{error}</div>}
                 {loading && <><Loading stage="LOADING AUDIT DETAIL" /><SkeletonBlock rows={8} /></>}
-                {!loading && !audit && <div className="emptyState">Audit detail is not available.</div>}
+                {!loading && error && <RouteRetryNotice title="Audit detail failed to load." message={error} onRetry={onRetry} />}
+                {!loading && !error && !audit && <div className="emptyState">Audit detail is not available.</div>}
                 {audit && (
                     <>
                         <section className="detailHero">
@@ -1877,7 +1894,7 @@ function ProfilingModePanel({ audit, verdicts, setRoute }) {
     );
 }
 
-function ProfilingModePage({ setRoute, user, userToken, setUser, setUserToken, audit, loading, error }) {
+function ProfilingModePage({ setRoute, user, userToken, setUser, setUserToken, audit, loading, error, onRetry }) {
     const verdicts = audit?.verdicts || [];
     const profiledText = buildProfiledText(audit?.claimText || verdicts.map((verdict) => verdict.sentence).join('\n'), verdicts, audit);
     const [activeProfile, setActiveProfile] = useState(null);
@@ -1927,7 +1944,8 @@ function ProfilingModePage({ setRoute, user, userToken, setUser, setUserToken, a
                 </section>
                 {error && <div className="error">{error}</div>}
                 {loading && <><Loading stage="LOADING PROFILING MODE" /><SkeletonBlock rows={8} /></>}
-                {!loading && !audit && <div className="emptyState">Profiling mode needs an audit record.</div>}
+                {!loading && error && <RouteRetryNotice title="Profiling mode failed to load." message={error} onRetry={onRetry} />}
+                {!loading && !error && !audit && <div className="emptyState">Profiling mode needs an audit record.</div>}
                 {audit && (
                     <section ref={profileLayoutRef} className={`profileModeLayout ${inspectorOpen ? 'inspectorOpen' : ''} ${resizingInspector ? 'resizing' : ''}`}>
                         <article className="profileDocumentSheet">

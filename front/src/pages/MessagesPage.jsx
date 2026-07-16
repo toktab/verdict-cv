@@ -52,8 +52,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     const updateMessage = useCallback((id, patch) => {
         const updated = messages.map((message) => message.id === id ? { ...message, ...patch } : message);
         setMessages(updated);
-        const message = messages.find((row) => row.id === id);
-        if (message?.serverBacked) {
+        if (userToken) {
             apiUpdateMessage(id, serverPatch(patch), userToken).then(loadMessages).catch((error) => {
                 setLoadError(error.message || 'Could not update this message.');
                 loadMessages();
@@ -107,7 +106,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         setMessages(updated);
         if (!userToken) writeMessages(updated);
         Promise.all(unreadRows
-            .filter((message) => message.serverBacked)
+            .filter(() => Boolean(userToken))
             .map((message) => apiUpdateMessage(message.id, serverPatch({ read: true, manualUnread: false }), userToken)))
             .then(loadMessages)
             .catch((error) => {
