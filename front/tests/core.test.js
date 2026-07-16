@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { routeFromPath, pathForRoute } from '../src/navigation.js';
 import { auditScoreLevel } from '../src/utils/auditScore.js';
 import { normaliseCandidate, normaliseProject } from '../src/api.js';
+import { clearAdminToken, clearUserToken, readAdminToken, readUserToken, writeAdminToken, writeUserToken } from '../src/sessionAuth.js';
 
 test('direct routes resolve to the expected application view', () => {
     assert.deepEqual(routeFromPath('/projects/12/candidates/9/report'), { route: 'candidateReport' });
@@ -49,3 +50,38 @@ test('project normalization preserves server permissions and candidates', () => 
     assert.deepEqual(project.myPermissions, ['canView', 'canVote']);
     assert.equal(project.candidates[0].name, 'Ana');
 });
+
+test('authentication tokens stay tab scoped and purge legacy persistent copies', () => {
+    const previousWindow = globalThis.window;
+    const localStorage = memoryStorage({ verdictUserToken: 'legacy-user', verdictAdminToken: 'legacy-admin' });
+    const sessionStorage = memoryStorage();
+    globalThis.window = { localStorage, sessionStorage };
+    try {
+        assert.equal(readUserToken(), '');
+        assert.equal(readAdminToken(), '');
+        assert.equal(localStorage.getItem('verdictUserToken'), null);
+        assert.equal(localStorage.getItem('verdictAdminToken'), null);
+
+        writeUserToken('tab-user');
+        writeAdminToken('tab-admin');
+        assert.equal(readUserToken(), 'tab-user');
+        assert.equal(readAdminToken(), 'tab-admin');
+        assert.equal(localStorage.getItem('verdictUserToken'), null);
+
+        clearUserToken();
+        clearAdminToken();
+        assert.equal(sessionStorage.getItem('verdictUserToken'), null);
+        assert.equal(sessionStorage.getItem('verdictAdminToken'), null);
+    } finally {
+        globalThis.window = previousWindow;
+    }
+});
+
+function memoryStorage(initial = {}) {
+    const rows = new Map(Object.entries(initial));
+    return {
+        getItem: (key) => rows.has(key) ? rows.get(key) : null,
+        setItem: (key, value) => rows.set(key, String(value)),
+        removeItem: (key) => rows.delete(key),
+    };
+}

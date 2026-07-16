@@ -11,6 +11,7 @@ import { AuditScoreExplainer } from './components/AuditScoreExplainer';
 import { navigateTo, routeFromPath, scrollToPageTop } from './navigation';
 import { auditScoreLevel } from './utils/auditScore';
 import defaultAts from './data/default-ats.json';
+import { clearUserToken, readUserToken, writeUserToken } from './sessionAuth';
 import './styles.css';
 import './styles/reports.css';
 
@@ -253,7 +254,7 @@ function shouldShowIntroOnBoot() {
 
 function App() {
     const { route, setRoute, detailAuditId, setDetailAuditId } = useRouteState(routeFromPath);
-    const [userToken, setUserToken] = useState(localStorage.getItem('verdictUserToken') || '');
+    const [userToken, setUserToken] = useState(readUserToken);
     const [user, setUser] = useState(null);
     const [form, setForm] = useState(demoCase);
     const [audit, setAudit] = useState(null);
@@ -313,7 +314,7 @@ function App() {
     useEffect(() => {
         function handleAuthProblem() {
             const message = 'User authentication problem. Please login. If this happened multiple times, please contact the support.';
-            localStorage.removeItem('verdictUserToken');
+            clearUserToken();
             setUserToken('');
             setUser(null);
             setAuthProblem(message);
@@ -337,7 +338,7 @@ function App() {
             return;
         }
         api.me(userToken).then(setUser).catch(() => {
-            localStorage.removeItem('verdictUserToken');
+            clearUserToken();
             setUserToken('');
             setUser(null);
         });
@@ -830,7 +831,7 @@ function App() {
                     if (userToken) {
                         await api.logout(userToken).catch(() => null);
                     }
-                    localStorage.removeItem('verdictUserToken');
+            clearUserToken();
                     setUserToken('');
                     setUser(null);
                     navigateTo(setRoute, 'home');
@@ -879,7 +880,7 @@ function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
     useEffect(() => {
         if (!open) return undefined;
         const query = (draft.to || '').trim();
-        const token = localStorage.getItem('verdictUserToken') || '';
+        const token = readUserToken();
         if (!query || !token) {
             setRecipientLookup({ state: 'idle', user: null, query });
             return undefined;
@@ -906,7 +907,7 @@ function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
         }
         setComposeState('sending');
         setComposeError('');
-        const token = localStorage.getItem('verdictUserToken') || '';
+        const token = readUserToken();
         try {
             if (token) {
                 await apiSendMessage({
@@ -979,7 +980,7 @@ function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
             )}
             <div className="composeActions">
                 <button className="primary composeSendButton" disabled={!canEdit} type="submit"><Send size={16} /> {composeState === 'failed' ? 'Retry' : composeState === 'sending' ? 'Sending' : composeState === 'sent' ? 'Sent' : 'Send'}</button>
-                {composeState === 'failed' && !localStorage.getItem('verdictUserToken') && <button className="secondary" type="button" onClick={saveOfflineAndClose}>Save offline</button>}
+                {composeState === 'failed' && !readUserToken() && <button className="secondary" type="button" onClick={saveOfflineAndClose}>Save offline</button>}
             </div>
         </form>
     );
@@ -1114,7 +1115,7 @@ function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessag
         if (userToken) {
             await api.logout(userToken).catch(() => null);
         }
-        localStorage.removeItem('verdictUserToken');
+        clearUserToken();
         setUserToken?.('');
         setUser?.(null);
         navigate('home');
@@ -1423,7 +1424,7 @@ function AuthPage({ mode, setRoute, setUser, setUserToken, authProblem = '', cle
                 setError('Account created. Email verification is required before login; ask an admin to verify the account.');
                 return;
             }
-            localStorage.setItem('verdictUserToken', response.token);
+            writeUserToken(response.token);
             setUserToken(response.token);
             setUser(response.user);
             navigateTo(setRoute, 'dashboard');
@@ -2518,7 +2519,7 @@ function ExportActions({ auditId }) {
 }
 
 async function exportAudit(id, format = 'txt') {
-    const token = localStorage.getItem('verdictUserToken') || '';
+    const token = readUserToken();
     const response = await fetch(`/api/audit/${id}/export?format=${encodeURIComponent(format)}`, { headers: { 'X-User-Token': token } });
     if (!response.ok) {
         throw new Error(`${format.toUpperCase()} export failed. Check your session and try again.`);

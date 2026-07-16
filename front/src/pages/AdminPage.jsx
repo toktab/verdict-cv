@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Activity, Code2, Edit3, Gauge, History, Lock, LogOut, RefreshCcw, RotateCcw, Save, Trash2, UserPlus, X } from 'lucide-react';
 import { javaApi } from '../api';
+import { clearAdminToken, readAdminToken, writeAdminToken } from '../sessionAuth';
 
 const api = {
     adminLogin: (payload) => javaApi.adminLogin(payload),
@@ -48,7 +49,7 @@ function PaginationControls({ offset, count, pageSize, onPrev, onNext }) {
 
 export function AdminPage({ Header, setRoute }) {
     const pageSize = 20;
-    const [token, setToken] = useState(localStorage.getItem('verdictAdminToken') || '');
+    const [token, setToken] = useState(readAdminToken);
     const [login, setLogin] = useState({ username: 'admin', password: '' });
     const [audits, setAudits] = useState([]);
     const [logs, setLogs] = useState([]);
@@ -87,7 +88,7 @@ export function AdminPage({ Header, setRoute }) {
         setError('');
         try {
             const result = await api.adminLogin(login);
-            localStorage.setItem('verdictAdminToken', result.token);
+            writeAdminToken(result.token);
             setToken(result.token);
         } catch (err) {
             setError(err.message);
@@ -133,7 +134,7 @@ export function AdminPage({ Header, setRoute }) {
 
     useEffect(() => {
         function expireAdminSession() {
-            localStorage.removeItem('verdictAdminToken');
+            clearAdminToken();
             setToken('');
             setError('Admin session expired. Authenticate again.');
         }
@@ -386,7 +387,7 @@ export function AdminPage({ Header, setRoute }) {
                             <RefreshCcw size={15} /> {adminLoading ? 'Refreshing...' : 'Refresh admin'}
                         </button>
                         <button className="secondary" onClick={() => {
-                            localStorage.removeItem('verdictAdminToken');
+                            clearAdminToken();
                             setToken('');
                         }} type="button"><LogOut size={15} /> Log out</button>
                     </div>
