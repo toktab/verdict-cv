@@ -238,7 +238,8 @@ public class AdminController {
     }
 
     @PostMapping("/clear-tables")
-    public List<TableClearResult> clearTables(@RequestBody ClearTablesRequest request) {
+    public List<TableClearResult> clearTables(@RequestBody ClearTablesRequest request, HttpServletRequest httpRequest) {
+        long started = System.currentTimeMillis();
         String requiredPhrase = request.targets() == null ? "" : request.targets().stream()
                 .map(value -> value == null ? "" : value.trim().toLowerCase())
                 .filter(value -> !value.isBlank())
@@ -247,8 +248,22 @@ public class AdminController {
         if (requiredPhrase.isBlank() || !requiredPhrase.equals(request.confirmation() == null ? "" : request.confirmation().trim().toLowerCase())) {
             throw new IllegalArgumentException("Type the exact selected table keys before clearing: " + requiredPhrase);
         }
+        List<TableClearResult> selected = tableMaintenanceService.targets().stream()
+                .filter(target -> request.targets().stream().anyMatch(value -> target.key().equalsIgnoreCase(value == null ? "" : value.trim())))
+                .toList();
+        int affectedRows = selected.stream().mapToInt(TableClearResult::deletedRows).sum();
         List<TableClearResult> results = tableMaintenanceService.clear(request.targets());
-        logService.recordSystem("ADMIN_CLEAR_TABLES", "targets=" + request.targets());
+        int deletedRows = results.stream().mapToInt(TableClearResult::deletedRows).sum();
+        logService.record(
+                "ADMIN_CLEAR_TABLES",
+                httpRequest,
+                200,
+                System.currentTimeMillis() - started,
+                adminSessionService.username(),
+                "targets=" + request.targets()
+                        + "; affectedRowsBefore=" + affectedRows
+                        + "; deletedRows=" + deletedRows
+                        + "; timestamp=" + Instant.now());
         return results;
     }
 

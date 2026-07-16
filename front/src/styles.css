@@ -8659,6 +8659,37 @@ select {
     margin-top: 14px;
 }
 
+.demoClearPreset {
+    margin-top: 14px;
+    border: 1px solid rgba(103, 232, 249, 0.34);
+    border-radius: 8px;
+    background: rgba(8, 145, 178, 0.08);
+    padding: 14px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: center;
+}
+
+.demoClearPreset > div {
+    display: grid;
+    gap: 5px;
+}
+
+.demoClearPreset strong {
+    color: var(--text);
+}
+
+.demoClearPreset small {
+    color: var(--muted);
+}
+
+.adminDangerZone > h3 {
+    margin: 18px 0 0;
+    font-size: 0.86rem;
+    color: var(--muted);
+}
+
 .tableClearOption {
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -9028,6 +9059,7 @@ select {
     .authGrid,
     .userEditor,
     .tableClearGrid,
+    .demoClearPreset,
     .tableClearSummary,
     .tableClearConfirm,
     .adminAtsGrid,

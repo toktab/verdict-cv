@@ -94,6 +94,9 @@ public class Audit {
     @Column(nullable = false, precision = 12, scale = 6)
     private BigDecimal estimatedCostUsd = BigDecimal.ZERO;
 
+    @Column(nullable = false)
+    private boolean demoData;
+
     @Column(length = 80)
     private String analyzerVersion;
 
@@ -329,6 +332,14 @@ public class Audit {
 
     public void setEstimatedCostUsd(BigDecimal estimatedCostUsd) {
         this.estimatedCostUsd = estimatedCostUsd == null ? BigDecimal.ZERO : estimatedCostUsd;
+    }
+
+    public boolean isDemoData() {
+        return demoData;
+    }
+
+    public void setDemoData(boolean demoData) {
+        this.demoData = demoData;
     }
 
     public String getAnalyzerVersion() {

@@ -81,6 +81,8 @@ export function AdminPage({ Header, setRoute }) {
     const [error, setError] = useState('');
     const loadAdminRef = useRef(null);
     const selectedClearTargetRows = tableClearTargets.filter((target) => selectedClearTargets.includes(target.key));
+    const demoClearTarget = tableClearTargets.find((target) => target.demoPreset);
+    const regularClearTargets = tableClearTargets.filter((target) => !target.demoPreset);
     const selectedClearRowCount = selectedClearTargetRows.reduce((sum, target) => sum + Number(target.deletedRows || 0), 0);
     const clearConfirmationPhrase = selectedClearTargetRows.map((target) => target.key).join(' + ');
     const clearConfirmed = Boolean(clearConfirmationPhrase) && clearConfirmText.trim().toLowerCase() === clearConfirmationPhrase;
@@ -292,9 +294,16 @@ export function AdminPage({ Header, setRoute }) {
     }
 
     function toggleClearTarget(key) {
-        setSelectedClearTargets((current) => current.includes(key)
-            ? current.filter((item) => item !== key)
-            : [...current, key]);
+        const target = tableClearTargets.find((row) => row.key === key);
+        setSelectedClearTargets((current) => {
+            if (current.includes(key)) {
+                return current.filter((item) => item !== key);
+            }
+            if (target?.demoPreset) {
+                return [key];
+            }
+            return [...current.filter((item) => item !== demoClearTarget?.key), key];
+        });
         setClearConfirmText('');
         setClearResults([]);
     }
@@ -487,8 +496,25 @@ export function AdminPage({ Header, setRoute }) {
                 <section className="adminSection adminWide adminDangerZone">
                     <h2><Trash2 size={18} /> Clear tables</h2>
                     <p className="mutedPanelText">Select table groups to empty. This permanently deletes every row in those groups and handles related child tables in the right order.</p>
+                    {demoClearTarget && (
+                        <div className="demoClearPreset">
+                            <div>
+                                <span className="eyebrow">Demo data preset</span>
+                                <strong>Clear only the seeded demo workspace</strong>
+                                <small>Removes seeded projects, candidates, messages, audits, and project collaboration records. Regular user work is preserved.</small>
+                            </div>
+                            <button
+                                className={selectedClearTargets.includes(demoClearTarget.key) ? 'destructive' : 'secondary'}
+                                onClick={() => toggleClearTarget(demoClearTarget.key)}
+                                type="button"
+                            >
+                                <Trash2 size={15} /> {selectedClearTargets.includes(demoClearTarget.key) ? 'Demo preset selected' : `Select demo preset (${demoClearTarget.deletedRows || 0} rows)`}
+                            </button>
+                        </div>
+                    )}
+                    <h3>Real table groups</h3>
                     <div className="tableClearGrid">
-                        {tableClearTargets.map((target) => (
+                        {regularClearTargets.map((target) => (
                             <label key={target.key} className="tableClearOption">
                                 <input
                                     type="checkbox"

@@ -63,6 +63,9 @@ public class HiringProject {
     private String status;
 
     @Column(nullable = false)
+    private boolean demoData;
+
+    @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
     private Instant deletedAt;
@@ -89,6 +92,8 @@ public class HiringProject {
     public void setState(String state) { this.state = state; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public boolean isDemoData() { return demoData; }
+    public void setDemoData(boolean demoData) { this.demoData = demoData; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getDeletedAt() { return deletedAt; }
     public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }

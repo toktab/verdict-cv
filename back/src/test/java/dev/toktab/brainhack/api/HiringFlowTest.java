@@ -85,6 +85,36 @@ class HiringFlowTest {
     }
 
     @Test
+    void adminDemoPresetClearsSeededWorkspaceWithoutDeletingRegularProjects() throws Exception {
+        String token = register("demo_cleanup");
+        createProject(token, "Real retained project", "This is regular user-owned work.", "[\"Java\"]");
+
+        mockMvc.perform(post("/api/projects/import-job-postings").header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.imported").value(2));
+
+        mockMvc.perform(get("/api/projects").header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(3)));
+
+        String adminToken = adminToken();
+        mockMvc.perform(post("/api/admin/clear-tables")
+                        .header("X-Admin-Token", adminToken)
+                        .header("X-Request-Id", "demo-clear-request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targets\":[\"demo_workspace\"],\"confirmation\":\"demo_workspace\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].key").value("demo_workspace"))
+                .andExpect(jsonPath("$[0].demoPreset").value(true))
+                .andExpect(jsonPath("$[0].deletedRows", greaterThan(0)));
+
+        mockMvc.perform(get("/api/projects").header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("Real retained project"));
+    }
+
+    @Test
     void hiringApisRequireAuthenticationAndAcceptBearerTokens() throws Exception {
         mockMvc.perform(get("/api/projects"))
                 .andExpect(status().isUnauthorized())
@@ -1002,6 +1032,15 @@ class HiringFlowTest {
     private String register(String label) throws Exception {
         String username = label + "_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
         return registerWithEmail(username, username + "@example.com");
+    }
+
+    private String adminToken() throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/admin/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"admin\",\"password\":\"admin\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        return token(result);
     }
 
     private String registerWithEmail(String label, String email) throws Exception {

@@ -1,6 +1,7 @@
 package dev.toktab.brainhack.api;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.blankOrNullString;
 import static org.hamcrest.Matchers.containsString;
@@ -283,7 +284,9 @@ class AuthAuditAdminFlowTest {
 
         mockMvc.perform(get("/api/admin/table-clear-targets").header("X-Admin-Token", adminToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].key").value("messages"));
+                .andExpect(jsonPath("$[0].key").value("demo_workspace"))
+                .andExpect(jsonPath("$[0].demoPreset").value(true))
+                .andExpect(jsonPath("$[1].key").value("messages"));
 
         mockMvc.perform(patch("/api/admin/settings")
                         .header("X-Admin-Token", adminToken)
@@ -300,6 +303,7 @@ class AuthAuditAdminFlowTest {
 
         mockMvc.perform(post("/api/admin/clear-tables")
                         .header("X-Admin-Token", adminToken)
+                        .header("X-Request-Id", "admin-clear-settings-test")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"targets\":[\"settings\"],\"confirmation\":\"settings\"}"))
                 .andExpect(status().isOk())
@@ -309,6 +313,15 @@ class AuthAuditAdminFlowTest {
         mockMvc.perform(get("/api/admin/settings").header("X-Admin-Token", adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.requireEmailVerification").value(false));
+
+        mockMvc.perform(get("/api/admin/logs")
+                .header("X-Admin-Token", adminToken)
+                        .param("search", "ADMIN_CLEAR_TABLES"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.eventType == 'ADMIN_CLEAR_TABLES')].actor", hasItem("admin")))
+                .andExpect(jsonPath("$[?(@.eventType == 'ADMIN_CLEAR_TABLES')].detail", hasItem(containsString("affectedRowsBefore=1"))))
+                .andExpect(jsonPath("$[?(@.eventType == 'ADMIN_CLEAR_TABLES')].detail", hasItem(containsString("deletedRows=1"))))
+                .andExpect(jsonPath("$[?(@.eventType == 'ADMIN_CLEAR_TABLES')].requestId", hasItem("admin-clear-settings-test")));
     }
 
     @Test

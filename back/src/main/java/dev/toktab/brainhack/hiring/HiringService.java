@@ -181,6 +181,10 @@ public class HiringService {
                 skipped++;
             } else {
                 ProjectResponse project = createProject(owner, sample);
+                HiringProject demoProject = projectRepository.findById(project.id())
+                        .orElseThrow(() -> new IllegalStateException("Seeded project could not be loaded."));
+                demoProject.setDemoData(true);
+                projectRepository.save(demoProject);
                 List<CandidateResponse> candidates = new ArrayList<>();
                 for (CandidateRequest candidate : sampleCandidates(sample.title())) {
                     candidates.add(addCandidate(owner, project.id(), candidate));
@@ -223,10 +227,10 @@ public class HiringService {
                     ));
                     messageCount++;
                 }
-                auditService.run(demoAuditRequest(sample, candidates), null, owner);
+                auditService.run(demoAuditRequest(sample, candidates), null, owner).setDemoData(true);
                 auditCount++;
                 if (candidates.size() > 1) {
-                    auditService.run(demoRiskAuditRequest(sample, candidates.get(1)), null, owner);
+                    auditService.run(demoRiskAuditRequest(sample, candidates.get(1)), null, owner).setDemoData(true);
                     auditCount++;
                 }
                 imported++;

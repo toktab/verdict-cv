@@ -130,6 +130,14 @@ test('audit detail exposes persisted LLM usage and estimated cost', async () => 
     assert.match(source, /label="Estimated cost" value=\{formatAuditCost\(audit\.estimatedCostUsd\)\}/);
 });
 
+test('admin destructive maintenance separates demo data from real table groups', async () => {
+    const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/AdminPage.jsx', import.meta.url), 'utf8'));
+    assert.match(source, /Demo data preset/);
+    assert.match(source, /Regular user work is preserved\./);
+    assert.match(source, /regularClearTargets\.map/);
+    assert.match(source, /target\?\.demoPreset/);
+});
+
 function memoryStorage(initial = {}) {
     const rows = new Map(Object.entries(initial));
     return {
