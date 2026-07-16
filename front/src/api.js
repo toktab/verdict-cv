@@ -182,6 +182,10 @@ export async function apiReanalyzeCandidate(projectId, candidateId, token) {
     return post(`/projects/${projectId}/candidates/${candidateId}/reanalyze`, {}, token);
 }
 
+export async function apiUpdateCandidateAnalysisState(projectId, candidateId, { state, initialize = false }, token) {
+    return patch(`/projects/${projectId}/candidates/${candidateId}/analysis-state`, { state, initialize }, token);
+}
+
 export async function apiDeleteCandidate(projectId, candidateId, token) {
     return del(`/projects/${projectId}/candidates/${candidateId}`, token);
 }
@@ -400,6 +404,8 @@ export function normaliseCandidate(raw) {
         state: raw.state || 'Pending',
         osint: raw.osint || 'Not started',
         memory: raw.memory || 'No prior record',
+        analysisState: raw.analysis_state || raw.analysisState || '',
+        initializedAnalysisStates: raw.initialized_analysis_states || raw.initializedAnalysisStates || [],
         memoryHistory: raw.memory_history || raw.memoryHistory || [],
         cvText: raw.cv_text || raw.cvText || '',
         resumeFilename: raw.resume_filename || '',

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, ArrowRight, Award, BriefcaseBusiness, CheckCircle2, CodeXml, ExternalLink, FileText, History, Link, MessageSquarePlus, Radar, RefreshCcw, ScanText, ShieldCheck, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, X, XCircle } from 'lucide-react';
 import { useLanguage } from '../../i18n';
-import { apiCreateCandidateNote, apiDeleteCandidate, apiGetCandidateWorkflow, apiListCandidateNotes, apiReanalyzeCandidate, apiUpdateCandidateStatus, apiVoteCandidate } from '../../api';
+import { apiCreateCandidateNote, apiDeleteCandidate, apiGetCandidateWorkflow, apiListCandidateNotes, apiReanalyzeCandidate, apiUpdateCandidateAnalysisState, apiUpdateCandidateStatus, apiVoteCandidate } from '../../api';
 import defaultAts from '../../data/default-ats.json';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
 import { buildAtsReport, candidateSourceText as atsCandidateSourceText, projectDescriptionText, splitTextByTerms } from './atsReportUtils';
@@ -36,25 +36,23 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const [deletePhrase, setDeletePhrase] = useState('');
     const [deleteBusy, setDeleteBusy] = useState(false);
     const [deleteMessage, setDeleteMessage] = useState('');
+    const [analysisStateMessage, setAnalysisStateMessage] = useState('');
+    const [analysisStateBusy, setAnalysisStateBusy] = useState(false);
     const { project, candidate } = findCandidateFromPath(projects);
     const activeProject = project;
     const activeCandidate = candidate;
     const [voteScore, setVoteScore] = useState('3');
     const projectStateId = stateIdFromName(activeProject?.state);
-    const stateStorageKey = candidateStateStorageKey(activeProject?.id, activeCandidate?.id);
-    const [activeStateId, setActiveStateId] = useState(() => readCandidateState(stateStorageKey, projectStateId));
-    const [initializedStateIds, setInitializedStateIds] = useState(() => readInitializedStates(stateStorageKey, projectStateId));
+    const [activeStateId, setActiveStateId] = useState(activeCandidate?.analysisState || projectStateId);
+    const [initializedStateIds, setInitializedStateIds] = useState(() => new Set(activeCandidate?.initializedAnalysisStates || [projectStateId]));
 
     useEffect(() => {
-        const nextStateId = readCandidateState(stateStorageKey, projectStateId);
-        setActiveStateId(nextStateId);
-        setInitializedStateIds((current) => {
-            const stored = readInitializedStates(stateStorageKey, projectStateId);
-            const next = new Set([...current, ...stored, projectStateId]);
-            writeInitializedStates(stateStorageKey, next);
-            return next;
-        });
-    }, [activeProject?.id, activeCandidate?.id, projectStateId, stateStorageKey]);
+        setActiveStateId(activeCandidate?.analysisState || projectStateId);
+        setInitializedStateIds(new Set(activeCandidate?.initializedAnalysisStates?.length
+            ? activeCandidate.initializedAnalysisStates
+            : [projectStateId]));
+        setAnalysisStateMessage('');
+    }, [activeCandidate?.id, activeCandidate?.analysisState, activeCandidate?.initializedAnalysisStates, projectStateId]);
 
     useEffect(() => {
         setWorkflow(null);
@@ -137,18 +135,40 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const decisionVoteCount = voteStats.totalVotes ?? (voteStats.attribution || []).filter((line) => /upvote|downvote/i.test(line)).length ?? 0;
     const deleteReady = deletePhrase.trim() === 'I confirm';
 
-    function selectAnalysisState(stateId) {
+    async function selectAnalysisState(stateId) {
+        const previous = activeStateId;
         setActiveStateId(stateId);
-        writeCandidateState(stateStorageKey, stateId);
+        setAnalysisStateBusy(true);
+        setAnalysisStateMessage('');
+        try {
+            const updated = await apiUpdateCandidateAnalysisState(activeProject.id, activeCandidate.id, { state: stateId }, userToken);
+            setActiveStateId(updated.analysis_state || updated.analysisState || stateId);
+            setInitializedStateIds(new Set(updated.initialized_analysis_states || updated.initializedAnalysisStates || []));
+            await onProjectsChange?.();
+        } catch (error) {
+            setActiveStateId(previous);
+            setAnalysisStateMessage(error.message || 'Could not save the analysis state.');
+        } finally {
+            setAnalysisStateBusy(false);
+        }
     }
 
-    function initializeAnalysisState() {
-        setInitializedStateIds((current) => {
-            const next = new Set(current);
-            next.add(activeStateId);
-            writeInitializedStates(stateStorageKey, next);
-            return next;
-        });
+    async function initializeAnalysisState() {
+        setAnalysisStateBusy(true);
+        setAnalysisStateMessage('');
+        try {
+            const updated = await apiUpdateCandidateAnalysisState(activeProject.id, activeCandidate.id, {
+                state: activeStateId,
+                initialize: true,
+            }, userToken);
+            setInitializedStateIds(new Set(updated.initialized_analysis_states || updated.initializedAnalysisStates || [activeStateId]));
+            setAnalysisStateMessage(`${activeState.name} is initialized and saved for the project team.`);
+            await onProjectsChange?.();
+        } catch (error) {
+            setAnalysisStateMessage(error.message || 'Could not initialize the analysis state.');
+        } finally {
+            setAnalysisStateBusy(false);
+        }
     }
 
     async function reanalyzeCandidate() {
@@ -459,7 +479,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         {analysisStates.map((state) => {
                             const initialized = initializedStateIds.has(state.id);
                             return (
-                                <button className={state.id === activeStateId ? 'active' : ''} key={state.id} onClick={() => selectAnalysisState(state.id)} type="button">
+                                <button className={state.id === activeStateId ? 'active' : ''} disabled={analysisStateBusy || !canAddNote} key={state.id} onClick={() => selectAnalysisState(state.id)} type="button">
                                     <span>
                                         <strong>{state.name}</strong>
                                         <small>{state.description}</small>
@@ -469,6 +489,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                             );
                         })}
                     </div>
+                    {analysisStateMessage && <p className="formMessage">{analysisStateMessage}</p>}
                 </section>
                 {!selectedStateInitialized ? (
                     <section className="analysisBlankPanel">
@@ -477,7 +498,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                             <h2>{activeState.name} has not run for this candidate.</h2>
                             <p>No score explanation, claim verdicts, job fit, memory, or OSINT-derived results are available for this State yet.</p>
                         </div>
-                        <button className="primary" onClick={initializeAnalysisState} type="button">Initialize Analysis with State: {activeState.name}</button>
+                        <button className="primary" disabled={analysisStateBusy || !canAddNote} onClick={initializeAnalysisState} type="button">Initialize Analysis with State: {activeState.name}</button>
                     </section>
                 ) : (
                     <>
@@ -1132,36 +1153,6 @@ function stateIdFromName(name = '') {
     if (normalized.includes('war+ai') || normalized.includes('war_ai') || normalized.includes('strict')) return 'strict-war-ai';
     if (normalized.includes('war')) return 'war';
     return 'strict-war-ai';
-}
-
-function candidateStateStorageKey(projectId, candidateId) {
-    return projectId && candidateId ? `candidate-state:${projectId}:${candidateId}` : '';
-}
-
-function readCandidateState(key, fallback) {
-    if (!key || typeof localStorage === 'undefined') return fallback;
-    return localStorage.getItem(`${key}:selected`) || fallback;
-}
-
-function writeCandidateState(key, stateId) {
-    if (!key || typeof localStorage === 'undefined') return;
-    localStorage.setItem(`${key}:selected`, stateId);
-}
-
-function readInitializedStates(key, fallback) {
-    const states = new Set([fallback]);
-    if (!key || typeof localStorage === 'undefined') return states;
-    try {
-        JSON.parse(localStorage.getItem(`${key}:initialized`) || '[]').forEach((stateId) => states.add(stateId));
-    } catch {
-        // Ignore stale local state.
-    }
-    return states;
-}
-
-function writeInitializedStates(key, states) {
-    if (!key || typeof localStorage === 'undefined') return;
-    localStorage.setItem(`${key}:initialized`, JSON.stringify([...states]));
 }
 
 function importantWordStats(text, highlights) {

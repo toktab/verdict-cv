@@ -7,6 +7,7 @@ import dev.toktab.brainhack.audit.CheckStateIds;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidatePageResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.CandidateAnalysisStateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateStatusRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateWorkflowResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ImportResponse;
@@ -249,6 +250,34 @@ public class HiringService {
         recordCandidateActivity(candidate, owner, "candidate_reanalyze", "Reanalyzed candidate " + candidate.getName(), "info", "Candidate scoring and phrase checks were refreshed.");
         publishProjectChange(candidate.getProject());
         return response;
+    }
+
+    @Transactional
+    public CandidateResponse updateCandidateAnalysisState(UserAccount actor, Long projectId, Long candidateId,
+                                                          CandidateAnalysisStateRequest request) {
+        HiringCandidate candidate = candidateEntity(actor, projectId, candidateId);
+        requirePermission(actor, candidate.getProject(), "canAddNote");
+        String state = normalizeAnalysisState(request.state());
+        String previous = candidate.getAnalysisState();
+        List<String> initialized = new ArrayList<>(mapper.strings(candidate.getInitializedAnalysisStatesJson()));
+        boolean newlyInitialized = request.initialize() && !initialized.contains(state);
+
+        candidate.setAnalysisState(state);
+        if (newlyInitialized) {
+            initialized.add(state);
+            candidate.setInitializedAnalysisStatesJson(mapper.json(initialized));
+        }
+        candidateRepository.save(candidate);
+
+        if (!state.equals(previous) || newlyInitialized) {
+            String action = newlyInitialized
+                    ? "Initialized " + analysisStateLabel(state) + " for " + candidate.getName()
+                    : "Selected " + analysisStateLabel(state) + " for " + candidate.getName();
+            recordCandidateActivity(candidate, actor, "candidate_analysis_state", action, "info",
+                    "Candidate analysis state changed from " + analysisStateLabel(previous) + " to " + analysisStateLabel(state) + ".");
+            publishProjectChange(candidate.getProject());
+        }
+        return mapper.candidate(candidate);
     }
 
     @Transactional
@@ -630,6 +659,9 @@ public class HiringService {
         candidate.setState("Unreviewed");
         candidate.setOsint("Partial");
         candidate.setMemory(memoryStatus(priorApplications, unsupported));
+        String defaultAnalysisState = analysisStateFromProject(project.getState());
+        candidate.setAnalysisState(defaultAnalysisState);
+        candidate.setInitializedAnalysisStatesJson(mapper.json(List.of(defaultAnalysisState)));
         candidate.setMemoryHistoryJson(mapper.json(priorApplications.stream().map(prior -> Map.<String, Object>of(
                 "candidateId", prior.getId(),
                 "projectId", prior.getProject().getId(),
@@ -644,6 +676,35 @@ public class HiringService {
         candidate.setClaimsJson(mapper.json(claims));
         candidate.setAuditPhraseMatchesJson(mapper.json(riskyMatches(cvText)));
         return candidate;
+    }
+
+    private String normalizeAnalysisState(String state) {
+        String normalized = defaulted(state, "").trim().toLowerCase(Locale.ROOT);
+        if (!Set.of(CheckStateIds.LIGHT, CheckStateIds.WAR, CheckStateIds.PERSON, CheckStateIds.STRICT_WAR_AI).contains(normalized)) {
+            throw new IllegalArgumentException("Unsupported candidate analysis state");
+        }
+        return normalized;
+    }
+
+    private String analysisStateFromProject(String projectState) {
+        String normalized = defaulted(projectState, "").toLowerCase(Locale.ROOT);
+        if (normalized.contains("light")) return CheckStateIds.LIGHT;
+        if (normalized.contains("person")) return CheckStateIds.PERSON;
+        if (normalized.contains("war+ai") || normalized.contains("war_ai") || normalized.contains("strict")) {
+            return CheckStateIds.STRICT_WAR_AI;
+        }
+        if (normalized.contains("war")) return CheckStateIds.WAR;
+        return CheckStateIds.STRICT_WAR_AI;
+    }
+
+    private String analysisStateLabel(String state) {
+        return switch (defaulted(state, "")) {
+            case CheckStateIds.LIGHT -> "Light State";
+            case CheckStateIds.WAR -> "WAR State";
+            case CheckStateIds.PERSON -> "Person_AI State";
+            case CheckStateIds.STRICT_WAR_AI -> "WAR_AI State";
+            default -> "default state";
+        };
     }
 
     private List<HiringCandidate> priorApplications(HiringProject project, String name, String email, Long excludedCandidateId) {

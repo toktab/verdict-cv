@@ -17,6 +17,7 @@ public class HiringMapper {
     private static final TypeReference<List<List<String>>> CLAIMS = new TypeReference<>() {};
     private static final TypeReference<List<Map<String, Object>>> MATCHES = new TypeReference<>() {};
     private static final TypeReference<List<Map<String, Object>>> MEMORY_HISTORY = new TypeReference<>() {};
+    private static final TypeReference<List<String>> STRINGS = new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
     private static final TypeReference<List<Map<String, Object>>> MAPS = new TypeReference<>() {};
     private final ObjectMapper objectMapper;
@@ -90,6 +91,8 @@ public class HiringMapper {
                 candidate.getState(),
                 candidate.getOsint(),
                 candidate.getMemory(),
+                candidate.getAnalysisState(),
+                read(candidate.getInitializedAnalysisStatesJson(), STRINGS, List.of(candidate.getAnalysisState())),
                 read(candidate.getMemoryHistoryJson(), MEMORY_HISTORY, List.of()),
                 candidate.getCvText(),
                 candidate.getResumeFilename(),
@@ -121,6 +124,10 @@ public class HiringMapper {
 
     public List<Map<String, Object>> maps(String json) {
         return read(json, MAPS, List.of());
+    }
+
+    public List<String> strings(String json) {
+        return read(json, STRINGS, List.of());
     }
 
     private <T> T read(String json, TypeReference<T> type, T fallback) {

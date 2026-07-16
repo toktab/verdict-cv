@@ -66,6 +66,13 @@ public class HiringCandidate {
     @Column(nullable = false, length = 120)
     private String memory;
 
+    @Column(nullable = false, length = 40)
+    private String analysisState = "strict-war-ai";
+
+    @Lob
+    @Column(nullable = false, columnDefinition = "LONGTEXT")
+    private String initializedAnalysisStatesJson = "[\"strict-war-ai\"]";
+
     @Lob
     @Column(nullable = false, columnDefinition = "LONGTEXT")
     private String memoryHistoryJson = "[]";
@@ -124,6 +131,10 @@ public class HiringCandidate {
     public void setOsint(String osint) { this.osint = osint; }
     public String getMemory() { return memory; }
     public void setMemory(String memory) { this.memory = memory; }
+    public String getAnalysisState() { return analysisState; }
+    public void setAnalysisState(String analysisState) { this.analysisState = analysisState; }
+    public String getInitializedAnalysisStatesJson() { return initializedAnalysisStatesJson; }
+    public void setInitializedAnalysisStatesJson(String initializedAnalysisStatesJson) { this.initializedAnalysisStatesJson = initializedAnalysisStatesJson; }
     public String getMemoryHistoryJson() { return memoryHistoryJson; }
     public void setMemoryHistoryJson(String memoryHistoryJson) { this.memoryHistoryJson = memoryHistoryJson; }
     public int getFlags() { return flags; }

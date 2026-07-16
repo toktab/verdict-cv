@@ -28,11 +28,15 @@ test('candidate API payloads keep server memory and evidence fields', () => {
         score: 82,
         match: 76,
         memory: 'Returning candidate',
+        analysis_state: 'war',
+        initialized_analysis_states: ['strict-war-ai', 'war'],
         memory_history: [{ projectTitle: 'Backend', score: 71 }],
         audit_phrase_matches: [{ keyword: 'expert' }],
     });
     assert.equal(candidate.score, 82);
     assert.equal(candidate.memory, 'Returning candidate');
+    assert.equal(candidate.analysisState, 'war');
+    assert.deepEqual(candidate.initializedAnalysisStates, ['strict-war-ai', 'war']);
     assert.equal(candidate.memoryHistory.length, 1);
     assert.equal(candidate.auditPhraseMatches[0].keyword, 'expert');
 });

@@ -298,6 +298,55 @@ class HiringFlowTest {
     }
 
     @Test
+    void candidateAnalysisStateIsSharedAndAuditedOnTheServer() throws Exception {
+        String token = register("candidate_state");
+        long projectId = createProject(token, "Stateful Review", "Java platform role", "[\"Java\"]");
+
+        MvcResult created = mockMvc.perform(post("/api/projects/" + projectId + "/candidates")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name":"State Candidate",
+                                  "role":"Engineer",
+                                  "cv_text":"Java engineer with production API experience."
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.analysis_state").value("strict-war-ai"))
+                .andExpect(jsonPath("$.initialized_analysis_states", hasItem("strict-war-ai")))
+                .andReturn();
+        long candidateId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asLong();
+
+        mockMvc.perform(patch("/api/projects/" + projectId + "/candidates/" + candidateId + "/analysis-state")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"state\":\"war\",\"initialize\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.analysis_state").value("war"))
+                .andExpect(jsonPath("$.initialized_analysis_states", hasItem("strict-war-ai")))
+                .andExpect(jsonPath("$.initialized_analysis_states", hasItem("war")));
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/candidates/" + candidateId)
+                        .header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.analysis_state").value("war"))
+                .andExpect(jsonPath("$.initialized_analysis_states", hasItem("war")));
+
+        mockMvc.perform(patch("/api/projects/" + projectId + "/candidates/" + candidateId + "/analysis-state")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"state\":\"invented\",\"initialize\":false}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Unsupported candidate analysis state"));
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/activity")
+                        .header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.type == 'candidate_analysis_state')]").exists());
+    }
+
+    @Test
     void oversizedCandidateResumeIsRejectedBeforeDocumentParsing() throws Exception {
         String token = register("hiring_large_resume");
         long projectId = createProject(token, "Upload Limit Role", "Requirements:\n- Java", "[\"Java\"]");

@@ -90,6 +90,8 @@ public class HiringDtos {
             String state,
             String osint,
             String memory,
+            @JsonProperty("analysis_state") String analysisState,
+            @JsonProperty("initialized_analysis_states") List<String> initializedAnalysisStates,
             @JsonProperty("memory_history") List<Map<String, Object>> memoryHistory,
             @JsonProperty("cv_text") String cvText,
             @JsonProperty("resume_filename") String resumeFilename,
@@ -104,6 +106,12 @@ public class HiringDtos {
             String summary,
             List<List<String>> claims,
             @JsonProperty("audit_phrase_matches") List<Map<String, Object>> auditPhraseMatches
+    ) {
+    }
+
+    public record CandidateAnalysisStateRequest(
+            @NotBlank @Size(max = 40) String state,
+            boolean initialize
     ) {
     }
 

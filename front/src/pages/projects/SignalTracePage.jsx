@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, BriefcaseBusiness, CodeXml, Radar, Search, Users } from 'lucide-react';
 import { useLanguage } from '../../i18n';
-import { apiRunCandidateOsint } from '../../api';
+import { apiRunCandidateOsint, apiUpdateCandidateAnalysisState } from '../../api';
 import { findCandidateFromPath } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
 
@@ -140,17 +140,16 @@ const signalGroupsGe = [
     },
 ];
 
-export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false }) {
+export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false, onProjectsChange }) {
     const { lang, t } = useLanguage();
     const { project, candidate } = findCandidateFromPath(projects);
     const activeProject = project;
     const activeCandidate = candidate;
     const projectStateId = stateIdFromName(activeProject?.state);
-    const stateStorageKey = candidateStateStorageKey(activeProject?.id, activeCandidate?.id);
-    const [activeStateId, setActiveStateId] = useState(() => readCandidateState(stateStorageKey, projectStateId));
+    const [activeStateId, setActiveStateId] = useState(activeCandidate?.analysisState || projectStateId);
     const [consentAccepted, setConsentAccepted] = useState(false);
     const [selected, setSelected] = useState(() => new Set(['profile-search', 'project-scan', 'profile-match', 'title-check']));
-    const [initializedStateIds, setInitializedStateIds] = useState(() => readInitializedStates(stateStorageKey, projectStateId));
+    const [initializedStateIds, setInitializedStateIds] = useState(() => new Set(activeCandidate?.initializedAnalysisStates || [projectStateId]));
     const [osintResult, setOsintResult] = useState(null);
     const [osintLoading, setOsintLoading] = useState(false);
     const [osintError, setOsintError] = useState('');
@@ -164,17 +163,13 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
     const resultRows = activeCandidate && selectedStateInitialized ? buildSignalResults(activeCandidate, activeStateId, t, osintResult) : [];
 
     useEffect(() => {
-        const nextStateId = readCandidateState(stateStorageKey, projectStateId);
-        setActiveStateId(nextStateId);
+        setActiveStateId(activeCandidate?.analysisState || projectStateId);
         setOsintResult(null);
         setOsintError('');
-        setInitializedStateIds((current) => {
-            const stored = readInitializedStates(stateStorageKey, projectStateId);
-            const next = new Set([...current, ...stored]);
-            next.add(projectStateId);
-            return next;
-        });
-    }, [activeProject?.id, activeCandidate?.id, projectStateId, stateStorageKey]);
+        setInitializedStateIds(new Set(activeCandidate?.initializedAnalysisStates?.length
+            ? activeCandidate.initializedAnalysisStates
+            : [projectStateId]));
+    }, [activeProject?.id, activeCandidate?.id, activeCandidate?.analysisState, activeCandidate?.initializedAnalysisStates, projectStateId]);
 
     useEffect(() => {
         const runKey = `${activeProject?.id || ''}:${activeCandidate?.id || ''}:${activeStateId}`;
@@ -201,13 +196,21 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
 
     async function initializeSelectedState() {
         if (!signalTraceUnlocked) return;
-        setInitializedStateIds((current) => {
-            const next = new Set(current);
-            next.add(activeStateId);
-            writeInitializedStates(stateStorageKey, next);
-            return next;
-        });
-        await runOsintCheck();
+        setOsintLoading(true);
+        setOsintError('');
+        try {
+            const updated = await apiUpdateCandidateAnalysisState(activeProject.id, activeCandidate.id, {
+                state: activeStateId,
+                initialize: true,
+            }, userToken);
+            setInitializedStateIds(new Set(updated.initialized_analysis_states || updated.initializedAnalysisStates || [activeStateId]));
+            await onProjectsChange?.();
+            await runOsintCheck();
+        } catch (error) {
+            setOsintError(error.message || 'Could not initialize the analysis state.');
+        } finally {
+            setOsintLoading(false);
+        }
     }
 
     async function runOsintCheck() {
@@ -398,31 +401,6 @@ function stateIdFromName(name = '') {
     if (normalized.includes('war+ai') || normalized.includes('war_ai') || normalized.includes('strict')) return 'strict-war-ai';
     if (normalized.includes('war')) return 'war';
     return 'strict-war-ai';
-}
-
-function candidateStateStorageKey(projectId, candidateId) {
-    return projectId && candidateId ? `candidate-state:${projectId}:${candidateId}` : '';
-}
-
-function readCandidateState(key, fallback) {
-    if (!key || typeof localStorage === 'undefined') return fallback;
-    return localStorage.getItem(`${key}:selected`) || fallback;
-}
-
-function readInitializedStates(key, fallback) {
-    const states = new Set([fallback]);
-    if (!key || typeof localStorage === 'undefined') return states;
-    try {
-        JSON.parse(localStorage.getItem(`${key}:initialized`) || '[]').forEach((stateId) => states.add(stateId));
-    } catch {
-        // Ignore stale local state.
-    }
-    return states;
-}
-
-function writeInitializedStates(key, states) {
-    if (!key || typeof localStorage === 'undefined') return;
-    localStorage.setItem(`${key}:initialized`, JSON.stringify([...states]));
 }
 
 function identityConfidence(candidate, stateId) {

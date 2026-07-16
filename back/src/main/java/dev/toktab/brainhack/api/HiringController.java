@@ -6,6 +6,7 @@ import dev.toktab.brainhack.account.UserSessionService;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidatePageResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.CandidateAnalysisStateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateStatusRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateWorkflowResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ImportResponse;
@@ -229,6 +230,17 @@ public class HiringController {
                                                 @PathVariable Long projectId,
                                                 @PathVariable Long candidateId) {
         return hiringService.reanalyzeCandidate(owner(authorization, legacyToken), projectId, candidateId);
+    }
+
+    @PatchMapping("/{projectId}/candidates/{candidateId}/analysis-state")
+    public CandidateResponse updateCandidateAnalysisState(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+            @PathVariable Long projectId,
+            @PathVariable Long candidateId,
+            @Valid @RequestBody CandidateAnalysisStateRequest request) {
+        return hiringService.updateCandidateAnalysisState(
+                owner(authorization, legacyToken), projectId, candidateId, request);
     }
 
     @PostMapping("/{projectId}/candidates/{candidateId}/osint/run")
