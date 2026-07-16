@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Activity, ArrowRight, CheckCircle2, ChevronDown, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, RefreshCcw, ShieldCheck, User, UserPlus, X } from 'lucide-react';
+import { Activity, ArrowRight, ChevronDown, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, RefreshCcw, ShieldCheck, User, UserPlus, X } from 'lucide-react';
 import IntroAnimation from './IntroAnimation';
 import { LanguageContext, translate, useLanguage } from './i18n';
 import { apiMe, apiLogout, apiListMessages, apiListProjects, apiRealtimeUrl, apiUpdateNotificationPreferences, javaApi, normaliseProject, normaliseUser } from './api';
@@ -7,11 +7,12 @@ import { messageBelongsTo, readMessages } from './messageStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { DialogKeyboardManager } from './components/DialogKeyboardManager';
 import { GlobalCompose } from './components/GlobalCompose';
-import { AuditTemplatePanel, CheckStatePanel } from './components/AuditConfigurationPanels';
-import { AuditDetailPage, AuditResult, ProfilingModePage } from './pages/AuditAnalysisPages';
+import { AuditDetailPage, ProfilingModePage } from './pages/AuditAnalysisPages';
+import { AuditWorkspacePage } from './pages/AuditWorkspacePage';
 import { ProjectRouteState } from './pages/projects/ProjectRouteState';
 import { navigateTo, routeFromPath, scrollToPageTop } from './navigation';
 import { formatUploadSize } from './utils/auditPresentation';
+import { auditPayload, demoCase, demoCases, demoStates, demoTemplates, emptyTemplateForm } from './data/auditWorkspaceDefaults';
 import { clearUserToken, readUserToken } from './sessionAuth';
 import './styles.css';
 import './styles/auth.css';
@@ -34,60 +35,6 @@ const ProjectSettingsPage = lazyNamed(() => import('./pages/projects/ProjectSett
 const ProjectTeamPage = lazyNamed(() => import('./pages/projects/ProjectTeamPage'), 'ProjectTeamPage');
 const ProjectsPage = lazyNamed(() => import('./pages/projects/ProjectsPage'), 'ProjectsPage');
 const SignalTracePage = lazyNamed(() => import('./pages/projects/SignalTracePage'), 'SignalTracePage');
-
-const auditModes = {
-    cv: {
-        name: 'Job / CV audit',
-        claimTitle: 'Candidate CV',
-        claimSubtitle: 'Paste the CV, application answers, portfolio summary, or interview notes submitted by the candidate.',
-        evidenceTitle: 'Job application evidence',
-        evidenceSubtitle: 'Paste the job requirements, consented profile links, portfolio notes, references, GitHub or LinkedIn evidence, and organizer comments.',
-        actionCopy: 'Audit candidate',
-    },
-};
-
-const demoCase = {
-    id: 'cv-demo',
-    name: 'Job candidate demo',
-    auditMode: 'cv',
-    claimTitle: 'Backend developer applicant',
-    evidenceTitle: 'Role requirements and public evidence',
-    claimText: 'Senior backend developer with deep Java experience. Led a team of six engineers. Built production authentication systems and advanced REST APIs. Strong GitHub portfolio with several real projects.',
-    evidenceText: 'The job requires backend Java, SQL, authentication, API design, and clear project evidence. Candidate portfolio contains two Java API projects and one authentication demo. LinkedIn lists junior backend developer, not senior lead. GitHub is public but has limited recent activity.',
-};
-
-const demoCases = [
-    demoCase,
-    {
-        id: 'cv-junior-java-demo',
-        name: 'Junior Java applicant',
-        auditMode: 'cv',
-        claimTitle: 'Junior Java backend applicant',
-        evidenceTitle: 'Junior Java backend role evidence',
-        claimText: 'Junior Java backend developer with Spring Boot, REST API, SQL, JWT authentication, and testing experience. Built a student management API, documented endpoints in Postman, and wrote JUnit tests. Familiar with Docker and CI/CD basics. Fast learner with strong communication skills.',
-        evidenceText: 'The role asks for Java, Spring Boot, SQL, REST APIs, authentication basics, JUnit, Git, and clear documentation. Candidate GitHub shows a student management API using Spring Boot, PostgreSQL, JWT login, and 18 JUnit tests. README includes setup steps and Postman examples. No Dockerfile or CI pipeline was found.',
-    },
-    {
-        id: 'cv-leadership-risk-demo',
-        name: 'Leadership-risk applicant',
-        auditMode: 'cv',
-        claimTitle: 'Backend lead applicant',
-        evidenceTitle: 'Backend lead role evidence',
-        claimText: 'Senior backend lead who owned production architecture, led eight engineers, optimized platform performance by 300%, and delivered world-class authentication infrastructure. Expert in Java, cloud systems, observability, and security.',
-        evidenceText: 'The role requires senior backend leadership, production architecture, incident ownership, cloud deployment, observability, and security reviews. Candidate portfolio includes two Java services and a small authentication demo. LinkedIn lists backend developer, not lead. No team-size evidence, production metrics, incident documents, cloud deployment proof, or observability dashboards were supplied.',
-    },
-];
-
-const demoTemplates = [
-    { id: 'template-cv', mode: 'cv', name: 'Verified CV hiring template', description: 'Checks candidate claims against role needs, profile evidence, and consented public signals.', instructions: 'Flag inflated seniority, unsupported leadership, vague deep-experience claims, missing project proof, weak GitHub evidence, and contradictions between CV, LinkedIn, and portfolio links.', shared: true },
-];
-
-const demoStates = [
-    { id: 'state-light', name: 'Light State', description: 'Fast template review for obvious CV contradictions and low-effort exaggeration.' },
-    { id: 'state-war', name: 'WAR State', description: 'Strict template review that expects every serious skill or leadership claim to be backed inside the application.' },
-    { id: 'state-person', name: 'Person State', description: 'AI-assisted reviewer judgment for polish, tone, credibility, and whether the CV feels genuinely substantiated.' },
-    { id: 'state-war-ai', name: 'WAR+AI State', description: 'Highest scrutiny with AI, deterministic rules, optional OSINT escalation, and full claim-by-claim report scoring.' },
-];
 
 const MAX_DOCUMENT_UPLOAD_BYTES = 8 * 1024 * 1024;
 const PROJECT_DATA_ROUTES = new Set(['projectDetail', 'projectSettings', 'projectTeam', 'addCandidate', 'candidateDetail', 'candidateReport', 'candidateProfile', 'signalTrace']);
@@ -132,31 +79,8 @@ function useRouteState(getInitialRoute) {
     return { route, setRoute, detailAuditId, setDetailAuditId };
 }
 
-function Input({ label, value, onChange, type = 'text' }) {
-    return (
-        <label className="field">
-            <span>{label}</span>
-            <input type={type} value={value || ''} onChange={(event) => onChange(event.target.value)} />
-        </label>
-    );
-}
-
 function Textarea({ value, onChange }) {
     return <textarea value={value || ''} onChange={(event) => onChange(event.target.value)} />;
-}
-
-function Panel({ title, subtitle, children }) {
-    return (
-        <section className="panel">
-            <div className="panelHead">
-                <div>
-                    <h2>{title}</h2>
-                    <p>{subtitle}</p>
-                </div>
-            </div>
-            {children}
-        </section>
-    );
 }
 
 function Metric({ label, value }) {
@@ -659,110 +583,45 @@ function App() {
             </div>
         );
     } else {
-        content = (
-            <div className="shell">
-                <div className="pageGlow contentFadeIn" />
-                <AppHeader setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-                <main className="workspace contentFadeIn">
-                    {!userToken && (
-                        <div className="error">Sign in or create an organizer account before running private candidate audits.</div>
-                    )}
-                    {userToken && (
-                        <section className="privateStrip">
-                            <div>
-                                <span className="eyebrow">Private workspace</span>
-                                <strong>{user?.fullName || user?.username || 'Signed-in user'}</strong>
-                            </div>
-                            <Metric label="My audits" value={history.length} />
-                            <Metric label="Last activity" value={history[0]?.createdAt ? new Date(history[0].createdAt).toLocaleDateString() : 'None'} />
-                        </section>
-                    )}
-                    <FirstRunGuide
-                        form={form}
-                        hasAudits={history.length > 0}
-                        onLoadDemo={loadDemoNow}
-                        setRoute={setRoute}
-                        signedIn={Boolean(userToken)}
-                        states={states}
-                        templates={templates}
-                    />
-                    <section className="intake">
-                        <Panel title={currentAuditMode(form).claimTitle} subtitle={currentAuditMode(form).claimSubtitle}>
-                            <Input label="Claim title" value={form.claimTitle} onChange={(claimTitle) => setForm({ ...form, claimTitle })} />
-                            <label className="auditFileButton">
-                                <FileSearch size={16} />
-                                {uploadingField === 'claim' ? 'Reading file...' : 'Upload PDF, DOCX, or TXT'}
-                                <input type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={(event) => uploadAuditFile('claim', event)} disabled={!userToken || uploadingField === 'claim'} />
-                            </label>
-                            <Textarea value={form.claimText} onChange={(claimText) => setForm({ ...form, claimText })} />
-                        </Panel>
-                        <Panel title={currentAuditMode(form).evidenceTitle} subtitle={currentAuditMode(form).evidenceSubtitle}>
-                            <Input label="Evidence title" value={form.evidenceTitle} onChange={(evidenceTitle) => setForm({ ...form, evidenceTitle })} />
-                            <label className="auditFileButton">
-                                <FileSearch size={16} />
-                                {uploadingField === 'evidence' ? 'Reading file...' : 'Upload PDF, DOCX, or TXT'}
-                                <input type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={(event) => uploadAuditFile('evidence', event)} disabled={!userToken || uploadingField === 'evidence'} />
-                            </label>
-                            <Textarea value={form.evidenceText} onChange={(evidenceText) => setForm({ ...form, evidenceText })} />
-                        </Panel>
-                    </section>
-                    {userToken && (
-                        <>
-                            {templateLoading ? <SkeletonBlock rows={4} /> : <AuditTemplatePanel
-                                mode={form.auditMode || 'cv'}
-                                templates={templates}
-                                selectedId={form.templateId || ''}
-                                onSelect={(templateId) => setForm({ ...form, templateId })}
-                                templateForm={templateForm}
-                                setTemplateForm={setTemplateForm}
-                                onSave={saveTemplate}
-                            />}
-                            <CheckStatePanel
-                                states={states}
-                                selectedId={form.checkStateId || ''}
-                                onSelect={(checkStateId) => setForm({ ...form, checkStateId })}
-                            />
-                        </>
-                    )}
-                    <section className="commandbar">
-                        <div className="demoPicker">
-                            <select value={selectedDemoId} onChange={(event) => setSelectedDemoId(event.target.value)}>
-                                {demoCases.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                            </select>
-                            <button className="secondary" onClick={() => { track('load_demo_case', 'commandbar', selectedDemoId); setDemoConfirmOpen(true); }}>Load demo</button>
-                        </div>
-                        <button className="primary" disabled={loading || !userToken} onClick={runAudit}>
-                            <Play size={18} /> {currentAuditMode(form).actionCopy}
-                        </button>
-                        <Metric label="Claim chars" value={form.claimText.length} />
-                        <Metric label="Evidence chars" value={form.evidenceText.length} />
-                    </section>
-                    {error && (
-                        <div className="retryNotice error">
-                            <div>
-                                <strong>Something needs another try.</strong>
-                                <span>{error}</span>
-                            </div>
-                            <div className="retryActions">
-                                <button className="secondary" disabled={loading || !userToken} onClick={runAudit} type="button"><RefreshCcw size={15} /> Retry audit</button>
-                                {lastAuditUpload && <button className="secondary" disabled={Boolean(uploadingField)} onClick={retryAuditUpload} type="button"><FileSearch size={15} /> Retry upload</button>}
-                                <button className="secondary" onClick={() => setError('')} type="button">Dismiss</button>
-                            </div>
-                        </div>
-                    )}
-                    {loading && <><Loading stage={stage} /><SkeletonBlock rows={5} /></>}
-                    {audit && <AuditResult audit={audit} setRoute={setRoute} />}
-                    <HistoryPanel history={history} templates={templates} loading={historyLoading} error={historyError} onRefresh={loadHistory} openAudit={openAudit} />
-                </main>
-                {demoConfirmOpen && (
-                    <DemoConfirmModal
-                        countdown={demoCountdown}
-                        onCancel={() => setDemoConfirmOpen(false)}
-                        onConfirm={confirmLoadDemo}
-                    />
-                )}
-            </div>
-        );
+        content = <AuditWorkspacePage
+            Header={AppHeader}
+            setRoute={setRoute}
+            user={user}
+            userToken={userToken}
+            setUser={setUser}
+            setUserToken={setUserToken}
+            form={form}
+            setForm={setForm}
+            audit={audit}
+            history={history}
+            templates={templates}
+            states={states}
+            templateForm={templateForm}
+            setTemplateForm={setTemplateForm}
+            templateLoading={templateLoading}
+            historyLoading={historyLoading}
+            historyError={historyError}
+            uploadingField={uploadingField}
+            lastAuditUpload={lastAuditUpload}
+            loading={loading}
+            stage={stage}
+            error={error}
+            setError={setError}
+            selectedDemoId={selectedDemoId}
+            setSelectedDemoId={setSelectedDemoId}
+            demoConfirmOpen={demoConfirmOpen}
+            setDemoConfirmOpen={setDemoConfirmOpen}
+            demoCountdown={demoCountdown}
+            onLoadDemo={loadDemoNow}
+            onConfirmDemo={confirmLoadDemo}
+            onSaveTemplate={saveTemplate}
+            onRunAudit={runAudit}
+            onUploadFile={uploadAuditFile}
+            onRetryUpload={retryAuditUpload}
+            onRefreshHistory={loadHistory}
+            onOpenAudit={openAudit}
+            onTrack={track}
+        />;
     }
 
     return (
@@ -1040,93 +899,6 @@ function dashboardStats(history) {
     };
 }
 
-function currentAuditMode(form) {
-    return auditModes[form.auditMode] || auditModes.cv;
-}
-
-function auditPayload(form) {
-    return {
-        claimTitle: form.claimTitle,
-        evidenceTitle: form.evidenceTitle,
-        claimText: form.claimText,
-        evidenceText: form.evidenceText,
-        auditMode: form.auditMode || 'cv',
-        templateId: form.templateId || '',
-        checkStateId: form.checkStateId || '',
-    };
-}
-
-function DemoConfirmModal({ countdown, onCancel, onConfirm }) {
-    return (
-        <div className="modalOverlay" role="dialog" aria-modal="true">
-            <section className="modal demoModal">
-                <div className="modalHead">
-                    <div>
-                        <h2>Load demo case?</h2>
-                        <span>This will replace the text currently in the audit form.</span>
-                    </div>
-                    <button onClick={onCancel}><X size={18} /> Cancel</button>
-                </div>
-                <div className="demoCountdown">
-                    <strong>{countdown}</strong>
-                    <span>Confirm unlocks after the countdown.</span>
-                </div>
-                <div className="editActions">
-                    <button className="primary" disabled={countdown > 0} onClick={onConfirm}><Play size={16} /> Yes, load demo</button>
-                    <button onClick={onCancel}>Keep current text</button>
-                </div>
-            </section>
-        </div>
-    );
-}
-
-function FirstRunGuide({ form, hasAudits, onLoadDemo, setRoute, signedIn, states, templates }) {
-    if (hasAudits) {
-        return null;
-    }
-    const sampleLoaded = Boolean(form.claimText?.trim() && form.evidenceText?.trim());
-    const templateReady = Boolean(form.templateId || templates.length);
-    const stateReady = Boolean(form.checkStateId || states.length);
-    const checks = [
-        { label: signedIn ? 'Signed in' : 'Sign in or create account', done: signedIn },
-        { label: sampleLoaded ? 'Sample evidence loaded' : 'Load a realistic sample', done: sampleLoaded },
-        { label: templateReady ? 'Template ready' : 'Template library loading', done: templateReady },
-        { label: stateReady ? 'Audit state ready' : 'Audit states loading', done: stateReady },
-    ];
-    return (
-        <section className="firstRunGuide">
-            <div>
-                <span className="eyebrow">First run</span>
-                <h2>Get to a trustable audit in under a minute</h2>
-                <p>Use a seeded CV and evidence pack, review the template/state, then run the audit from the command bar.</p>
-            </div>
-            <div className="firstRunChecks">
-                {checks.map((check) => (
-                    <span className={check.done ? 'done' : ''} key={check.label}>
-                        <CheckCircle2 size={15} /> {check.label}
-                    </span>
-                ))}
-            </div>
-            <div className="firstRunActions">
-                {!signedIn && <button className="primary" onClick={() => navigateTo(setRoute, 'login')}>Sign in</button>}
-                {!signedIn && <button className="secondary" onClick={() => navigateTo(setRoute, 'register')}>Create account</button>}
-                <button className={sampleLoaded ? 'secondary' : 'primary'} onClick={onLoadDemo} type="button">Load sample CV</button>
-            </div>
-        </section>
-    );
-}
-
-function emptyTemplateForm(mode = 'cv') {
-    return {
-        mode,
-        name: '',
-        description: '',
-        instructions: '',
-        markUnimportant: 'email, phone, linkedin, github, website, contact',
-        shared: false,
-    };
-}
-
 async function waitForAuditCompletion(id, token, setStage) {
     setStage('WAITING FOR REALTIME AUDIT EVENT');
     return new Promise((resolve, reject) => {
@@ -1155,34 +927,6 @@ async function waitForAuditCompletion(id, token, setStage) {
         }
         window.addEventListener('verdictAuditChanged', onAudit);
     });
-}
-
-function HistoryPanel({ history, templates, loading, error, onRefresh, openAudit }) {
-    const [templateFilter, setTemplateFilter] = useState('ALL');
-    const filteredHistory = filterAuditsByTemplate(history, templateFilter);
-    const templateFilters = templateFilterOptions(history, templates);
-    return (
-        <section className="history">
-            <div className="historyHead">
-                <h2><History size={18} /> My Audit History</h2>
-                <button className="secondary" disabled={loading} onClick={onRefresh} type="button">
-                    <RefreshCcw size={15} /> {loading ? 'Refreshing...' : 'Refresh'}
-                </button>
-            </div>
-            <TemplateLensBar filters={templateFilters} value={templateFilter} onChange={setTemplateFilter} />
-            {error && <div className="error compact">Could not load audits. {error}</div>}
-            <div className="historyRows">
-                {loading && <SkeletonBlock rows={5} compact />}
-                {!loading && filteredHistory.length === 0 && <div className="emptyState">No audits match this template lens.</div>}
-                {filteredHistory.map((item) => (
-                    <button key={item.id} onClick={() => openAudit(item.id)}>
-                        <span>#{item.id} {item.claimTitle} / {item.templateName || 'No template'}</span>
-                        <strong>{item.credibilityScore}%</strong>
-                    </button>
-                ))}
-            </div>
-        </section>
-    );
 }
 
 function TemplateLensBar({ filters, value, onChange }) {

@@ -229,6 +229,21 @@ test('audit detail and profiling presentation are isolated from the app router',
     assert.match(auditSource, /export function AuditResult/);
 });
 
+test('audit workspace presentation and demo defaults are isolated from app orchestration', async () => {
+    const [appSource, workspaceSource, defaultsSource] = await Promise.all([
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8')),
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/AuditWorkspacePage.jsx', import.meta.url), 'utf8')),
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/data/auditWorkspaceDefaults.js', import.meta.url), 'utf8')),
+    ]);
+    assert.match(appSource, /<AuditWorkspacePage/);
+    assert.doesNotMatch(appSource, /function FirstRunGuide/);
+    assert.doesNotMatch(appSource, /function DemoConfirmModal/);
+    assert.match(workspaceSource, /export function AuditWorkspacePage/);
+    assert.match(workspaceSource, /WorkspaceRetry/);
+    assert.match(defaultsSource, /export const demoCases/);
+    assert.match(defaultsSource, /export function auditPayload/);
+});
+
 function memoryStorage(initial = {}) {
     const rows = new Map(Object.entries(initial));
     return {
