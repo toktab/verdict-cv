@@ -40,7 +40,7 @@ public class UserAuthPresenceFilter extends OncePerRequestFilter {
                 || path.equals("/api/auth/refresh")
                 || path.startsWith("/api/admin")
                 || path.startsWith("/api/docs")
-                || path.startsWith("/api/system")
+                || path.equals("/api/system/health")
                 || path.equals("/api/telemetry")
                 || path.startsWith("/v3/api-docs")
                 || path.startsWith("/swagger-ui");

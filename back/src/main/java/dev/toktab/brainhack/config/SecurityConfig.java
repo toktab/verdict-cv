@@ -23,8 +23,9 @@ public class SecurityConfig {
             RateLimitFilter rateLimitFilter,
             UserAuthPresenceFilter userAuthPresenceFilter,
             AdminAuthFilter adminAuthFilter,
-            CorsConfigurationSource corsConfigurationSource) throws Exception {
-        return http
+            CorsConfigurationSource corsConfigurationSource,
+            @Value("${verdict.security.require-https:false}") boolean requireHttps) throws Exception {
+        http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .httpBasic(basic -> basic.disable())
@@ -43,7 +44,7 @@ public class SecurityConfig {
                                 "/api/docs/ui/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/api/system/**",
+                                "/api/system/health",
                                 "/api/telemetry",
                                 "/",
                                 "/index.html",
@@ -54,8 +55,11 @@ public class SecurityConfig {
                         .anyRequest().permitAll())
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(userAuthPresenceFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(adminAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .build();
+                .addFilterBefore(adminAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        if (requireHttps) {
+            http.requiresChannel(channel -> channel.anyRequest().requiresSecure());
+        }
+        return http.build();
     }
 
     @Bean

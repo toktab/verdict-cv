@@ -413,6 +413,20 @@ class AuthAuditAdminFlowTest {
                 .andExpect(jsonPath("$.requestId").value(requestId));
     }
 
+    @Test
+    void publicHealthStaysAvailableButEvaluationDatasetRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/system/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
+
+        mockMvc.perform(get("/api/system/evaluation-dataset"))
+                .andExpect(status().isUnauthorized());
+
+        String token = register("dataset_reviewer");
+        mockMvc.perform(get("/api/system/evaluation-dataset").header("X-User-Token", token))
+                .andExpect(status().isOk());
+    }
+
     private String register(String username) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

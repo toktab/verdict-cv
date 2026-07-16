@@ -40,13 +40,34 @@ Inside that shell, install OSINT tools only from your allowlist and keep outputs
 
 ## Production checklist
 
+- Start the packaged service with `SPRING_PROFILES_ACTIVE=prod`. The production
+  profile refuses to start unless `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`,
+  `VERDICT_ADMIN_USERNAME`, `VERDICT_ADMIN_PASSWORD`, and
+  `VERDICT_ALLOWED_ORIGINS` are present.
 - Change all values in `.env`.
 - Never pass production database or RabbitMQ credentials on the command line or commit `.env`.
 - Put the app behind HTTPS using a reverse proxy such as Caddy, Nginx, or a platform proxy.
 - Do not expose MySQL or RabbitMQ ports publicly.
-- Turn on real route-level security before public deployment.
+- Forward the original protocol from the reverse proxy (`X-Forwarded-Proto:
+  https`). The production profile requires HTTPS and trusts framework-forwarded
+  headers.
+- Keep `/api/system/health` available for the load balancer, but require a user
+  session for `/api/system/evaluation-dataset`.
 - Keep `spring.jpa.hibernate.ddl-auto=validate`; Flyway owns schema changes.
 - Persist full OSINT run results before running long or expensive investigations.
 # Required admin credentials
 
 Production disables the built-in `admin/admin` login. Set `VERDICT_ADMIN_USERNAME` and a strong `VERDICT_ADMIN_PASSWORD`. The unsafe fallback can only be enabled deliberately with `VERDICT_ALLOW_DEFAULT_ADMIN=true` for isolated local development.
+
+## Manual provider checks
+
+These cannot be verified from the repository alone:
+
+- Set `VERDICT_LLM_API_KEY` and confirm one WAR_AI audit reports token usage and
+  estimated cost in the audit detail page.
+- Set `GITHUB_TOKEN` when the public API rate limit is too low, then run
+  SignalTrace against a candidate with a known public GitHub profile.
+- Do not scrape LinkedIn. Use candidate-provided links or pasted, consented
+  evidence until an approved provider/API agreement exists.
+- Replace `VERDICT_ALLOWED_ORIGINS` with the exact production HTTPS origin; do
+  not use `*`.

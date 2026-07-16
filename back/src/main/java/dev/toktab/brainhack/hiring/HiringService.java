@@ -58,6 +58,7 @@ import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -93,6 +94,7 @@ public class HiringService {
     private final ProjectPermissionService permissionService;
     private final ProjectActivityLogRepository activityRepository;
     private final AuditService auditService;
+    private final String githubToken;
     private final SecureRandom secureRandom = new SecureRandom();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(java.time.Duration.ofSeconds(4))
@@ -113,7 +115,8 @@ public class HiringService {
             ProjectStateService projectStateService,
             ProjectPermissionService permissionService,
             ProjectActivityLogRepository activityRepository,
-            AuditService auditService) {
+            AuditService auditService,
+            @Value("${verdict.github.token:}") String githubToken) {
         this.projectRepository = projectRepository;
         this.candidateRepository = candidateRepository;
         this.mapper = mapper;
@@ -129,6 +132,7 @@ public class HiringService {
         this.permissionService = permissionService;
         this.activityRepository = activityRepository;
         this.auditService = auditService;
+        this.githubToken = githubToken == null ? "" : githubToken.trim();
     }
 
     @Transactional
@@ -1009,12 +1013,9 @@ public class HiringService {
 
     private OsintSourceResponse githubProfile(String username, String link) {
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create("https://api.github.com/users/" + username))
-                    .timeout(java.time.Duration.ofSeconds(6))
-                    .header("Accept", "application/vnd.github+json")
-                    .header("User-Agent", "BrainHack-SignalTrace")
-                    .GET()
-                    .build();
+            HttpRequest request = githubRequest(
+                    URI.create("https://api.github.com/users/" + username),
+                    java.time.Duration.ofSeconds(6));
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() == 200) {
                 Map<String, Object> payload = mapper.map(response.body());
@@ -1281,12 +1282,9 @@ public class HiringService {
 
     private OsintSourceResponse githubRepositoryDepth(String username, String link) {
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create("https://api.github.com/users/" + username + "/repos?sort=pushed&per_page=20"))
-                    .timeout(java.time.Duration.ofSeconds(7))
-                    .header("Accept", "application/vnd.github+json")
-                    .header("User-Agent", "BrainHack-SignalTrace")
-                    .GET()
-                    .build();
+            HttpRequest request = githubRequest(
+                    URI.create("https://api.github.com/users/" + username + "/repos?sort=pushed&per_page=20"),
+                    java.time.Duration.ofSeconds(7));
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() != 200) {
                 return new OsintSourceResponse("GitHub repository depth", "Repository depth was not checked because the GitHub API returned status " + response.statusCode() + ".", 28, "0", "warn", link);
@@ -1321,6 +1319,18 @@ public class HiringService {
             Thread.currentThread().interrupt();
             return new OsintSourceResponse("GitHub repository depth", "Repository depth check was interrupted.", 20, "0", "warn", link);
         }
+    }
+
+    private HttpRequest githubRequest(URI uri, java.time.Duration timeout) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(uri)
+                .timeout(timeout)
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .header("User-Agent", "BrainHack-SignalTrace");
+        if (!githubToken.isBlank()) {
+            builder.header("Authorization", "Bearer " + githubToken);
+        }
+        return builder.GET().build();
     }
 
     private boolean pushedWithinMonths(Object value, long months) {
