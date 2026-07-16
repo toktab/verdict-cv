@@ -6,6 +6,7 @@ Use this before each demo, handoff, or deploy.
 
 - Confirm `VERDICT_ALLOWED_ORIGINS` matches the deployed frontend origin.
 - Confirm admin credentials are explicitly configured and are not `admin/admin`.
+- Confirm `DB_USERNAME`, `DB_PASSWORD`, and non-default RabbitMQ credentials are supplied by the deployment secret store.
 - Confirm the LLM key and selected model are present when AI-backed states are enabled.
 - Confirm RabbitMQ is reachable when `verdict.rabbit.enabled=true`; otherwise verify executor fallback is intentional.
 - Confirm database connection settings point to the intended environment.

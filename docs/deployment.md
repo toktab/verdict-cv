@@ -10,7 +10,8 @@ This stack is for free local testing or a small VPS-style host. It builds the Re
    Copy-Item .env.example .env
    ```
 
-2. Edit `.env` and replace every `change_me_*` value.
+2. Edit `.env` and replace every `change_me_*` value. Compose refuses to start
+   when database, root database, or RabbitMQ passwords are missing.
 
 3. Build and run the app, MySQL, and RabbitMQ:
 
@@ -40,10 +41,11 @@ Inside that shell, install OSINT tools only from your allowlist and keep outputs
 ## Production checklist
 
 - Change all values in `.env`.
+- Never pass production database or RabbitMQ credentials on the command line or commit `.env`.
 - Put the app behind HTTPS using a reverse proxy such as Caddy, Nginx, or a platform proxy.
 - Do not expose MySQL or RabbitMQ ports publicly.
 - Turn on real route-level security before public deployment.
-- Replace `spring.jpa.hibernate.ddl-auto=update` with migrations before serious use.
+- Keep `spring.jpa.hibernate.ddl-auto=validate`; Flyway owns schema changes.
 - Persist full OSINT run results before running long or expensive investigations.
 # Required admin credentials
 

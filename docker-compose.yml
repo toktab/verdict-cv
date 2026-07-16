@@ -9,7 +9,7 @@ services:
     environment:
       DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-verdict}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       DB_USERNAME: ${MYSQL_USER:-verdict}
-      DB_PASSWORD: ${MYSQL_PASSWORD:-verdict_dev_password}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
     ports:
@@ -26,8 +26,8 @@ services:
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-verdict}
       MYSQL_USER: ${MYSQL_USER:-verdict}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-verdict_dev_password}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_dev_password}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
     ports:
       - "${MYSQL_PORT:-3306}:3306"
     volumes:
@@ -42,8 +42,8 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-verdict}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
     ports:
       - "${RABBITMQ_PORT:-5672}:5672"
       - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
