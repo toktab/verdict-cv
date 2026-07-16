@@ -1,21 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, RefreshCcw, Save, Send, ShieldCheck, User, UserPlus, X } from 'lucide-react';
 import IntroAnimation from './IntroAnimation';
-import { HistoryPage } from './pages/HistoryPage';
-import { CandidateDetailPage } from './pages/projects/CandidateDetailPage';
-import { CandidateMatchReportPage } from './pages/projects/CandidateMatchReportPage';
-import { CandidateProfilePage } from './pages/projects/CandidateProfilePage';
-import { HomePage } from './pages/HomePage';
-import { MessagesPage } from './pages/MessagesPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { AdminPage } from './pages/AdminPage';
-import { AddCandidatePage } from './pages/projects/AddCandidatePage';
-import { NewJobPage } from './pages/projects/NewJobPage';
-import { ProjectDetailPage } from './pages/projects/ProjectDetailPage';
-import { ProjectSettingsPage } from './pages/projects/ProjectSettingsPage';
-import { ProjectTeamPage } from './pages/projects/ProjectTeamPage';
-import { ProjectsPage } from './pages/projects/ProjectsPage';
-import { SignalTracePage } from './pages/projects/SignalTracePage';
 import { LanguageContext, translate, useLanguage } from './i18n';
 import { apiLogin, apiRegister, apiMe, apiLogout, apiListMessages, apiListProjects, apiLookupUser, apiRealtimeUrl, apiSendMessage, javaApi, normaliseProject, normaliseUser } from './api';
 import { appendMessage, createMessage, messageBelongsTo, readMessages } from './messageStore';
@@ -25,6 +10,23 @@ import { navigateTo, routeFromPath, scrollToPageTop } from './navigation';
 import { auditScoreLevel } from './utils/auditScore';
 import defaultAts from './data/default-ats.json';
 import './styles.css';
+
+const lazyNamed = (loader, name) => lazy(() => loader().then((module) => ({ default: module[name] })));
+const HistoryPage = lazyNamed(() => import('./pages/HistoryPage'), 'HistoryPage');
+const CandidateDetailPage = lazyNamed(() => import('./pages/projects/CandidateDetailPage'), 'CandidateDetailPage');
+const CandidateMatchReportPage = lazyNamed(() => import('./pages/projects/CandidateMatchReportPage'), 'CandidateMatchReportPage');
+const CandidateProfilePage = lazyNamed(() => import('./pages/projects/CandidateProfilePage'), 'CandidateProfilePage');
+const HomePage = lazyNamed(() => import('./pages/HomePage'), 'HomePage');
+const MessagesPage = lazyNamed(() => import('./pages/MessagesPage'), 'MessagesPage');
+const ProfilePage = lazyNamed(() => import('./pages/ProfilePage'), 'ProfilePage');
+const AdminPage = lazyNamed(() => import('./pages/AdminPage'), 'AdminPage');
+const AddCandidatePage = lazyNamed(() => import('./pages/projects/AddCandidatePage'), 'AddCandidatePage');
+const NewJobPage = lazyNamed(() => import('./pages/projects/NewJobPage'), 'NewJobPage');
+const ProjectDetailPage = lazyNamed(() => import('./pages/projects/ProjectDetailPage'), 'ProjectDetailPage');
+const ProjectSettingsPage = lazyNamed(() => import('./pages/projects/ProjectSettingsPage'), 'ProjectSettingsPage');
+const ProjectTeamPage = lazyNamed(() => import('./pages/projects/ProjectTeamPage'), 'ProjectTeamPage');
+const ProjectsPage = lazyNamed(() => import('./pages/projects/ProjectsPage'), 'ProjectsPage');
+const SignalTracePage = lazyNamed(() => import('./pages/projects/SignalTracePage'), 'SignalTracePage');
 
 const auditModes = {
     cv: {
@@ -883,7 +885,9 @@ function App() {
                     navigateTo(setRoute, 'home');
                 }}
             >
-                {content}
+                <Suspense fallback={<RouteLoadingFallback />}>
+                    {content}
+                </Suspense>
             </ErrorBoundary>
             <GlobalCompose
                 draft={composeDraft}
@@ -1130,6 +1134,17 @@ function userInitials(user) {
 
 function emptyComposeDraft() {
     return { to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null, candidateAttachments: [] };
+}
+
+function RouteLoadingFallback() {
+    return (
+        <div className="shell">
+            <main className="workspace routeChunkLoading" aria-live="polite">
+                <Loading stage="LOADING WORKSPACE" />
+                <SkeletonBlock rows={6} />
+            </main>
+        </div>
+    );
 }
 
 function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessages = 0 }) {
