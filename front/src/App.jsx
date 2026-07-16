@@ -333,6 +333,8 @@ function App() {
     const [unreadMessages, setUnreadMessages] = useState(0);
     const [messageNotice, setMessageNotice] = useState(null);
     const seenInboundMessageIds = useRef(new Set());
+    const loadersRef = useRef({});
+    loadersRef.current = { loadHistory, loadTemplates, loadStates, loadProjects, loadAuditDetail };
 
     function setLang(nextLang) {
         if (nextLang !== 'en') return;
@@ -375,39 +377,40 @@ function App() {
 
     useEffect(() => {
         track('page_view', route, window.location.pathname);
-        loadHistory();
-        loadTemplates();
-        loadStates();
-        loadProjects();
-        if (userToken) {
-            api.me(userToken).then(setUser).catch(() => {
-                localStorage.removeItem('verdictUserToken');
-                setUserToken('');
-                setUser(null);
-            });
+    }, [route]);
+
+    useEffect(() => {
+        if (!userToken) {
+            setUser(null);
+            return;
         }
-    }, []);
+        api.me(userToken).then(setUser).catch(() => {
+            localStorage.removeItem('verdictUserToken');
+            setUserToken('');
+            setUser(null);
+        });
+    }, [userToken]);
 
     useEffect(() => {
         if ((route === 'auditDetail' || route === 'auditProfile') && detailAuditId && userToken) {
-            loadAuditDetail(detailAuditId);
+            loadersRef.current.loadAuditDetail(detailAuditId);
         } else {
             setDetailLoading(false);
         }
     }, [route, detailAuditId, userToken]);
 
     useEffect(() => {
-        loadHistory();
-        loadTemplates();
-        loadStates();
-        loadProjects();
+        loadersRef.current.loadHistory();
+        loadersRef.current.loadTemplates();
+        loadersRef.current.loadStates();
+        loadersRef.current.loadProjects();
     }, [userToken]);
 
     useEffect(() => {
         if (!userToken || typeof EventSource === 'undefined') return undefined;
         const source = new EventSource(apiRealtimeUrl(userToken));
         source.addEventListener('project', () => {
-            loadProjects({ silent: true });
+            loadersRef.current.loadProjects({ silent: true });
             window.dispatchEvent(new Event('verdictProjectsChanged'));
         });
         source.addEventListener('message', () => {

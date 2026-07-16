@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Activity, Edit3, Gauge, Lock, RefreshCcw, Save, Trash2, UserPlus, X } from 'lucide-react';
 import { javaApi } from '../api';
 
@@ -69,6 +69,7 @@ export function AdminPage({ Header, setRoute }) {
     const [userForm, setUserForm] = useState(emptyUserForm());
     const [adminLoading, setAdminLoading] = useState(() => Boolean(token));
     const [error, setError] = useState('');
+    const loadAdminRef = useRef(null);
     const selectedClearTargetRows = tableClearTargets.filter((target) => selectedClearTargets.includes(target.key));
     const selectedClearRowCount = selectedClearTargetRows.reduce((sum, target) => sum + Number(target.deletedRows || 0), 0);
     const clearConfirmationPhrase = selectedClearTargetRows.map((target) => target.key).join(' + ');
@@ -115,9 +116,11 @@ export function AdminPage({ Header, setRoute }) {
 
     useEffect(() => {
         if (token) {
-            loadAdmin().catch((err) => setError(err.message));
+            loadAdminRef.current?.().catch((err) => setError(err.message));
         }
     }, [token, auditOffset, userOffset, logOffset, auditSearch, userSearch, logSearch]);
+
+    loadAdminRef.current = loadAdmin;
 
     function requestDeleteAudit(id) {
         setAdminConfirm({

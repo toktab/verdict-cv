@@ -155,6 +155,7 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
     const [osintLoading, setOsintLoading] = useState(false);
     const [osintError, setOsintError] = useState('');
     const autoRunKey = useRef('');
+    const runOsintRef = useRef(null);
     const signalGroups = lang === 'ge' ? signalGroupsGe : signalGroupsEn;
     const activeState = signalStates.find((state) => state.id === activeStateId) || signalStates[0];
     const selectedStateInitialized = initializedStateIds.has(activeStateId);
@@ -181,7 +182,7 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
             return;
         }
         autoRunKey.current = runKey;
-        runOsintCheck();
+        runOsintRef.current?.();
     }, [activeProject, activeCandidate, activeStateId, consentAccepted, selectedStateInitialized, signalTraceUnlocked]);
 
     if (!activeProject || !activeCandidate) {
@@ -226,6 +227,7 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
             setOsintLoading(false);
         }
     }
+    runOsintRef.current = runOsintCheck;
 
     return (
         <div className="shell">
