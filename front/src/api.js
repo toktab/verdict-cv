@@ -296,8 +296,8 @@ export const javaApi = {
     adminTableClearTargets(token) {
         return adminRequest('GET', '/admin/table-clear-targets', undefined, token);
     },
-    clearAdminTables(token, targets) {
-        return adminRequest('POST', '/admin/clear-tables', { targets }, token);
+    clearAdminTables(token, targets, confirmation) {
+        return adminRequest('POST', '/admin/clear-tables', { targets, confirmation }, token);
     },
     createUser(token, payload) {
         return adminRequest('POST', '/admin/users', payload, token);

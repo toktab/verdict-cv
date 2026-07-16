@@ -215,6 +215,14 @@ public class AdminController {
 
     @PostMapping("/clear-tables")
     public List<TableClearResult> clearTables(@RequestBody ClearTablesRequest request) {
+        String requiredPhrase = request.targets() == null ? "" : request.targets().stream()
+                .map(value -> value == null ? "" : value.trim().toLowerCase())
+                .filter(value -> !value.isBlank())
+                .reduce((left, right) -> left + " + " + right)
+                .orElse("");
+        if (requiredPhrase.isBlank() || !requiredPhrase.equals(request.confirmation() == null ? "" : request.confirmation().trim().toLowerCase())) {
+            throw new IllegalArgumentException("Type the exact selected table keys before clearing: " + requiredPhrase);
+        }
         List<TableClearResult> results = tableMaintenanceService.clear(request.targets());
         logService.recordSystem("ADMIN_CLEAR_TABLES", "targets=" + request.targets());
         return results;
@@ -230,5 +238,5 @@ public class AdminController {
 
 }
 
-record ClearTablesRequest(List<String> targets) {
+record ClearTablesRequest(List<String> targets, String confirmation) {
 }

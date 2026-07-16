@@ -10,7 +10,7 @@ const api = {
     adminSettings: (token) => javaApi.adminSettings(token),
     adminHealth: (token) => javaApi.adminHealth(token),
     adminTableClearTargets: (token) => javaApi.adminTableClearTargets(token),
-    clearAdminTables: (token, targets) => javaApi.clearAdminTables(token, targets),
+    clearAdminTables: (token, targets, confirmation) => javaApi.clearAdminTables(token, targets, confirmation),
     updateAdminSettings: (token, settings) => javaApi.updateAdminSettings(token, settings),
     adminAudit: (token, id) => javaApi.adminAudit(token, id),
     deleteAudit: (token, id) => javaApi.deleteAudit(token, id),
@@ -241,7 +241,7 @@ export function AdminPage({ Header, setRoute }) {
     async function clearSelectedTablesNow() {
         track('admin_clear_tables', 'admin_panel', selectedClearTargets.join(','));
         setError('');
-        const results = await api.clearAdminTables(token, selectedClearTargets);
+        const results = await api.clearAdminTables(token, selectedClearTargets, clearConfirmationPhrase);
         setClearResults(results);
         setSelectedClearTargets([]);
         setClearConfirmText('');

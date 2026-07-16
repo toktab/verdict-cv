@@ -231,6 +231,12 @@ class AuthAuditAdminFlowTest {
                         .header("X-Admin-Token", adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"targets\":[\"settings\"]}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/admin/clear-tables")
+                        .header("X-Admin-Token", adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targets\":[\"settings\"],\"confirmation\":\"settings\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].key").value("settings"))
                 .andExpect(jsonPath("$[0].deletedRows").value(1));
