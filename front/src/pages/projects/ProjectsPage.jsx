@@ -32,7 +32,9 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
         try {
             const result = await apiImportJobPostings(userToken);
             if (onProjectsChange) await onProjectsChange();
-            setImportMessage(`Imported ${result.imported} listings. ${result.skipped} already existed.`);
+            setImportMessage(result.imported
+                ? `Demo workspace ready: ${result.imported} projects, ${result.candidates || 0} candidates, ${result.members || 0} memberships, ${result.messages || 0} messages, and ${result.audits || 0} audits.`
+                : `Demo workspace already exists. ${result.skipped} projects were left unchanged.`);
             setPage(1);
         } catch (err) {
             setImportError(err.message);
@@ -68,7 +70,7 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
                             <RefreshCcw size={18} /> {projectsLoading ? 'Refreshing...' : 'Refresh'}
                         </button>
                         <button className="secondary" disabled={importing} onClick={importListings}>
-                            <Database size={18} /> {importing ? 'Importing...' : 'Import listings'}
+                            <Database size={18} /> {importing ? 'Building demo...' : 'Load demo workspace'}
                         </button>
                         <button className="secondary" onClick={() => setAtsOpen(true)} type="button">
                             <ShieldCheck size={18} /> ATS
@@ -136,9 +138,12 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
                     {!projectsLoading && visibleProjects.length === 0 && (
                         <div className="emptyState projectEmptyState">
                             <strong>No projects yet.</strong>
-                            <span>Create a job description or import sample listings to start reviewing candidates.</span>
+                            <span>Create a job description or load the complete demo workspace with candidates, reviewers, messages, and audit history.</span>
                             <button className="primary" onClick={() => navigateTo(setRoute, 'newProject')} type="button">
                                 <BriefcaseBusiness size={16} /> New job description
+                            </button>
+                            <button className="secondary" disabled={importing} onClick={importListings} type="button">
+                                <Database size={16} /> {importing ? 'Building demo...' : 'Load demo workspace'}
                             </button>
                         </div>
                     )}

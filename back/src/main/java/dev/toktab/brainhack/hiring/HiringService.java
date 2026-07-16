@@ -2,7 +2,10 @@ package dev.toktab.brainhack.hiring;
 
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.account.UserAccountService;
+import dev.toktab.brainhack.api.dto.AuditRunRequest;
+import dev.toktab.brainhack.api.dto.UserAdminRequest;
 import dev.toktab.brainhack.ats.AtsKeywordCatalog;
+import dev.toktab.brainhack.audit.AuditService;
 import dev.toktab.brainhack.audit.CheckStateIds;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidatePageResponse;
@@ -27,6 +30,8 @@ import dev.toktab.brainhack.hiring.HiringDtos.VoteRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.VoteSummaryResponse;
 import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectActivityRequest;
 import dev.toktab.brainhack.messaging.MessageService;
+import dev.toktab.brainhack.messaging.MessageDtos.CandidateAttachment;
+import dev.toktab.brainhack.messaging.MessageDtos.MessageRequest;
 import dev.toktab.brainhack.realtime.RealtimeService;
 import jakarta.transaction.Transactional;
 import java.net.URI;
@@ -87,6 +92,7 @@ public class HiringService {
     private final ProjectStateService projectStateService;
     private final ProjectPermissionService permissionService;
     private final ProjectActivityLogRepository activityRepository;
+    private final AuditService auditService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(java.time.Duration.ofSeconds(4))
@@ -106,7 +112,8 @@ public class HiringService {
             RealtimeService realtimeService,
             ProjectStateService projectStateService,
             ProjectPermissionService permissionService,
-            ProjectActivityLogRepository activityRepository) {
+            ProjectActivityLogRepository activityRepository,
+            AuditService auditService) {
         this.projectRepository = projectRepository;
         this.candidateRepository = candidateRepository;
         this.mapper = mapper;
@@ -121,6 +128,7 @@ public class HiringService {
         this.projectStateService = projectStateService;
         this.permissionService = permissionService;
         this.activityRepository = activityRepository;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -163,18 +171,117 @@ public class HiringService {
     public ImportResponse importSamples(UserAccount owner) {
         int imported = 0;
         int skipped = 0;
+        int candidateCount = 0;
+        int memberCount = 0;
+        int messageCount = 0;
+        int auditCount = 0;
+        List<UserAccount> demoMembers = demoMembers();
         for (ProjectRequest sample : sampleProjects()) {
             if (projectRepository.existsByOwnerIdAndTitleIgnoreCaseAndDeletedAtIsNull(owner.getId(), sample.title())) {
                 skipped++;
             } else {
                 ProjectResponse project = createProject(owner, sample);
+                List<CandidateResponse> candidates = new ArrayList<>();
                 for (CandidateRequest candidate : sampleCandidates(sample.title())) {
-                    addCandidate(owner, project.id(), candidate);
+                    candidates.add(addCandidate(owner, project.id(), candidate));
+                    candidateCount++;
+                }
+                for (int index = 0; index < demoMembers.size(); index++) {
+                    UserAccount member = demoMembers.get(index);
+                    String role = index == 0 ? "REVIEWER" : "COORDINATOR";
+                    InviteResponse invite = invite(owner, project.id(), new InviteRequest(member.getEmail(), role));
+                    acceptInvite(member, invite.token());
+                    memberCount++;
+                }
+                if (!candidates.isEmpty()) {
+                    CandidateResponse lead = candidates.get(0);
+                    addNote(owner, project.id(), lead.id(), new NoteRequest(
+                            "NOTE",
+                            "INTERVIEW",
+                            "Demo review: evidence is concrete enough for interview, with targeted follow-up on ownership and production scope."
+                    ));
+                    updateCandidateStatus(owner, project.id(), lead.id(), new CandidateStatusRequest("OnInterview"));
+                    vote(owner, project.id(), lead.id(), new VoteRequest("UPVOTE", 4.5));
+                    for (UserAccount member : demoMembers) {
+                        messageService.send(owner, new MessageRequest(
+                                member.getEmail(),
+                                "Demo shortlist review: " + sample.title(),
+                                "Please review the attached lead candidate before the team calibration meeting. Focus on direct project evidence and remaining verification pressure.",
+                                null,
+                                null,
+                                List.of(new CandidateAttachment(lead.id(), project.id(), lead.name(), lead.role(), sample.title(), lead.score()))
+                        ));
+                        messageCount++;
+                    }
+                    messageService.send(demoMembers.get(0), new MessageRequest(
+                            owner.getEmail(),
+                            "Reviewer note: " + lead.name(),
+                            "I reviewed the demo candidate package. The technical evidence is strong; I would verify the exact production ownership and team contribution during interview.",
+                            null,
+                            null,
+                            List.of(new CandidateAttachment(lead.id(), project.id(), lead.name(), lead.role(), sample.title(), lead.score()))
+                    ));
+                    messageCount++;
+                }
+                auditService.run(demoAuditRequest(sample, candidates), null, owner);
+                auditCount++;
+                if (candidates.size() > 1) {
+                    auditService.run(demoRiskAuditRequest(sample, candidates.get(1)), null, owner);
+                    auditCount++;
                 }
                 imported++;
             }
         }
-        return new ImportResponse(imported, skipped);
+        return new ImportResponse(imported, skipped, candidateCount, memberCount, messageCount, auditCount);
+    }
+
+    private List<UserAccount> demoMembers() {
+        return List.of(
+                ensureDemoUser("demo.reviewer", "demo.reviewer@verdict.example", "Maya Reviewer", "Senior Reviewer"),
+                ensureDemoUser("demo.coordinator", "demo.coordinator@verdict.example", "Levan Coordinator", "Hiring Coordinator")
+        );
+    }
+
+    private UserAccount ensureDemoUser(String username, String email, String fullName, String role) {
+        return userAccountService.findActiveByUsernameOrEmail(email).orElseGet(() -> userAccountService.create(new UserAdminRequest(
+                fullName,
+                username,
+                email,
+                "Georgia",
+                "VERDICT demo workspace",
+                "VERDICT Demo",
+                role,
+                "DemoWorkspace123!",
+                true
+        )));
+    }
+
+    private AuditRunRequest demoAuditRequest(ProjectRequest project, List<CandidateResponse> candidates) {
+        String claimText = candidates.isEmpty()
+                ? project.description()
+                : candidates.get(0).name() + " is the current lead candidate for " + project.title()
+                + ". The application includes measurable outcomes, role-relevant technical evidence, and a review-ready portfolio.";
+        return new AuditRunRequest(
+                "Demo shortlist: " + project.title(),
+                "Demo hiring evidence",
+                claimText,
+                project.description() + "\nRequirements:\n" + String.join("\n", project.requirements()),
+                "cv",
+                "",
+                CheckStateIds.LIGHT
+        );
+    }
+
+    private AuditRunRequest demoRiskAuditRequest(ProjectRequest project, CandidateResponse candidate) {
+        return new AuditRunRequest(
+                "Demo risk review: " + candidate.name(),
+                "Demo role requirements",
+                candidate.name() + " claims exceptional ownership, world-class execution, and broad production impact without complete supporting artifacts.",
+                project.description() + "\nThe supplied application has partial technical evidence but requires direct verification of seniority, metrics, and ownership.",
+                "cv",
+                "",
+                CheckStateIds.WAR
+        );
     }
 
     @Transactional
@@ -536,6 +643,7 @@ public class HiringService {
         invite.setStatus("ACCEPTED");
         invite.setAcceptedAt(Instant.now());
         ProjectInvite saved = inviteRepository.save(invite);
+        messageService.markInviteAccepted(saved.getToken(), actor);
         recordActivity(saved.getProject(), actor, "invite_accept", "Accepted invite", "good", actor.getEmail() + " joined the project.");
         publishProjectChange(saved.getProject());
         return mapper.invite(saved);

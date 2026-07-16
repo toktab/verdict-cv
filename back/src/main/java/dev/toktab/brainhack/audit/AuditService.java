@@ -138,7 +138,12 @@ public class AuditService {
             AuditAnalysisResult analysis = analyze(audit, sentences, evidenceText);
             Audit saved = completeAnalyzedAudit(audit, analysis, evidenceText, started, false);
             String actor = owner == null ? "visitor" : owner.getUsername();
-            logService.record("AUDIT_RUN", httpRequest, 200, saved.getProcessingMillis(), actor, "auditId=" + saved.getId() + "; status=" + saved.getStatus() + "; score=" + saved.getCredibilityScore() + "; engine=" + saved.getEngine());
+            String detail = "auditId=" + saved.getId() + "; status=" + saved.getStatus() + "; score=" + saved.getCredibilityScore() + "; engine=" + saved.getEngine();
+            if (httpRequest == null) {
+                logService.recordSystem("AUDIT_RUN", "actor=" + actor + "; " + detail);
+            } else {
+                logService.record("AUDIT_RUN", httpRequest, 200, saved.getProcessingMillis(), actor, detail);
+            }
             return saved;
         } catch (RuntimeException exception) {
             failAudit(audit, exception, started);

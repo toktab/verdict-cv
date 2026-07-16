@@ -42,6 +42,49 @@ class HiringFlowTest {
     ObjectMapper objectMapper;
 
     @Test
+    void demoWorkspaceSeedsProjectsCandidatesMembersMessagesAndAuditHistoryOnce() throws Exception {
+        String token = register("demo_workspace");
+
+        mockMvc.perform(post("/api/projects/import-job-postings")
+                        .header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.imported").value(2))
+                .andExpect(jsonPath("$.candidates").value(5))
+                .andExpect(jsonPath("$.members").value(4))
+                .andExpect(jsonPath("$.messages").value(6))
+                .andExpect(jsonPath("$.audits").value(4));
+
+        mockMvc.perform(get("/api/projects").header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].candidates.length()", greaterThan(1)));
+
+        JsonNode projects = objectMapper.readTree(mockMvc.perform(get("/api/projects").header("X-User-Token", token))
+                .andReturn().getResponse().getContentAsString());
+        long projectId = projects.get(0).get("id").asLong();
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/members").header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(3)));
+
+        mockMvc.perform(get("/api/messages").header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()", greaterThan(3)));
+
+        mockMvc.perform(get("/api/audit/history").header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()", greaterThan(3)));
+
+        mockMvc.perform(post("/api/projects/import-job-postings").header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.imported").value(0))
+                .andExpect(jsonPath("$.skipped").value(2))
+                .andExpect(jsonPath("$.candidates").value(0))
+                .andExpect(jsonPath("$.messages").value(0))
+                .andExpect(jsonPath("$.audits").value(0));
+    }
+
+    @Test
     void hiringApisRequireAuthenticationAndAcceptBearerTokens() throws Exception {
         mockMvc.perform(get("/api/projects"))
                 .andExpect(status().isUnauthorized())

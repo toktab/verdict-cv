@@ -111,6 +111,19 @@ public class MessageService {
         return saved;
     }
 
+    @Transactional
+    public void markInviteAccepted(String inviteToken, UserAccount actor) {
+        messageRepository.findFirstByInviteToken(inviteToken).ifPresent(message -> {
+            message.setInviteStatus("ACCEPTED");
+            message.setRead(true);
+            message.setReadAt(Instant.now());
+            AppMessage saved = messageRepository.save(message);
+            messageFileLogger.updated(actor, saved);
+            realtimeService.publishMessage(actor);
+            userAccountService.findActiveByUsernameOrEmail(saved.getSenderEmail()).ifPresent(realtimeService::publishMessage);
+        });
+    }
+
     private AppMessage baseMessage(UserAccount actor, String to, String subject, String body) {
         UserAccount recipient = userAccountService.findActiveByUsernameOrEmail(to).orElse(null);
         String rawRecipient = defaulted(to, "").trim().toLowerCase(Locale.ROOT);

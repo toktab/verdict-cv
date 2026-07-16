@@ -26,7 +26,14 @@ public class HiringDtos {
     ) {
     }
 
-    public record ImportResponse(int imported, int skipped) {
+    public record ImportResponse(
+            int imported,
+            int skipped,
+            int candidates,
+            int members,
+            int messages,
+            int audits
+    ) {
     }
 
     public record OsintRunRequest(
