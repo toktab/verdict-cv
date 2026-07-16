@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: front
+        run: npm ci
+      - name: Frontend tests
+        working-directory: front
+        run: npm test
+      - name: Frontend lint
+        working-directory: front
+        run: npm run lint
+      - name: Frontend typecheck
+        working-directory: front
+        run: npm run typecheck
+      - name: Frontend build
+        working-directory: front
+        run: npm run build
+      - name: Backend tests
+        run: ./mvnw test
