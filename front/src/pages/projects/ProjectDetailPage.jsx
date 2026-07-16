@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, CheckCircle2, ClipboardCheck, FileSearch, Settings, ShieldCheck, UserPlus, Users } from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, ClipboardCheck, Download, FileSearch, GitCompareArrows, Settings, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import { apiAcceptProjectInvite, apiCreateProjectInvite, apiListProjectInvites, apiListProjectMembers } from '../../api';
 import { useLanguage } from '../../i18n';
 import { CandidateTable } from './components/CandidateTable';
@@ -15,6 +15,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
     const [members, setMembers] = useState([]);
     const [teamMessage, setTeamMessage] = useState('');
     const [teamBusy, setTeamBusy] = useState(false);
+    const [compareIds, setCompareIds] = useState([]);
     const project = findProjectFromPath(projects);
     useEffect(() => {
         if (!project?.id || !userToken) return;
@@ -85,6 +86,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
     const funnel = projectFunnel(project.candidates);
     const risks = projectRiskClusters(project.candidates, t);
     const coverage = projectCoverage(project);
+    const comparedCandidates = project.candidates.filter((candidate) => compareIds.includes(String(candidate.id)));
     const myMember = members.find((member) => sameIdentity(member.email, user?.email) || sameIdentity(member.email, user?.username));
     const myPermissions = project.myPermissions?.length ? project.myPermissions : permissionsForProjectRole(myMember?.role || project.myRole || (project.ownerId === user?.id ? 'Head Admin' : 'Viewer'));
     const canTeamManage = myPermissions.includes('canTeamManage') || myPermissions.includes('protectedAccount');
@@ -186,6 +188,47 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                         <div className="healthLine"><span>{t('bestCandidate')}</span><strong>{best?.name || 'No candidates yet'}</strong></div>
                         <div className="healthLine"><span>{t('needsHumanReview')}</span><strong>{project.candidates.filter((candidate) => candidate.state === 'Needs review').length}</strong></div>
                     </div>
+                </section>
+                <section className="candidateComparePanel">
+                    <div className="tableToolbar">
+                        <div>
+                            <span className="eyebrow">Candidate comparison</span>
+                            <h2><GitCompareArrows size={18} /> Compare 2 to 4 candidates</h2>
+                        </div>
+                        <button className="secondary" disabled={comparedCandidates.length < 2} type="button" onClick={() => downloadCandidateComparison(project, comparedCandidates)}>
+                            <Download size={16} /> Export CSV
+                        </button>
+                    </div>
+                    <div className="candidateComparePicker">
+                        {project.candidates.map((candidate) => {
+                            const selected = compareIds.includes(String(candidate.id));
+                            return (
+                                <label className={selected ? 'selected' : ''} key={candidate.id}>
+                                    <input
+                                        type="checkbox"
+                                        checked={selected}
+                                        disabled={!selected && compareIds.length >= 4}
+                                        onChange={() => setCompareIds((current) => selected
+                                            ? current.filter((id) => id !== String(candidate.id))
+                                            : [...current, String(candidate.id)])}
+                                    />
+                                    <span><strong>{candidate.name}</strong><small>{candidate.role}</small></span>
+                                </label>
+                            );
+                        })}
+                    </div>
+                    {comparedCandidates.length >= 2 ? (
+                        <div className="candidateCompareTable" role="table" aria-label="Candidate comparison">
+                            <div className="candidateCompareRow heading" role="row">
+                                <span>Candidate</span><span>Score</span><span>Match</span><span>Risk</span><span>Supported</span><span>Stretched</span><span>Unsupported</span><span>Decision</span>
+                            </div>
+                            {comparedCandidates.map((candidate) => (
+                                <button className="candidateCompareRow" role="row" type="button" key={candidate.id} onClick={() => navigateTo(setRoute, 'candidateDetail', project.id, candidate.id)}>
+                                    <strong>{candidate.name}</strong><span>{candidate.score}%</span><span>{candidate.match}%</span><span>{candidate.risk}</span><span>{candidate.supported}</span><span>{candidate.stretched}</span><span>{candidate.unsupported}</span><span>{comparisonDecision(candidate)}</span>
+                                </button>
+                            ))}
+                        </div>
+                    ) : <div className="emptyState">Select at least two candidates to compare evidence, risk, and fit.</div>}
                 </section>
                 {canInvite && <section className="teamInvitePanel">
                     <div className="tableToolbar">
@@ -332,6 +375,30 @@ function requirementClaim(candidate, requirement) {
 
 function normalizeClaim(value = '') {
     return String(value).toLowerCase().replace(/[^a-z0-9+#. ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function comparisonDecision(candidate) {
+    if (candidate.score >= 80 && candidate.risk === 'Low') return 'Interview priority';
+    if (candidate.score >= 60 && candidate.risk !== 'High') return 'Human review';
+    return 'Hold';
+}
+
+function downloadCandidateComparison(project, candidates) {
+    const rows = [
+        ['Candidate', 'Role', 'Score', 'Match', 'Risk', 'Supported', 'Stretched', 'Unsupported', 'OSINT', 'Memory', 'Decision'],
+        ...candidates.map((candidate) => [candidate.name, candidate.role, candidate.score, candidate.match, candidate.risk, candidate.supported, candidate.stretched, candidate.unsupported, candidate.osint, candidate.memory, comparisonDecision(candidate)]),
+    ];
+    const csv = rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${String(project.title || 'project').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-candidate-comparison.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+}
+
+function csvCell(value) {
+    return `"${String(value ?? '').replaceAll('"', '""')}"`;
 }
 
 function sameIdentity(left = '', right = '') {

@@ -7790,6 +7790,71 @@ select {
     border-color: rgba(255, 91, 91, 0.45);
 }
 
+.candidateComparePanel {
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+    padding: 18px 0;
+}
+
+.candidateComparePicker {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 8px;
+    margin: 14px 0;
+}
+
+.candidateComparePicker label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 52px;
+    border: 1px solid var(--line);
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.candidateComparePicker label.selected {
+    border-color: rgba(65, 201, 116, 0.5);
+    background: rgba(65, 201, 116, 0.08);
+}
+
+.candidateComparePicker span {
+    display: grid;
+    gap: 2px;
+}
+
+.candidateComparePicker small {
+    color: var(--muted);
+}
+
+.candidateCompareTable {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+}
+
+.candidateCompareRow {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.4fr) repeat(7, minmax(90px, 1fr));
+    min-width: 920px;
+    width: 100%;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    border-top: 1px solid var(--line);
+    padding: 10px;
+    text-align: left;
+    color: var(--soft);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.candidateCompareRow.heading {
+    border-top: 0;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
 .exportActions {
     display: flex;
     align-items: center;
