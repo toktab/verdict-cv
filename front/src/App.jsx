@@ -5,6 +5,7 @@ import { LanguageContext, translate, useLanguage } from './i18n';
 import { apiLogin, apiRegister, apiMe, apiLogout, apiListMessages, apiListProjects, apiLookupUser, apiRealtimeUrl, apiSendMessage, javaApi, normaliseProject, normaliseUser } from './api';
 import { appendMessage, createMessage, messageBelongsTo, readMessages } from './messageStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { DialogKeyboardManager } from './components/DialogKeyboardManager';
 import { AuditScoreExplainer } from './components/AuditScoreExplainer';
 import { navigateTo, routeFromPath, scrollToPageTop } from './navigation';
 import { auditScoreLevel } from './utils/auditScore';
@@ -869,6 +870,7 @@ function App() {
 
     return (
         <LanguageContext.Provider value={{ lang, setLang, t }}>
+            <DialogKeyboardManager />
             <ErrorBoundary
                 key={route}
                 resetKey={`${route}:${detailAuditId || ''}`}

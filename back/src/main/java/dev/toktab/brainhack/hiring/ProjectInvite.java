@@ -18,6 +18,7 @@ import java.time.Instant;
         name = "project_invites",
         indexes = {
                 @Index(name = "idx_project_invites_project", columnList = "project_id"),
+                @Index(name = "idx_project_invites_project_email_status", columnList = "project_id,invited_email,status"),
                 @Index(name = "idx_project_invites_token", columnList = "token")
         }
 )
