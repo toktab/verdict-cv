@@ -762,6 +762,7 @@ public class HiringService {
                 continue;
             }
             rows.add(githubProfile(username, link));
+            rows.add(githubRepositoryDepth(username, link));
             break;
         }
         if (rows.isEmpty()) {
@@ -1044,6 +1045,58 @@ public class HiringService {
     private HiringProject projectEntity(UserAccount owner, Long id) {
         return projectRepository.findAccessibleById(id, owner.getId(), owner.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+    }
+
+    private OsintSourceResponse githubRepositoryDepth(String username, String link) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create("https://api.github.com/users/" + username + "/repos?sort=pushed&per_page=20"))
+                    .timeout(java.time.Duration.ofSeconds(7))
+                    .header("Accept", "application/vnd.github+json")
+                    .header("User-Agent", "BrainHack-SignalTrace")
+                    .GET()
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                return new OsintSourceResponse("GitHub repository depth", "Repository depth was not checked because the GitHub API returned status " + response.statusCode() + ".", 28, "0", "warn", link);
+            }
+            List<Map<String, Object>> repositories = mapper.maps(response.body());
+            if (repositories.isEmpty()) {
+                return new OsintSourceResponse("GitHub repository depth", "The public profile has no visible repositories to score.", 34, "0", "warn", link);
+            }
+            int original = (int) repositories.stream().filter(repo -> !Boolean.TRUE.equals(repo.get("fork"))).count();
+            int forks = repositories.size() - original;
+            int substantial = (int) repositories.stream().filter(repo -> number(repo.get("size")) >= 80 && !Boolean.TRUE.equals(repo.get("fork"))).count();
+            int recent = (int) repositories.stream().filter(repo -> pushedWithinMonths(repo.get("pushed_at"), 12)).count();
+            Map<String, Integer> languages = new LinkedHashMap<>();
+            repositories.stream()
+                    .map(repo -> String.valueOf(repo.getOrDefault("language", "")))
+                    .filter(language -> !language.isBlank() && !"null".equals(language))
+                    .forEach(language -> languages.merge(language, 1, Integer::sum));
+            int depthScore = Math.min(100, 18 + original * 4 + substantial * 7 + recent * 4 - forks * 2);
+            String languageSummary = languages.entrySet().stream()
+                    .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                    .limit(5)
+                    .map(entry -> entry.getKey() + " (" + entry.getValue() + ")")
+                    .reduce((left, right) -> left + ", " + right)
+                    .orElse("no primary languages reported");
+            String finding = "Depth " + depthScore + "/100 across " + repositories.size() + " recent repositories: "
+                    + original + " original, " + forks + " forked, " + substantial + " substantial, and " + recent
+                    + " active in the last year. Languages: " + languageSummary + ".";
+            return new OsintSourceResponse("GitHub repository depth", finding, Math.max(40, Math.min(92, depthScore)), depthScore >= 65 ? "+14" : depthScore >= 40 ? "+5" : "0", depthScore >= 65 ? "good" : "warn", link);
+        } catch (IOException exception) {
+            return new OsintSourceResponse("GitHub repository depth", "Repository depth could not be checked because the GitHub API was unavailable.", 24, "0", "warn", link);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return new OsintSourceResponse("GitHub repository depth", "Repository depth check was interrupted.", 20, "0", "warn", link);
+        }
+    }
+
+    private boolean pushedWithinMonths(Object value, long months) {
+        try {
+            return Instant.parse(String.valueOf(value)).isAfter(Instant.now().minus(months * 30, java.time.temporal.ChronoUnit.DAYS));
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private HiringCandidate candidateEntity(UserAccount owner, Long projectId, Long candidateId) {
