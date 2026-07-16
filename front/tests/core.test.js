@@ -68,6 +68,14 @@ test('message rows expose separate keyboard controls for open, star, and read st
     assert.match(source, /aria-label=\{`Mark \$\{message\.subject\} as/);
 });
 
+test('message folders search and paginate large mailboxes', async () => {
+    const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/MessagesPage.jsx', import.meta.url), 'utf8'));
+    assert.match(source, /MESSAGE_PAGE_SIZE = 30/);
+    assert.match(source, /type="search"/);
+    assert.match(source, /pagedMessages\.map/);
+    assert.match(source, /Page \{page\} of \{pageCount\}/);
+});
+
 test('team loading failures preserve the last successful member state', async () => {
     const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/projects/ProjectTeamPage.jsx', import.meta.url), 'utf8'));
     assert.doesNotMatch(source, /apiListProjectMembers\(project\.id, userToken\)\.catch\(\(\) => \[\]\)/);

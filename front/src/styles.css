@@ -8557,6 +8557,31 @@ select {
     cursor: not-allowed;
 }
 
+.messageSearchField {
+    min-width: min(260px, 100%);
+}
+
+.messageSearchField input {
+    width: 100%;
+    min-height: 38px;
+}
+
+.messagePagination {
+    margin-top: 14px;
+}
+
+.srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 .modalOverlay {
     position: fixed;
     inset: 0;

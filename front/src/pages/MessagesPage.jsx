@@ -10,16 +10,26 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     const [actionMessage, setActionMessage] = useState('');
     const [loading, setLoading] = useState(() => Boolean(userToken));
     const [loadError, setLoadError] = useState('');
-    const [highlightedId, setHighlightedId] = useState(null);
+const [highlightedId, setHighlightedId] = useState(null);
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
     const seenMessageIds = useRef(new Set());
-    const visible = useMemo(() => messages.filter((message) => {
+    const folderMessages = useMemo(() => messages.filter((message) => {
         if (folder === 'archived') return message.archived;
         if (message.archived) return false;
         if (folder === 'sent') return messageBelongsTo(message, user, 'from');
         if (folder === 'starred') return message.starred;
         return messageBelongsTo(message, user, 'to');
     }), [folder, messages, user]);
-    const active = visible.find((message) => message.id === activeId) || null;
+    const visible = useMemo(() => {
+        const query = search.trim().toLowerCase();
+        if (!query) return folderMessages;
+        return folderMessages.filter((message) => [message.from, message.fromName, message.to, message.subject, message.body]
+            .some((value) => String(value || '').toLowerCase().includes(query)));
+    }, [folderMessages, search]);
+    const pageCount = Math.max(1, Math.ceil(visible.length / MESSAGE_PAGE_SIZE));
+    const pagedMessages = useMemo(() => visible.slice((page - 1) * MESSAGE_PAGE_SIZE, page * MESSAGE_PAGE_SIZE), [page, visible]);
+    const active = folderMessages.find((message) => message.id === activeId) || null;
 
     const loadMessages = useCallback(async () => {
         let rows;
@@ -73,11 +83,20 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
 
     useEffect(() => {
         setActionMessage('');
-        const message = visible.find((row) => row.id === activeId);
+        const message = folderMessages.find((row) => row.id === activeId);
         if (message && !message.read && messageBelongsTo(message, user, 'to') && !message.manualUnread) {
             updateMessage(message.id, { read: true, manualUnread: false });
         }
-    }, [activeId, updateMessage, user, visible]);
+    }, [activeId, folderMessages, updateMessage, user]);
+
+    useEffect(() => {
+        setPage(1);
+        setActiveId(null);
+    }, [folder, search]);
+
+    useEffect(() => {
+        setPage((current) => Math.min(current, pageCount));
+    }, [pageCount]);
 
     function toggleStar(id) {
         const message = messages.find((row) => row.id === id);
@@ -95,7 +114,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     }
 
     function markAllVisibleRead() {
-        const unreadRows = visible.filter((message) => !message.read);
+        const unreadRows = folderMessages.filter((message) => !message.read);
         if (!unreadRows.length) {
             return;
         }
@@ -171,7 +190,11 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                             <button className="secondary" disabled={loading} onClick={loadMessages} type="button">
                                 <RefreshCcw size={15} /> {loading ? 'Refreshing...' : 'Refresh'}
                             </button>
-                            <button className="secondary" disabled={loading || !visible.some((message) => !message.read)} onClick={markAllVisibleRead} type="button">
+                            <label className="messageSearchField">
+                                <span className="srOnly">Search messages</span>
+                                <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search messages" />
+                            </label>
+                            <button className="secondary" disabled={loading || !folderMessages.some((message) => !message.read)} onClick={markAllVisibleRead} type="button">
                                 <MailOpen size={15} /> Mark all read
                             </button>
                             <span>{visible.length} message{visible.length === 1 ? '' : 's'}</span>
@@ -198,7 +221,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                                 <em />
                             </div>
                         ))}
-                        {!loading && visible.map((message) => (
+                        {!loading && pagedMessages.map((message) => (
                             <article className={`messageRow ${active?.id === message.id ? 'active' : ''} ${message.read ? '' : 'unread'} ${highlightedId === String(message.id) ? 'fresh' : ''}`} key={message.id}>
                                 <button
                                     className="messageStarButton"
@@ -232,6 +255,13 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                             </div>
                         )}
                     </div>
+                    {!loading && visible.length > MESSAGE_PAGE_SIZE && (
+                        <nav className="paginationControls messagePagination" aria-label="Message pages">
+                            <button type="button" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button>
+                            <span>Page {page} of {pageCount}</span>
+                            <button type="button" disabled={page === pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>Next</button>
+                        </nav>
+                    )}
                 </section>
             </main>
             {active && (
@@ -311,6 +341,8 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         </div>
     );
 }
+
+const MESSAGE_PAGE_SIZE = 30;
 
 function folderLabel(folder) {
     if (folder === 'sent') return 'Sent';
