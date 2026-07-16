@@ -45,3 +45,6 @@ Inside that shell, install OSINT tools only from your allowlist and keep outputs
 - Turn on real route-level security before public deployment.
 - Replace `spring.jpa.hibernate.ddl-auto=update` with migrations before serious use.
 - Persist full OSINT run results before running long or expensive investigations.
+# Required admin credentials
+
+Production disables the built-in `admin/admin` login. Set `VERDICT_ADMIN_USERNAME` and a strong `VERDICT_ADMIN_PASSWORD`. The unsafe fallback can only be enabled deliberately with `VERDICT_ALLOW_DEFAULT_ADMIN=true` for isolated local development.

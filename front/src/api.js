@@ -335,6 +335,9 @@ async function adminRequest(method, path, body, token) {
         } catch {
             // Keep HTTP fallback.
         }
+        if (res.status === 401 && typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('verdictAdminAuthProblem'));
+        }
         throw new Error(msg);
     }
     if (res.status === 204) return null;

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 public class AdminSessionService {
     private final String username;
     private final String passwordHash;
+    private final boolean credentialsEnabled;
     private final SecureRandom secureRandom = new SecureRandom();
     private final Map<String, Instant> sessions = new ConcurrentHashMap<>();
 
@@ -20,14 +21,15 @@ public class AdminSessionService {
             @Value("${verdict.admin.username}") String username,
             @Value("${verdict.admin.password}") String password,
             @Value("${verdict.admin.allow-default-credentials:false}") boolean allowDefaultCredentials) {
-        if (!allowDefaultCredentials && "admin".equals(username) && "admin".equals(password)) {
-            throw new IllegalStateException("Default admin credentials are disabled. Set VERDICT_ADMIN_USERNAME and VERDICT_ADMIN_PASSWORD.");
-        }
+        this.credentialsEnabled = allowDefaultCredentials || !("admin".equals(username) && "admin".equals(password));
         this.username = username;
         this.passwordHash = BCrypt.hashpw(password, BCrypt.gensalt(10));
     }
 
     public String login(String providedUsername, String providedPassword) {
+        if (!credentialsEnabled) {
+            throw new IllegalArgumentException("Admin login is disabled until VERDICT_ADMIN_USERNAME and VERDICT_ADMIN_PASSWORD are configured.");
+        }
         if (!username.equals(providedUsername) || !BCrypt.checkpw(providedPassword, passwordHash)) {
             throw new IllegalArgumentException("Invalid admin credentials");
         }

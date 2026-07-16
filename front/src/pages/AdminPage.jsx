@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, Edit3, Gauge, Lock, RefreshCcw, Save, Trash2, UserPlus, X } from 'lucide-react';
+import { Activity, Edit3, Gauge, Lock, LogOut, RefreshCcw, Save, Trash2, UserPlus, X } from 'lucide-react';
 import { javaApi } from '../api';
 
 const api = {
@@ -119,6 +119,16 @@ export function AdminPage({ Header, setRoute }) {
             loadAdminRef.current?.().catch((err) => setError(err.message));
         }
     }, [token, auditOffset, userOffset, logOffset, auditSearch, userSearch, logSearch]);
+
+    useEffect(() => {
+        function expireAdminSession() {
+            localStorage.removeItem('verdictAdminToken');
+            setToken('');
+            setError('Admin session expired. Authenticate again.');
+        }
+        window.addEventListener('verdictAdminAuthProblem', expireAdminSession);
+        return () => window.removeEventListener('verdictAdminAuthProblem', expireAdminSession);
+    }, []);
 
     loadAdminRef.current = loadAdmin;
 
@@ -321,9 +331,15 @@ export function AdminPage({ Header, setRoute }) {
                         <span className="eyebrow">Admin session</span>
                         <strong>Maintenance console</strong>
                     </div>
-                    <button className="secondary" disabled={adminLoading} onClick={() => loadAdmin().catch((err) => setError(err.message))} type="button">
-                        <RefreshCcw size={15} /> {adminLoading ? 'Refreshing...' : 'Refresh admin'}
-                    </button>
+                    <div className="rowActions">
+                        <button className="secondary" disabled={adminLoading} onClick={() => loadAdmin().catch((err) => setError(err.message))} type="button">
+                            <RefreshCcw size={15} /> {adminLoading ? 'Refreshing...' : 'Refresh admin'}
+                        </button>
+                        <button className="secondary" onClick={() => {
+                            localStorage.removeItem('verdictAdminToken');
+                            setToken('');
+                        }} type="button"><LogOut size={15} /> Log out</button>
+                    </div>
                 </section>
                 <section className="adminSection adminWide adminHealthPanel">
                     <h2><Gauge size={18} /> System health</h2>
