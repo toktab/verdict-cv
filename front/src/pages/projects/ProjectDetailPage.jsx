@@ -6,6 +6,7 @@ import { CandidateTable } from './components/CandidateTable';
 import { ProjectScoreStrip } from './components/ProjectScoreStrip';
 import { bestCandidate, candidateTotals, findProjectFromPath, workModeInfo } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
+import '../../styles/projectAnalytics.css';
 
 export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false }) {
     const { t } = useLanguage();
@@ -151,6 +152,9 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
     const funnel = projectFunnel(project.candidates);
     const risks = projectRiskClusters(project.candidates, t);
     const coverage = projectCoverage(project);
+    const scoreBuckets = projectScoreDistribution(project.candidates);
+    const workload = projectReviewWorkload(project.candidates);
+    const requirementTrends = projectRequirementTrends(project);
     const comparedCandidates = project.candidates.filter((candidate) => compareIds.includes(String(candidate.id)));
     const myMember = members.find((member) => sameIdentity(member.email, user?.email) || sameIdentity(member.email, user?.username));
     const myPermissions = project.myPermissions?.length ? project.myPermissions : permissionsForProjectRole(myMember?.role || project.myRole || (project.ownerId === user?.id ? 'Head Admin' : 'Viewer'));
@@ -298,6 +302,39 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                         <div className="healthLine"><span>{t('bestCandidate')}</span><strong>{best?.name || 'No candidates yet'}</strong></div>
                         <div className="healthLine"><span>{t('needsHumanReview')}</span><strong>{project.candidates.filter((candidate) => candidate.state === 'Needs review').length}</strong></div>
                     </div>
+                </section>
+                <section className="projectAnalyticsGrid" aria-label="Project review analytics">
+                    <article className="projectAnalyticsPanel">
+                        <div className="projectAnalyticsHead"><div><span className="eyebrow">Score distribution</span><h2>Shortlist quality bands</h2></div><strong>{project.candidates.length}</strong></div>
+                        <div className="scoreHistogram">
+                            {scoreBuckets.map((bucket) => (
+                                <div key={bucket.label}>
+                                    <span className="scoreHistogramBar"><i style={{ height: `${bucket.height}%` }} /></span>
+                                    <b>{bucket.count}</b>
+                                    <small>{bucket.label}</small>
+                                </div>
+                            ))}
+                        </div>
+                    </article>
+                    <article className="projectAnalyticsPanel">
+                        <div className="projectAnalyticsHead"><div><span className="eyebrow">Review workload</span><h2>Evidence pressure queue</h2></div><strong>{workload.totalActions}</strong></div>
+                        <div className="workloadRows">
+                            {workload.rows.map((row) => <div key={row.label}><span>{row.label}</span><b>{row.value}</b><small>{row.detail}</small></div>)}
+                        </div>
+                    </article>
+                    <article className="projectAnalyticsPanel requirementTrendPanel">
+                        <div className="projectAnalyticsHead"><div><span className="eyebrow">Requirement trends</span><h2>Coverage across candidates</h2></div><strong>{requirementTrends.length}</strong></div>
+                        <div className="requirementTrendRows">
+                            {requirementTrends.map((row) => (
+                                <div key={row.requirement}>
+                                    <strong>{row.requirement}</strong>
+                                    <span className="requirementTrendRail"><i className="supported" style={{ width: `${row.supportedPercent}%` }} /><i className="partial" style={{ width: `${row.partialPercent}%` }} /></span>
+                                    <small>{row.supported} supported / {row.partial} partial / {row.missing} missing</small>
+                                </div>
+                            ))}
+                            {!requirementTrends.length && <div className="emptyState">Add role requirements to calculate cross-candidate trends.</div>}
+                        </div>
+                    </article>
                 </section>
                 <section className="candidateComparePanel">
                     <div className="tableToolbar">
@@ -511,6 +548,54 @@ function requirementClaim(candidate, requirement) {
 
 function normalizeClaim(value = '') {
     return String(value).toLowerCase().replace(/[^a-z0-9+#. ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function projectScoreDistribution(candidates = []) {
+    const definitions = [
+        { label: '0-39', min: 0, max: 39 },
+        { label: '40-59', min: 40, max: 59 },
+        { label: '60-74', min: 60, max: 74 },
+        { label: '75-89', min: 75, max: 89 },
+        { label: '90-100', min: 90, max: 100 },
+    ];
+    const counts = definitions.map((bucket) => candidates.filter((candidate) => candidate.score >= bucket.min && candidate.score <= bucket.max).length);
+    const peak = Math.max(1, ...counts);
+    return definitions.map((bucket, index) => ({ ...bucket, count: counts[index], height: Math.max(counts[index] ? 12 : 0, Math.round((counts[index] / peak) * 100)) }));
+}
+
+function projectReviewWorkload(candidates = []) {
+    const unsupported = candidates.reduce((sum, candidate) => sum + Number(candidate.unsupported || 0), 0);
+    const stretched = candidates.reduce((sum, candidate) => sum + Number(candidate.stretched || 0), 0);
+    const osint = candidates.filter((candidate) => !['Ready', 'Complete'].includes(candidate.osint)).length;
+    const manual = candidates.filter((candidate) => candidate.state === 'Needs review' || (candidate.score >= 40 && candidate.score < 75)).length;
+    return {
+        totalActions: unsupported + stretched + osint + manual,
+        rows: [
+            { label: 'Unsupported claims', value: unsupported, detail: 'Need direct proof or rejection.' },
+            { label: 'Stretched claims', value: stretched, detail: 'Need wording or evidence review.' },
+            { label: 'SignalTrace pending', value: osint, detail: 'Need consented public-source checks.' },
+            { label: 'Manual decisions', value: manual, detail: 'Need a reviewer pipeline decision.' },
+        ],
+    };
+}
+
+function projectRequirementTrends(project) {
+    const candidates = project.candidates || [];
+    const total = Math.max(1, candidates.length);
+    return (project.requirements || []).map((requirement) => {
+        const statuses = candidates.map((candidate) => requirementClaim(candidate, requirement)?.[1] || 'Gap');
+        const supported = statuses.filter((status) => status === 'Supported').length;
+        const partial = statuses.filter((status) => status === 'Stretched').length;
+        const missing = Math.max(0, candidates.length - supported - partial);
+        return {
+            requirement,
+            supported,
+            partial,
+            missing,
+            supportedPercent: Math.round((supported / total) * 100),
+            partialPercent: Math.round((partial / total) * 100),
+        };
+    }).sort((left, right) => right.missing - left.missing || right.partial - left.partial).slice(0, 8);
 }
 
 function comparisonDecision(candidate) {

@@ -8,6 +8,7 @@ import { buildAtsReport, candidateSourceText as atsCandidateSourceText, projectD
 import { recordProjectActivityOnServer } from './projectActivity';
 import { findCandidateFromPath, scorePercent, scoreTone } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
+import '../../styles/candidateInsights.css';
 
 const analysisStates = [
     { id: 'light', name: 'Light State', shortName: 'Light', description: 'Fast first pass with obvious contradiction checks.' },
@@ -104,6 +105,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const verdictRows = buildCandidateVerdicts(activeCandidate);
     const evidenceRows = buildEvidenceRows(activeProject, activeCandidate, t);
     const sourceCards = buildSourceCards(activeCandidate);
+    const technologyRows = buildTechnologyMatrix(atsReport, sourceCards);
     const scoreFactors = buildScoreFactors(activeCandidate, t);
     const activeScoreLevel = scoreLevel(activeCandidate.score);
     const memoryProfile = buildMemoryProfile(activeCandidate, t);
@@ -573,6 +575,24 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                                     <strong>{row.proof}</strong>
                                 </div>
                             </article>
+                        ))}
+                    </div>
+                </section>
+                <section className="technologyMatrixPanel">
+                    <div className="tableToolbar">
+                        <div><span className="eyebrow">Technology matrix</span><h2>Claim, role demand, and evidence confidence</h2></div>
+                        <span>{technologyRows.length} technologies</span>
+                    </div>
+                    <div className="technologyMatrix" role="table" aria-label="Candidate technology evidence matrix">
+                        <div className="technologyMatrixRow heading" role="row"><span>Technology</span><span>CV mentions</span><span>Job mentions</span><span>Public evidence</span><span>Confidence</span></div>
+                        {technologyRows.map((row) => (
+                            <div className="technologyMatrixRow" role="row" key={row.label}>
+                                <strong>{row.label}</strong>
+                                <span>{row.resumeCount}</span>
+                                <span>{row.jobCount}</span>
+                                <span className={row.publicEvidence ? 'matrixEvidence found' : 'matrixEvidence missing'}>{row.publicEvidence ? row.source : 'Not found'}</span>
+                                <span className={`matrixConfidence ${row.tone}`}>{row.confidence}</span>
+                            </div>
                         ))}
                     </div>
                 </section>
@@ -1236,6 +1256,28 @@ function buildMemoryProfile(candidate, t) {
             value: `${String(item.submittedAt || '').slice(0, 10)} / ${item.score}% / ${item.risk}`,
         })) : [{ label: t('firstSeen'), value: 'New' }],
     };
+}
+
+function buildTechnologyMatrix(report, sourceCards) {
+    const github = sourceCards.find((card) => card.kind === 'github' && card.url);
+    const portfolio = sourceCards.find((card) => card.kind === 'portfolio' && card.url);
+    return (report.skills || [])
+        .filter((row) => row.resumeCount > 0 || row.jobCount > 0)
+        .slice(0, 16)
+        .map((row) => {
+            const publicEvidence = Boolean(github || portfolio);
+            const aligned = row.resumeCount > 0 && row.jobCount > 0;
+            const confidence = aligned && publicEvidence ? 'High' : aligned ? 'Medium' : row.resumeCount > 0 ? 'Claim only' : 'Missing';
+            return {
+                label: row.label,
+                resumeCount: row.resumeCount || 0,
+                jobCount: row.jobCount || 0,
+                publicEvidence,
+                source: github ? 'GitHub' : portfolio ? 'Portfolio' : '',
+                confidence,
+                tone: confidence === 'High' ? 'good' : confidence === 'Medium' ? 'warn' : 'bad',
+            };
+        });
 }
 
 function buildInterviewQuestions(candidate, t) {

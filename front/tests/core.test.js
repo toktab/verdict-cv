@@ -244,6 +244,21 @@ test('audit workspace presentation and demo defaults are isolated from app orche
     assert.match(defaultsSource, /export function auditPayload/);
 });
 
+test('project and candidate pages expose decision-grade analytics', async () => {
+    const [projectSource, candidateSource] = await Promise.all([
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/projects/ProjectDetailPage.jsx', import.meta.url), 'utf8')),
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/projects/CandidateDetailPage.jsx', import.meta.url), 'utf8')),
+    ]);
+    assert.match(projectSource, /Score distribution/);
+    assert.match(projectSource, /Review workload/);
+    assert.match(projectSource, /Requirement trends/);
+    assert.match(projectSource, /function projectScoreDistribution/);
+    assert.match(projectSource, /function projectRequirementTrends/);
+    assert.match(candidateSource, /Technology matrix/);
+    assert.match(candidateSource, /function buildTechnologyMatrix/);
+    assert.match(candidateSource, /Public evidence/);
+});
+
 function memoryStorage(initial = {}) {
     const rows = new Map(Object.entries(initial));
     return {
