@@ -60,6 +60,14 @@ test('message normalization preserves explicit unread state', async () => {
     assert.equal(message.manualUnread, true);
 });
 
+test('message rows expose separate keyboard controls for open, star, and read state', async () => {
+    const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/MessagesPage.jsx', import.meta.url), 'utf8'));
+    assert.match(source, /className="messageRowOpen"/);
+    assert.match(source, /className="messageStarButton"/);
+    assert.match(source, /aria-pressed=\{message\.starred\}/);
+    assert.match(source, /aria-label=\{`Mark \$\{message\.subject\} as/);
+});
+
 test('registration API accepts the reviewed profile fields', async () => {
     const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/api.js', import.meta.url), 'utf8'));
     assert.match(source, /country:\s*country \|\| 'Unspecified'/);

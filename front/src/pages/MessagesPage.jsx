@@ -200,22 +200,31 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
                             </div>
                         ))}
                         {!loading && visible.map((message) => (
-                            <button className={`${active?.id === message.id ? 'active' : ''} ${message.read ? '' : 'unread'} ${highlightedId === String(message.id) ? 'fresh' : ''}`} key={message.id} onClick={() => setActiveId(message.id)}>
-                                <Star size={16} className={message.starred ? 'filled' : ''} onClick={(event) => { event.stopPropagation(); toggleStar(message.id); }} />
-                                <strong>{message.from} ({message.fromName})</strong>
-                                <span>{message.subject}</span>
-                                <small>{message.body}</small>
+                            <article className={`messageRow ${active?.id === message.id ? 'active' : ''} ${message.read ? '' : 'unread'} ${highlightedId === String(message.id) ? 'fresh' : ''}`} key={message.id}>
+                                <button
+                                    className="messageStarButton"
+                                    type="button"
+                                    aria-label={`${message.starred ? 'Remove star from' : 'Star'} ${message.subject}`}
+                                    aria-pressed={message.starred}
+                                    onClick={() => toggleStar(message.id)}
+                                >
+                                    <Star size={16} className={message.starred ? 'filled' : ''} />
+                                </button>
+                                <button className="messageRowOpen" type="button" onClick={() => setActiveId(message.id)}>
+                                    <strong>{message.from} ({message.fromName})</strong>
+                                    <span>{message.subject}</span>
+                                    <small>{message.body}</small>
+                                </button>
                                 <span className="messageStatus">{message.read ? 'Read' : 'Unread'}</span>
-                                <span
+                                <button
                                     className="messageMarkButton"
-                                    onClick={(event) => {
-                                        event.stopPropagation();
-                                        toggleRead(message.id);
-                                    }}
+                                    type="button"
+                                    aria-label={`Mark ${message.subject} as ${message.read ? 'unread' : 'read'}`}
+                                    onClick={() => toggleRead(message.id)}
                                 >
                                     <MailOpen size={14} /> Mark {message.read ? 'unread' : 'read'}
-                                </span>
-                            </button>
+                                </button>
+                            </article>
                         ))}
                         {!loading && !visible.length && (
                             <div className="emptyState messageEmptyState">
