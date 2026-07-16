@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectActivityRequest;
 import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectActivityResponse;
+import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectAnnouncementPinRequest;
+import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectAnnouncementRequest;
+import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectAnnouncementResponse;
 import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectAtsTemplateRequest;
 import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectAtsTemplateResponse;
 import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectMemberPermissionsRequest;
@@ -17,12 +20,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ProjectStateService {
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
     private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {};
+    private static final Pattern MENTION = Pattern.compile("(?<![A-Za-z0-9._-])@([A-Za-z0-9._-]{2,40})");
 
     private final HiringProjectRepository projectRepository;
     private final TeamMembershipRepository membershipRepository;
@@ -30,6 +37,7 @@ public class ProjectStateService {
     private final ProjectActivityLogRepository activityRepository;
     private final ProjectAtsTemplateRepository atsTemplateRepository;
     private final ProjectMemberPermissionRepository memberPermissionRepository;
+    private final ProjectAnnouncementRepository announcementRepository;
     private final ObjectMapper objectMapper;
     private final RealtimeService realtimeService;
     private final ProjectPermissionService permissionService;
@@ -41,6 +49,7 @@ public class ProjectStateService {
             ProjectActivityLogRepository activityRepository,
             ProjectAtsTemplateRepository atsTemplateRepository,
             ProjectMemberPermissionRepository memberPermissionRepository,
+            ProjectAnnouncementRepository announcementRepository,
             ObjectMapper objectMapper,
             RealtimeService realtimeService,
             ProjectPermissionService permissionService) {
@@ -50,6 +59,7 @@ public class ProjectStateService {
         this.activityRepository = activityRepository;
         this.atsTemplateRepository = atsTemplateRepository;
         this.memberPermissionRepository = memberPermissionRepository;
+        this.announcementRepository = announcementRepository;
         this.objectMapper = objectMapper;
         this.realtimeService = realtimeService;
         this.permissionService = permissionService;
@@ -133,6 +143,67 @@ public class ProjectStateService {
     }
 
     @Transactional
+    public List<ProjectAnnouncementResponse> announcements(UserAccount actor, Long projectId) {
+        HiringProject project = accessibleProject(actor, projectId);
+        return announcementRepository.findTop100ByProjectIdAndDeletedAtIsNullOrderByPinnedDescCreatedAtDesc(project.getId()).stream()
+                .map(this::announcementResponse)
+                .toList();
+    }
+
+    @Transactional
+    public ProjectAnnouncementResponse createAnnouncement(UserAccount actor, Long projectId, ProjectAnnouncementRequest request) {
+        HiringProject project = accessibleProject(actor, projectId);
+        if (!permissionService.has(actor, project, "canAddNote") && !permissionService.has(actor, project, "canMessage") && !permissionService.has(actor, project, "protectedAccount")) {
+            throw new IllegalArgumentException("Project note or message permission required");
+        }
+        if (request.pinned() && !permissionService.has(actor, project, "canTeamManage")) {
+            throw new IllegalArgumentException("Project management permission required to pin announcements");
+        }
+        List<String> mentions = resolveMentions(project, request.body());
+        ProjectAnnouncement row = new ProjectAnnouncement();
+        row.setProject(project);
+        row.setAuthor(actor);
+        row.setBody(clean(request.body(), ""));
+        row.setMentionsJson(writeJson(mentions));
+        row.setPinned(request.pinned());
+        row.setCreatedAt(Instant.now());
+        ProjectAnnouncement saved = announcementRepository.save(row);
+        record(project, actor, new ProjectActivityRequest(
+                "announcement", request.pinned() ? "Published pinned announcement" : "Published project announcement",
+                "", "", null, "", request.pinned() ? "warn" : "info",
+                mentions.isEmpty() ? saved.getBody() : saved.getBody() + " / Mentions: " + String.join(", ", mentions)));
+        publish(project);
+        return announcementResponse(saved);
+    }
+
+    @Transactional
+    public ProjectAnnouncementResponse pinAnnouncement(UserAccount actor, Long projectId, Long announcementId, ProjectAnnouncementPinRequest request) {
+        HiringProject project = manageableProject(actor, projectId);
+        ProjectAnnouncement row = requireAnnouncement(project, announcementId);
+        row.setPinned(request.pinned());
+        row.setUpdatedAt(Instant.now());
+        record(project, actor, new ProjectActivityRequest(
+                "announcement_pin", request.pinned() ? "Pinned project announcement" : "Unpinned project announcement",
+                row.getAuthor().getEmail(), row.getAuthor().getFullName(), null, "", request.pinned() ? "warn" : "info", row.getBody()));
+        publish(project);
+        return announcementResponse(announcementRepository.save(row));
+    }
+
+    @Transactional
+    public void deleteAnnouncement(UserAccount actor, Long projectId, Long announcementId) {
+        HiringProject project = accessibleProject(actor, projectId);
+        ProjectAnnouncement row = requireAnnouncement(project, announcementId);
+        boolean manager = permissionService.has(actor, project, "canTeamManage");
+        if (!manager && !row.getAuthor().getId().equals(actor.getId())) {
+            throw new IllegalArgumentException("Only the author or a project manager can delete this announcement");
+        }
+        row.setDeletedAt(Instant.now());
+        announcementRepository.save(row);
+        record(project, actor, new ProjectActivityRequest("announcement_delete", "Deleted project announcement", row.getAuthor().getEmail(), row.getAuthor().getFullName(), null, "", "warn", row.getBody()));
+        publish(project);
+    }
+
+    @Transactional
     public Map<String, List<String>> memberPermissions(UserAccount actor, Long projectId) {
         HiringProject project = accessibleProject(actor, projectId);
         Map<String, List<String>> rows = new LinkedHashMap<>();
@@ -204,6 +275,34 @@ public class ProjectStateService {
 
     private ProjectAtsTemplateResponse atsResponse(ProjectAtsTemplate row) {
         return new ProjectAtsTemplateResponse(row.getId(), row.getTemplateKey(), row.getName(), row.getVisibility(), row.isVerifiedDefault(), readMap(row.getTemplateJson()), row.getUpdatedAt());
+    }
+
+    private ProjectAnnouncement requireAnnouncement(HiringProject project, Long announcementId) {
+        ProjectAnnouncement row = announcementRepository.findById(announcementId)
+                .orElseThrow(() -> new IllegalArgumentException("Project announcement not found"));
+        if (row.getDeletedAt() != null || !row.getProject().getId().equals(project.getId())) {
+            throw new IllegalArgumentException("Project announcement not found");
+        }
+        return row;
+    }
+
+    private List<String> resolveMentions(HiringProject project, String body) {
+        Set<String> requested = new java.util.LinkedHashSet<>();
+        Matcher matcher = MENTION.matcher(clean(body, ""));
+        while (matcher.find()) requested.add(matcher.group(1).toLowerCase(Locale.ROOT));
+        if (requested.isEmpty() || project.getOrganization() == null) return List.of();
+        return membershipRepository.findByOrganizationId(project.getOrganization().getId()).stream()
+                .map(TeamMembership::getUser)
+                .filter(user -> requested.contains(user.getUsername().toLowerCase(Locale.ROOT)))
+                .map(user -> "@" + user.getUsername())
+                .distinct()
+                .toList();
+    }
+
+    private ProjectAnnouncementResponse announcementResponse(ProjectAnnouncement row) {
+        return new ProjectAnnouncementResponse(
+                row.getId(), row.getBody(), row.isPinned(), row.getAuthor().getId(), row.getAuthor().getFullName(), row.getAuthor().getEmail(),
+                readList(row.getMentionsJson()), row.getCreatedAt(), row.getUpdatedAt());
     }
 
     private Map<String, Object> readMap(String json) {

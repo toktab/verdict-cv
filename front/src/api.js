@@ -122,6 +122,22 @@ export async function apiRecordProjectActivity(id, details, token) {
     return post(`/projects/${id}/activity`, details, token);
 }
 
+export async function apiListProjectAnnouncements(id, token) {
+    return get(`/projects/${id}/announcements`, token);
+}
+
+export async function apiCreateProjectAnnouncement(id, body, pinned, token) {
+    return post(`/projects/${id}/announcements`, { body, pinned }, token);
+}
+
+export async function apiPinProjectAnnouncement(id, announcementId, pinned, token) {
+    return patch(`/projects/${id}/announcements/${announcementId}`, { pinned }, token);
+}
+
+export async function apiDeleteProjectAnnouncement(id, announcementId, token) {
+    return del(`/projects/${id}/announcements/${announcementId}`, token);
+}
+
 export async function apiListProjectAtsTemplates(id, token) {
     return get(`/projects/${id}/ats-templates`, token);
 }

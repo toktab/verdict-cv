@@ -72,4 +72,26 @@ public class ProjectStateDtos {
             List<String> permissions
     ) {
     }
+
+    public record ProjectAnnouncementRequest(
+            @NotBlank @Size(max = 5000) String body,
+            boolean pinned
+    ) {
+    }
+
+    public record ProjectAnnouncementPinRequest(boolean pinned) {
+    }
+
+    public record ProjectAnnouncementResponse(
+            Long id,
+            String body,
+            boolean pinned,
+            @JsonProperty("author_id") Long authorId,
+            @JsonProperty("author_name") String authorName,
+            @JsonProperty("author_email") String authorEmail,
+            List<String> mentions,
+            @JsonProperty("created_at") Instant createdAt,
+            @JsonProperty("updated_at") Instant updatedAt
+    ) {
+    }
 }

@@ -4116,7 +4116,8 @@ mark {
 }
 
 .teamInvitePanel,
-.reviewNotesPanel {
+.reviewNotesPanel,
+.projectAnnouncementPanel {
     border: 1px solid var(--line);
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.045);
@@ -4293,6 +4294,120 @@ mark {
 .routeStatePanel h1,
 .routeStatePanel p {
     margin: 0;
+}
+
+.projectAnnouncementComposer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: end;
+    border: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.projectAnnouncementComposer > label {
+    display: grid;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.projectAnnouncementComposer textarea {
+    min-height: 92px;
+    resize: vertical;
+}
+
+.projectAnnouncementComposer > div {
+    display: grid;
+    gap: 10px;
+    justify-items: stretch;
+}
+
+.projectAnnouncementList {
+    display: grid;
+    gap: 9px;
+}
+
+.projectAnnouncementList article {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 11px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.035);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.projectAnnouncementList article.pinned {
+    border-color: rgba(240, 184, 90, 0.5);
+    background: linear-gradient(90deg, rgba(240, 184, 90, 0.11), rgba(255, 255, 255, 0.035));
+}
+
+.projectAnnouncementIcon {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--amber);
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.projectAnnouncementMeta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.projectAnnouncementMeta span {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.projectAnnouncementList p {
+    color: var(--soft);
+    white-space: pre-wrap;
+    line-height: 1.55;
+    margin: 7px 0 0;
+}
+
+.projectMention {
+    color: #d8c8ff;
+    background: rgba(139, 92, 246, 0.18);
+    border-radius: 4px;
+    padding: 1px 3px;
+}
+
+.projectMentionList,
+.projectAnnouncementActions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.projectMentionList {
+    margin-top: 9px;
+}
+
+.projectMentionList span {
+    border: 1px solid rgba(139, 92, 246, 0.35);
+    color: #d8c8ff;
+    background: rgba(139, 92, 246, 0.11);
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.projectAnnouncementActions button {
+    min-width: 38px;
+    width: 38px;
+    padding: 0;
 }
 
 .composeCandidateAttachments {
@@ -8789,12 +8904,26 @@ select {
     .tableClearConfirm,
     .adminAtsGrid,
     .adminAtsPublishRow,
+    .projectAnnouncementComposer,
     .firstRunGuide,
     .firstRunChecks,
     .dashboardStats,
     .dashboardGrid,
     .jobListingGrid {
         grid-template-columns: 1fr;
+    }
+
+    .projectAnnouncementList article {
+        grid-template-columns: 38px minmax(0, 1fr);
+    }
+
+    .projectAnnouncementActions {
+        grid-column: 2;
+    }
+
+    .projectAnnouncementMeta {
+        align-items: flex-start;
+        display: grid;
     }
 
     .adminSectionHeading {

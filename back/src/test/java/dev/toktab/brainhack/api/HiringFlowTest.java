@@ -791,6 +791,69 @@ class HiringFlowTest {
                 .andExpect(jsonPath("$.memory_history[0].projectTitle").value("Backend Engineer"));
     }
 
+    @Test
+    void projectAnnouncementsResolveMentionsAndEnforcePinDeletePermissions() throws Exception {
+        String ownerToken = register("announcement_owner");
+        String reviewerEmail = "announcement_reviewer_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8) + "@example.com";
+        String reviewerToken = registerWithEmail("announcement_reviewer", reviewerEmail);
+        JsonNode reviewer = objectMapper.readTree(mockMvc.perform(get("/api/auth/me").header("X-User-Token", reviewerToken))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String reviewerUsername = reviewer.get("username").asText();
+        long projectId = createProject(ownerToken, "Announcement Role", "Requirements:\n- Java", "[\"Java\"]");
+
+        MvcResult invite = mockMvc.perform(post("/api/projects/" + projectId + "/invites")
+                        .header("X-User-Token", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", reviewerEmail, "role", "REVIEWER"))))
+                .andExpect(status().isOk())
+                .andReturn();
+        String inviteToken = objectMapper.readTree(invite.getResponse().getContentAsString()).get("token").asText();
+        mockMvc.perform(post("/api/projects/invites/accept").header("X-User-Token", reviewerToken).param("token", inviteToken))
+                .andExpect(status().isOk());
+
+        MvcResult created = mockMvc.perform(post("/api/projects/" + projectId + "/announcements")
+                        .header("X-User-Token", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "body", "@" + reviewerUsername + " please review the shortlist before Friday.",
+                                "pinned", true))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pinned").value(true))
+                .andExpect(jsonPath("$.mentions", hasItem("@" + reviewerUsername)))
+                .andReturn();
+        long announcementId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asLong();
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/announcements").header("X-User-Token", reviewerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value((int) announcementId))
+                .andExpect(jsonPath("$[0].pinned").value(true));
+
+        mockMvc.perform(patch("/api/projects/" + projectId + "/announcements/" + announcementId)
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pinned\":false}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Project Head Admin permissions required"));
+
+        MvcResult reviewerPost = mockMvc.perform(post("/api/projects/" + projectId + "/announcements")
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"body\":\"Review complete. Two candidates need evidence follow-up.\",\"pinned\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pinned").value(false))
+                .andReturn();
+        long reviewerAnnouncementId = objectMapper.readTree(reviewerPost.getResponse().getContentAsString()).get("id").asLong();
+
+        mockMvc.perform(delete("/api/projects/" + projectId + "/announcements/" + reviewerAnnouncementId)
+                        .header("X-User-Token", ownerToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/activity").header("X-User-Token", ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.type == 'announcement')]").exists())
+                .andExpect(jsonPath("$[?(@.type == 'announcement_delete')]").exists());
+    }
+
     private String register(String label) throws Exception {
         String username = label + "_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10);
         return registerWithEmail(username, username + "@example.com");

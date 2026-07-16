@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, CheckCircle2, ClipboardCheck, Download, FileSearch, GitCompareArrows, Settings, ShieldCheck, UserPlus, Users } from 'lucide-react';
-import { apiAcceptProjectInvite, apiCreateProjectInvite, apiListProjectInvites, apiListProjectMembers } from '../../api';
+import { Activity, ArrowRight, CheckCircle2, ClipboardCheck, Download, FileSearch, GitCompareArrows, Megaphone, Pin, Send, Settings, ShieldCheck, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { apiAcceptProjectInvite, apiCreateProjectAnnouncement, apiCreateProjectInvite, apiDeleteProjectAnnouncement, apiListProjectAnnouncements, apiListProjectInvites, apiListProjectMembers, apiPinProjectAnnouncement } from '../../api';
 import { useLanguage } from '../../i18n';
 import { CandidateTable } from './components/CandidateTable';
 import { ProjectScoreStrip } from './components/ProjectScoreStrip';
@@ -16,6 +16,12 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
     const [teamMessage, setTeamMessage] = useState('');
     const [teamBusy, setTeamBusy] = useState(false);
     const [compareIds, setCompareIds] = useState([]);
+    const [announcements, setAnnouncements] = useState([]);
+    const [announcementBody, setAnnouncementBody] = useState('');
+    const [announcementPinned, setAnnouncementPinned] = useState(false);
+    const [announcementBusy, setAnnouncementBusy] = useState(false);
+    const [announcementError, setAnnouncementError] = useState('');
+    const [deleteAnnouncement, setDeleteAnnouncement] = useState(null);
     const project = findProjectFromPath(projects);
     useEffect(() => {
         if (!project?.id || !userToken) return;
@@ -36,6 +42,20 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
             });
         return () => {
             cancelled = true;
+        };
+    }, [project?.id, userToken]);
+
+    useEffect(() => {
+        if (!project?.id || !userToken) return undefined;
+        let cancelled = false;
+        const load = () => apiListProjectAnnouncements(project.id, userToken)
+            .then((rows) => { if (!cancelled) setAnnouncements(rows || []); })
+            .catch((error) => { if (!cancelled) setAnnouncementError(error.message || 'Could not load announcements.'); });
+        load();
+        window.addEventListener('verdictProjectsChanged', load);
+        return () => {
+            cancelled = true;
+            window.removeEventListener('verdictProjectsChanged', load);
         };
     }, [project?.id, userToken]);
 
@@ -73,6 +93,51 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
         }
     }
 
+    async function publishAnnouncement(event) {
+        event.preventDefault();
+        if (!announcementBody.trim()) return;
+        setAnnouncementBusy(true);
+        setAnnouncementError('');
+        try {
+            const row = await apiCreateProjectAnnouncement(project.id, announcementBody.trim(), announcementPinned, userToken);
+            setAnnouncements((current) => [row, ...current.filter((item) => item.id !== row.id)].sort(sortAnnouncements));
+            setAnnouncementBody('');
+            setAnnouncementPinned(false);
+        } catch (error) {
+            setAnnouncementError(error.message || 'Could not publish announcement.');
+        } finally {
+            setAnnouncementBusy(false);
+        }
+    }
+
+    async function toggleAnnouncementPin(row) {
+        setAnnouncementBusy(true);
+        setAnnouncementError('');
+        try {
+            const updated = await apiPinProjectAnnouncement(project.id, row.id, !row.pinned, userToken);
+            setAnnouncements((current) => current.map((item) => item.id === updated.id ? updated : item).sort(sortAnnouncements));
+        } catch (error) {
+            setAnnouncementError(error.message || 'Could not update announcement pin.');
+        } finally {
+            setAnnouncementBusy(false);
+        }
+    }
+
+    async function confirmDeleteAnnouncement() {
+        if (!deleteAnnouncement) return;
+        setAnnouncementBusy(true);
+        setAnnouncementError('');
+        try {
+            await apiDeleteProjectAnnouncement(project.id, deleteAnnouncement.id, userToken);
+            setAnnouncements((current) => current.filter((item) => item.id !== deleteAnnouncement.id));
+            setDeleteAnnouncement(null);
+        } catch (error) {
+            setAnnouncementError(error.message || 'Could not delete announcement.');
+        } finally {
+            setAnnouncementBusy(false);
+        }
+    }
+
     if (!project) {
         return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} />;
 
@@ -92,6 +157,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
     const canTeamManage = myPermissions.includes('canTeamManage') || myPermissions.includes('protectedAccount');
     const canInvite = myPermissions.includes('canInvite') || myPermissions.includes('protectedAccount');
     const canSettings = myPermissions.includes('protectedAccount') || project.myRole === 'Head Admin' || project.ownerId === user?.id;
+    const canPostAnnouncement = myPermissions.includes('canAddNote') || myPermissions.includes('canMessage') || myPermissions.includes('protectedAccount');
     const reviewSteps = [
         ['01', t('jobDescription'), t('jobDescriptionFixed')],
         ['02', t('addCvs'), t('addCandidateText')],
@@ -118,6 +184,50 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                         <button className="secondary compactHeroButton" onClick={() => navigateTo(setRoute, 'projectTeam', project.id)}><Users size={18} /> {canTeamManage ? 'Team' : 'Members'}</button>
                         {canSettings && <button className="secondary iconHeroButton" title="Project settings" aria-label="Project settings" onClick={() => navigateTo(setRoute, 'projectSettings', project.id)}><Settings size={18} /></button>}
                         <button className="primary compactHeroButton" onClick={() => navigateTo(setRoute, 'addCandidate', project.id)}><UserPlus size={18} /> {t('addCandidate')}</button>
+                    </div>
+                </section>
+                <section className="projectAnnouncementPanel">
+                    <div className="tableToolbar">
+                        <div>
+                            <span className="eyebrow">Project bulletin</span>
+                            <h2><Megaphone size={18} /> Announcements</h2>
+                        </div>
+                        <span>{announcements.filter((row) => row.pinned).length} pinned</span>
+                    </div>
+                    {announcementError && <div className="error compact">{announcementError}</div>}
+                    {canPostAnnouncement && (
+                        <form className="projectAnnouncementComposer" onSubmit={publishAnnouncement}>
+                            <label>
+                                <span>Update the team. Mention members with their username, for example @reviewer.</span>
+                                <textarea value={announcementBody} onChange={(event) => setAnnouncementBody(event.target.value)} maxLength={5000} placeholder="Review update, deadline, decision context..." />
+                            </label>
+                            <div>
+                                {canTeamManage && <label className="toggleRow"><input checked={announcementPinned} onChange={(event) => setAnnouncementPinned(event.target.checked)} type="checkbox" /><span>Pin announcement</span></label>}
+                                <button className="primary" disabled={announcementBusy || !announcementBody.trim()} type="submit"><Send size={16} /> Publish</button>
+                            </div>
+                        </form>
+                    )}
+                    <div className="projectAnnouncementList">
+                        {announcements.map((row) => {
+                            const own = Number(row.author_id) === Number(user?.id);
+                            return (
+                                <article className={row.pinned ? 'pinned' : ''} key={row.id}>
+                                    <div className="projectAnnouncementIcon">{row.pinned ? <Pin size={17} /> : <Megaphone size={17} />}</div>
+                                    <div>
+                                        <div className="projectAnnouncementMeta"><strong>{row.author_name}</strong><span>{new Date(row.created_at).toLocaleString()}</span></div>
+                                        <p>{highlightMentions(row.body)}</p>
+                                        {!!row.mentions?.length && <div className="projectMentionList">{row.mentions.map((mention) => <span key={mention}>{mention}</span>)}</div>}
+                                    </div>
+                                    {(canTeamManage || own) && (
+                                        <div className="projectAnnouncementActions">
+                                            {canTeamManage && <button aria-label={row.pinned ? 'Unpin announcement' : 'Pin announcement'} className="secondary" disabled={announcementBusy} onClick={() => toggleAnnouncementPin(row)} title={row.pinned ? 'Unpin' : 'Pin'} type="button"><Pin size={15} /></button>}
+                                            <button aria-label="Delete announcement" className="destructive" disabled={announcementBusy} onClick={() => setDeleteAnnouncement(row)} title="Delete" type="button"><Trash2 size={15} /></button>
+                                        </div>
+                                    )}
+                                </article>
+                            );
+                        })}
+                        {!announcements.length && <div className="emptyState">No project announcements yet.</div>}
                     </div>
                 </section>
                 <section className="detailMeta">
@@ -293,8 +403,34 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                 </section>
                 <CandidateTable project={project} setRoute={setRoute} navigateTo={navigateTo} />
             </main>
+            {deleteAnnouncement && (
+                <div className="candidateSendBackdrop" role="dialog" aria-modal="true">
+                    <section className="candidateSendModal actionConfirmModal">
+                        <div className="modalHead">
+                            <div><span className="eyebrow">Confirm deletion</span><h2>Delete announcement</h2></div>
+                            <button onClick={() => setDeleteAnnouncement(null)} type="button"><X size={16} /> Close</button>
+                        </div>
+                        <div className="deleteConfirmBox"><Trash2 size={30} /><p>You are about to remove this project announcement and record the action in project history. Are you sure?</p></div>
+                        <div className="editActions">
+                            <button className="secondary" onClick={() => setDeleteAnnouncement(null)} type="button">Cancel</button>
+                            <button className="destructive" disabled={announcementBusy} onClick={confirmDeleteAnnouncement} type="button"><Trash2 size={15} /> Delete announcement</button>
+                        </div>
+                    </section>
+                </div>
+            )}
         </div>
     );
+}
+
+function sortAnnouncements(left, right) {
+    if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
+    return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+}
+
+function highlightMentions(body = '') {
+    return String(body).split(/(@[A-Za-z0-9._-]{2,40})/g).map((part, index) => part.startsWith('@')
+        ? <mark className="projectMention" key={`${part}-${index}`}>{part}</mark>
+        : part);
 }
 
 function JobBulletPanel({ title, items, fallback }) {

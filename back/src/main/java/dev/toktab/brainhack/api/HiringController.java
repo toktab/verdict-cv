@@ -23,6 +23,9 @@ import dev.toktab.brainhack.hiring.HiringDtos.VoteRequest;
 import dev.toktab.brainhack.hiring.HiringService;
 import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectActivityRequest;
 import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectActivityResponse;
+import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectAnnouncementPinRequest;
+import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectAnnouncementRequest;
+import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectAnnouncementResponse;
 import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectAtsTemplateRequest;
 import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectAtsTemplateResponse;
 import dev.toktab.brainhack.hiring.ProjectStateDtos.ProjectMemberPermissionsRequest;
@@ -121,6 +124,38 @@ public class HiringController {
                                                   @PathVariable Long projectId,
                                                   @Valid @RequestBody ProjectActivityRequest request) {
         return projectStateService.record(owner(authorization, legacyToken), projectId, request);
+    }
+
+    @GetMapping("/{projectId}/announcements")
+    public List<ProjectAnnouncementResponse> announcements(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                                            @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                                            @PathVariable Long projectId) {
+        return projectStateService.announcements(owner(authorization, legacyToken), projectId);
+    }
+
+    @PostMapping("/{projectId}/announcements")
+    public ProjectAnnouncementResponse createAnnouncement(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                                           @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                                           @PathVariable Long projectId,
+                                                           @Valid @RequestBody ProjectAnnouncementRequest request) {
+        return projectStateService.createAnnouncement(owner(authorization, legacyToken), projectId, request);
+    }
+
+    @PatchMapping("/{projectId}/announcements/{announcementId}")
+    public ProjectAnnouncementResponse pinAnnouncement(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                                        @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                                        @PathVariable Long projectId,
+                                                        @PathVariable Long announcementId,
+                                                        @RequestBody ProjectAnnouncementPinRequest request) {
+        return projectStateService.pinAnnouncement(owner(authorization, legacyToken), projectId, announcementId, request);
+    }
+
+    @DeleteMapping("/{projectId}/announcements/{announcementId}")
+    public void deleteAnnouncement(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                   @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                   @PathVariable Long projectId,
+                                   @PathVariable Long announcementId) {
+        projectStateService.deleteAnnouncement(owner(authorization, legacyToken), projectId, announcementId);
     }
 
     @GetMapping("/{projectId}/ats-templates")

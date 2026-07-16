@@ -69,6 +69,11 @@ public class AdminTableMaintenanceService {
                 "audits"
         )));
         add(targets, new ClearTarget("hiring", "Hiring projects, candidates, invites, notes, teams", List.of(
+                "project_announcements",
+                "project_activity_logs",
+                "project_ats_templates",
+                "project_member_permissions",
+                "project_settings",
                 "candidate_review_notes",
                 "hiring_candidates",
                 "project_invites",
@@ -81,6 +86,11 @@ public class AdminTableMaintenanceService {
         add(targets, new ClearTarget("settings", "App settings", List.of("app_settings")));
         add(targets, new ClearTarget("users", "Users and all user-owned data", List.of(
                 "app_messages",
+                "project_announcements",
+                "project_activity_logs",
+                "project_ats_templates",
+                "project_member_permissions",
+                "project_settings",
                 "candidate_review_notes",
                 "hiring_candidates",
                 "project_invites",
