@@ -1,11 +1,12 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, RefreshCcw, Save, Send, ShieldCheck, User, UserPlus, X } from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, RefreshCcw, Send, ShieldCheck, User, UserPlus, X } from 'lucide-react';
 import IntroAnimation from './IntroAnimation';
 import { LanguageContext, translate, useLanguage } from './i18n';
 import { apiLogin, apiRegister, apiMe, apiLogout, apiListMessages, apiListProjects, apiLookupUser, apiRealtimeUrl, apiSendMessage, apiUpdateNotificationPreferences, javaApi, normaliseProject, normaliseUser } from './api';
 import { appendMessage, createMessage, messageBelongsTo, readMessages } from './messageStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { DialogKeyboardManager } from './components/DialogKeyboardManager';
+import { AuditTemplatePanel, CheckStatePanel } from './components/AuditConfigurationPanels';
 import { DenseVerdictTable, VerdictCard } from './components/VerdictEvidence';
 import { AuditScoreExplainer } from './components/AuditScoreExplainer';
 import { navigateTo, routeFromPath, scrollToPageTop } from './navigation';
@@ -195,55 +196,6 @@ function SkeletonBlock({ rows = 3, compact = false }) {
         <div className={`skeletonBlock ${compact ? 'compact' : ''}`}>
             {Array.from({ length: rows }, (_, index) => <span key={index} />)}
         </div>
-    );
-}
-
-function AuditTemplatePanel({ mode, templates, selectedId, onSelect, templateForm, setTemplateForm, onSave }) {
-    return (
-        <section className="templatePanel">
-            <div className="templateHeader">
-                <div>
-                    <span className="eyebrow">Templates</span>
-                    <h2>Audit instructions</h2>
-                </div>
-                <select value={selectedId} onChange={(event) => onSelect(event.target.value)}>
-                    <option value="">No template</option>
-                    {templates.filter((template) => template.mode === mode).map((template) => (
-                        <option key={template.id} value={template.id}>{template.name}</option>
-                    ))}
-                </select>
-            </div>
-            <div className="templateBuilder">
-                <Input label="Name" value={templateForm.name} onChange={(name) => setTemplateForm({ ...templateForm, name })} />
-                <Input label="Description" value={templateForm.description} onChange={(description) => setTemplateForm({ ...templateForm, description })} />
-                <label className="field">
-                    <span>Instructions</span>
-                    <textarea value={templateForm.instructions} onChange={(event) => setTemplateForm({ ...templateForm, instructions: event.target.value })} />
-                </label>
-                <button className="secondary" onClick={onSave}><Save size={16} /> Save template</button>
-            </div>
-        </section>
-    );
-}
-
-function CheckStatePanel({ states, selectedId, onSelect }) {
-    return (
-        <section className="statePanel">
-            <div className="templateHeader">
-                <div>
-                    <span className="eyebrow">Check state</span>
-                    <h2>Review posture</h2>
-                </div>
-            </div>
-            <div className="stateCards">
-                {states.map((state) => (
-                    <button key={state.id} className={selectedId === state.id ? 'active' : ''} onClick={() => onSelect(state.id)}>
-                        <strong>{state.name}</strong>
-                        <span>{state.description}</span>
-                    </button>
-                ))}
-            </div>
-        </section>
     );
 }
 
