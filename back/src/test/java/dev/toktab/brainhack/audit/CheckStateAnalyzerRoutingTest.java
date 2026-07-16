@@ -5,6 +5,7 @@ import dev.toktab.brainhack.account.UserSessionService;
 import dev.toktab.brainhack.api.dto.AuditRunRequest;
 import dev.toktab.brainhack.api.dto.RegisterRequest;
 import jakarta.transaction.Transactional;
+import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,12 +67,17 @@ class CheckStateAnalyzerRoutingTest {
                         Confidence.HIGH,
                         "model judgment",
                         "The model matched the sentence to the evidence.",
-                        "Spring Boot APIs with MySQL."))));
+                        "Spring Boot APIs with MySQL.")),
+                new LlmUsage(420, 80, 500, new BigDecimal("0.001250"))));
         UserAccount owner = sessionService.register(user("person_state_user", "person-state@example.com")).account();
 
         Audit audit = auditService.run(request("person"), new MockHttpServletRequest(), owner);
 
         assertThat(audit.getEngine()).isEqualTo("LLM_TEST_MODEL");
+        assertThat(audit.getPromptTokens()).isEqualTo(420);
+        assertThat(audit.getCompletionTokens()).isEqualTo(80);
+        assertThat(audit.getTotalTokens()).isEqualTo(500);
+        assertThat(audit.getEstimatedCostUsd()).isEqualByComparingTo("0.001250");
         verify(llmAuditAnalyzer).analyze(anyList(), anyString());
     }
 

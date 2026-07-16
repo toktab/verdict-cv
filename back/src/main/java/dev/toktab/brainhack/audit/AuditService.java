@@ -138,7 +138,7 @@ public class AuditService {
             AuditAnalysisResult analysis = analyze(audit, sentences, evidenceText);
             Audit saved = completeAnalyzedAudit(audit, analysis, evidenceText, started, false);
             String actor = owner == null ? "visitor" : owner.getUsername();
-            String detail = "auditId=" + saved.getId() + "; status=" + saved.getStatus() + "; score=" + saved.getCredibilityScore() + "; engine=" + saved.getEngine();
+            String detail = observabilityDetail(saved);
             if (httpRequest == null) {
                 logService.recordSystem("AUDIT_RUN", "actor=" + actor + "; " + detail);
             } else {
@@ -535,10 +535,9 @@ public class AuditService {
                 return;
             }
             Audit saved = completeAnalyzedAudit(audit, analysis, audit.getEvidenceText(), started, true);
-            logService.recordSystem("AUDIT_ASYNC_COMPLETED", "auditId=" + saved.getId() + "; score=" + saved.getCredibilityScore() + "; engine=" + saved.getEngine());
+            logService.recordSystem("AUDIT_ASYNC_COMPLETED", observabilityDetail(saved));
         } catch (RuntimeException exception) {
             failAudit(audit, exception, started);
-            logService.recordSystem("AUDIT_ASYNC_FAILED", "auditId=" + audit.getId() + "; error=" + exception.getClass().getSimpleName());
         }
     }
 
@@ -683,6 +682,27 @@ public class AuditService {
         auditRepository.save(audit);
         rabbitEventPublisher.publish("audit.failed", Map.of("auditId", audit.getId(), "error", exception.getClass().getSimpleName()));
         publishAuditChange(audit);
+        logService.recordSystem(
+                "AUDIT_FAILED",
+                "auditId=" + audit.getId()
+                        + "; durationMillis=" + audit.getProcessingMillis()
+                        + "; engine=" + audit.getEngine()
+                        + "; checkState=" + audit.getCheckStateId()
+                        + "; failureType=" + audit.getFailureType()
+                        + "; error=" + exception.getClass().getSimpleName());
+    }
+
+    private String observabilityDetail(Audit audit) {
+        return "auditId=" + audit.getId()
+                + "; status=" + audit.getStatus()
+                + "; score=" + audit.getCredibilityScore()
+                + "; engine=" + audit.getEngine()
+                + "; checkState=" + audit.getCheckStateId()
+                + "; durationMillis=" + audit.getProcessingMillis()
+                + "; promptTokens=" + audit.getPromptTokens()
+                + "; completionTokens=" + audit.getCompletionTokens()
+                + "; totalTokens=" + audit.getTotalTokens()
+                + "; estimatedCostUsd=" + audit.getEstimatedCostUsd();
     }
 
     private void publishAuditChange(Audit audit) {

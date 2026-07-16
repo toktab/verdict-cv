@@ -122,6 +122,14 @@ test('authentication tokens stay tab scoped and purge legacy persistent copies',
     }
 });
 
+test('audit detail exposes persisted LLM usage and estimated cost', async () => {
+    const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8'));
+    assert.match(source, /label="Prompt tokens" value=\{audit\.promptTokens \|\| 0\}/);
+    assert.match(source, /label="Completion tokens" value=\{audit\.completionTokens \|\| 0\}/);
+    assert.match(source, /label="Total tokens" value=\{audit\.totalTokens \|\| 0\}/);
+    assert.match(source, /label="Estimated cost" value=\{formatAuditCost\(audit\.estimatedCostUsd\)\}/);
+});
+
 function memoryStorage(initial = {}) {
     const rows = new Map(Object.entries(initial));
     return {

@@ -3,6 +3,7 @@ package dev.toktab.brainhack.audit;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.toktab.brainhack.log.AuditLogService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -22,12 +23,14 @@ public class LlmAuditAnalyzer implements ClaimAnalyzer {
     private final String model;
     private final double temperature;
     private final String url;
+    private final int timeoutSeconds;
     private final int maxAttempts;
     private final int backoffMillis;
     private final BigDecimal inputCostPerMillion;
     private final BigDecimal outputCostPerMillion;
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
+    private final AuditLogService logService;
 
     public LlmAuditAnalyzer(
             @Value("${verdict.llm.api-key}") String apiKey,
@@ -40,19 +43,22 @@ public class LlmAuditAnalyzer implements ClaimAnalyzer {
             @Value("${verdict.llm.input-cost-per-million}") BigDecimal inputCostPerMillion,
             @Value("${verdict.llm.output-cost-per-million}") BigDecimal outputCostPerMillion,
             ObjectMapper objectMapper,
-            RestClient.Builder restClientBuilder) {
+            RestClient.Builder restClientBuilder,
+            AuditLogService logService) {
         this.apiKey = apiKey;
         this.model = model;
         this.temperature = temperature;
         this.url = url;
+        this.timeoutSeconds = Math.max(1, timeoutSeconds);
         this.maxAttempts = Math.max(1, maxAttempts);
         this.backoffMillis = Math.max(0, backoffMillis);
         this.inputCostPerMillion = inputCostPerMillion == null ? BigDecimal.ZERO : inputCostPerMillion;
         this.outputCostPerMillion = outputCostPerMillion == null ? BigDecimal.ZERO : outputCostPerMillion;
         this.objectMapper = objectMapper;
+        this.logService = logService;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(java.time.Duration.ofSeconds(Math.max(1, timeoutSeconds)));
-        requestFactory.setReadTimeout(java.time.Duration.ofSeconds(Math.max(1, timeoutSeconds)));
+        requestFactory.setConnectTimeout(java.time.Duration.ofSeconds(this.timeoutSeconds));
+        requestFactory.setReadTimeout(java.time.Duration.ofSeconds(this.timeoutSeconds));
         this.restClient = restClientBuilder.requestFactory(requestFactory).build();
     }
 
@@ -81,19 +87,37 @@ public class LlmAuditAnalyzer implements ClaimAnalyzer {
     private String requestWithRetry(Map<String, Object> body) {
         RuntimeException last = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            long started = System.currentTimeMillis();
             try {
-                return restClient.post()
+                String response = restClient.post()
                         .uri(url)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(body)
                         .retrieve()
                         .body(String.class);
+                recordLlmEvent("LLM_REQUEST_SUCCEEDED",
+                        "model=" + model
+                                + "; attempt=" + attempt
+                                + "; durationMillis=" + (System.currentTimeMillis() - started));
+                return response;
             } catch (RestClientException exception) {
                 last = exception;
+                long retryDelayMillis = retryDelayMillis(attempt);
+                recordLlmEvent("LLM_REQUEST_FAILED",
+                        "model=" + model
+                                + "; attempt=" + attempt
+                                + "; maxAttempts=" + maxAttempts
+                                + "; durationMillis=" + (System.currentTimeMillis() - started)
+                                + "; retryDelayMillis=" + retryDelayMillis
+                                + "; error=" + exception.getClass().getSimpleName());
                 sleepBeforeRetry(attempt);
             }
         }
+        recordLlmEvent("LLM_REQUEST_EXHAUSTED",
+                "model=" + model
+                        + "; maxAttempts=" + maxAttempts
+                        + "; error=" + (last == null ? "unknown" : last.getClass().getSimpleName()));
         throw new IllegalStateException("LLM request failed after " + maxAttempts + " attempt(s)", last);
     }
 
@@ -102,10 +126,32 @@ public class LlmAuditAnalyzer implements ClaimAnalyzer {
             return;
         }
         try {
-            Thread.sleep((long) backoffMillis * attempt);
+            Thread.sleep(retryDelayMillis(attempt));
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("LLM request retry interrupted", exception);
+        }
+    }
+
+    long retryDelayMillis(int attempt) {
+        if (attempt >= maxAttempts || backoffMillis <= 0) {
+            return 0;
+        }
+        return (long) backoffMillis * Math.max(1, attempt);
+    }
+
+    LlmRuntimeConfiguration runtimeConfiguration() {
+        return new LlmRuntimeConfiguration(timeoutSeconds, maxAttempts, backoffMillis);
+    }
+
+    private void recordLlmEvent(String eventType, String detail) {
+        if (logService == null) {
+            return;
+        }
+        try {
+            logService.recordSystem(eventType, detail);
+        } catch (RuntimeException ignored) {
+            // Observability must never turn a recoverable LLM request into an audit failure.
         }
     }
 
@@ -183,6 +229,9 @@ public class LlmAuditAnalyzer implements ClaimAnalyzer {
                 .multiply(outputCostPerMillion)
                 .divide(BigDecimal.valueOf(1_000_000), 12, RoundingMode.HALF_UP);
         return inputCost.add(outputCost).setScale(6, RoundingMode.HALF_UP);
+    }
+
+    record LlmRuntimeConfiguration(int timeoutSeconds, int maxAttempts, int backoffMillis) {
     }
 
     private JsonNode parseModelContent(String content) throws Exception {

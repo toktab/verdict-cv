@@ -1711,6 +1711,10 @@ function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, aud
                             <Metric label="Analyzer" value={audit.analyzerVersion || 'Unknown'} />
                             <Metric label="Prompt" value={audit.promptVersion || 'Unknown'} />
                             <Metric label="Runtime" value={`${audit.processingMillis}ms`} />
+                            <Metric label="Prompt tokens" value={audit.promptTokens || 0} />
+                            <Metric label="Completion tokens" value={audit.completionTokens || 0} />
+                            <Metric label="Total tokens" value={audit.totalTokens || 0} />
+                            <Metric label="Estimated cost" value={formatAuditCost(audit.estimatedCostUsd)} />
                             <Metric label="CV hash" value={shortHash(audit.claimFingerprint)} />
                             <Metric label="Evidence hash" value={shortHash(audit.evidenceFingerprint)} />
                         </section>
@@ -2369,6 +2373,11 @@ function formatDateTime(value) {
     return value ? new Date(value).toLocaleString() : 'Unknown';
 }
 
+function formatAuditCost(value) {
+    const amount = Number(value || 0);
+    return `$${Number.isFinite(amount) ? amount.toFixed(6) : '0.000000'}`;
+}
+
 function shortHash(value) {
     return value ? `${value.slice(0, 8)}...` : 'None';
 }
@@ -2406,7 +2415,7 @@ function AuditResult({ audit, setRoute }) {
             <RewriteSuggestions verdicts={audit.verdicts} />
             <div className="summaryStrip">
                 <ShieldCheck size={18} />
-                <span>Top risk count: {problems.length}. Status: {audit.status || 'COMPLETED'}. Engine: {audit.engine}. Analyzer: {audit.analyzerVersion || 'Unknown'}. Prompt: {audit.promptVersion || 'Unknown'}. Completed in {audit.processingMillis}ms.</span>
+                <span>Top risk count: {problems.length}. Status: {audit.status || 'COMPLETED'}. Engine: {audit.engine}. Tokens: {audit.totalTokens || 0}. Estimated cost: {formatAuditCost(audit.estimatedCostUsd)}. Completed in {audit.processingMillis}ms.</span>
             </div>
         </section>
     );

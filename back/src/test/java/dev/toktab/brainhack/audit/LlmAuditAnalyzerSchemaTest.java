@@ -21,7 +21,8 @@ class LlmAuditAnalyzerSchemaTest {
             new BigDecimal("1.00"),
             new BigDecimal("2.00"),
             new ObjectMapper(),
-            RestClient.builder()
+            RestClient.builder(),
+            null
     );
 
     @Test
@@ -72,5 +73,34 @@ class LlmAuditAnalyzerSchemaTest {
         assertEquals(250, usage.completionTokens());
         assertEquals(1750, usage.totalTokens());
         assertEquals(new BigDecimal("0.002000"), usage.estimatedCostUsd());
+    }
+
+    @Test
+    void exposesConfiguredTimeoutAttemptsAndLinearBackoff() {
+        LlmAuditAnalyzer.LlmRuntimeConfiguration configuration = analyzer.runtimeConfiguration();
+
+        assertEquals(1, configuration.timeoutSeconds());
+        assertEquals(1, configuration.maxAttempts());
+        assertEquals(0, configuration.backoffMillis());
+        assertEquals(0, analyzer.retryDelayMillis(1));
+
+        LlmAuditAnalyzer retryingAnalyzer = new LlmAuditAnalyzer(
+                "test-key",
+                "test-model",
+                0.1,
+                "https://example.test",
+                12,
+                3,
+                500,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                new ObjectMapper(),
+                RestClient.builder(),
+                null
+        );
+
+        assertEquals(500, retryingAnalyzer.retryDelayMillis(1));
+        assertEquals(1000, retryingAnalyzer.retryDelayMillis(2));
+        assertEquals(0, retryingAnalyzer.retryDelayMillis(3));
     }
 }
