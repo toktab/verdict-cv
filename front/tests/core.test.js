@@ -194,6 +194,18 @@ test('global compose behavior is isolated from the application router', async ()
     assert.match(composeSource, /role="dialog"/);
 });
 
+test('authentication wizard is isolated as a lazy route page', async () => {
+    const [appSource, authSource] = await Promise.all([
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8')),
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/AuthPage.jsx', import.meta.url), 'utf8')),
+    ]);
+    assert.match(appSource, /lazyNamed\(\(\) => import\('\.\/pages\/AuthPage'\)/);
+    assert.doesNotMatch(appSource, /function AuthPage/);
+    assert.match(authSource, /apiLogin/);
+    assert.match(authSource, /apiRegister/);
+    assert.match(authSource, /Ready to create this workspace account/);
+});
+
 function memoryStorage(initial = {}) {
     const rows = new Map(Object.entries(initial));
     return {

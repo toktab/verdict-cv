@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Activity, ArrowRight, CheckCircle2, ChevronDown, Download, FileSearch, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, Play, RefreshCcw, ShieldCheck, User, UserPlus, X } from 'lucide-react';
 import IntroAnimation from './IntroAnimation';
 import { LanguageContext, translate, useLanguage } from './i18n';
-import { apiLogin, apiRegister, apiMe, apiLogout, apiListMessages, apiListProjects, apiRealtimeUrl, apiUpdateNotificationPreferences, javaApi, normaliseProject, normaliseUser } from './api';
+import { apiMe, apiLogout, apiListMessages, apiListProjects, apiRealtimeUrl, apiUpdateNotificationPreferences, javaApi, normaliseProject, normaliseUser } from './api';
 import { messageBelongsTo, readMessages } from './messageStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { DialogKeyboardManager } from './components/DialogKeyboardManager';
@@ -14,12 +14,13 @@ import { ProjectRouteState } from './pages/projects/ProjectRouteState';
 import { navigateTo, routeFromPath, scrollToPageTop } from './navigation';
 import { auditScoreLevel } from './utils/auditScore';
 import defaultAts from './data/default-ats.json';
-import { clearUserToken, readUserToken, writeUserToken } from './sessionAuth';
+import { clearUserToken, readUserToken } from './sessionAuth';
 import './styles.css';
 import './styles/reports.css';
 
 const lazyNamed = (loader, name) => lazy(() => loader().then((module) => ({ default: module[name] })));
 const HistoryPage = lazyNamed(() => import('./pages/HistoryPage'), 'HistoryPage');
+const AuthPage = lazyNamed(() => import('./pages/AuthPage'), 'AuthPage');
 const CandidateDetailPage = lazyNamed(() => import('./pages/projects/CandidateDetailPage'), 'CandidateDetailPage');
 const CandidateMatchReportPage = lazyNamed(() => import('./pages/projects/CandidateMatchReportPage'), 'CandidateMatchReportPage');
 const CandidateProfilePage = lazyNamed(() => import('./pages/projects/CandidateProfilePage'), 'CandidateProfilePage');
@@ -100,23 +101,6 @@ const api = {
     }).catch(() => null),
     me: async (token) => {
         try { return normaliseUser(await apiMe(token)); } catch { return null; }
-    },
-    login: async ({ identifier, password }) => {
-        const res = await apiLogin({ identifier, password });
-        return { token: res.token, user: normaliseUser(res.user) };
-    },
-    register: async (form) => {
-        const res = await apiRegister({
-            username: form.username,
-            email: form.email,
-            password: form.password,
-            fullName: form.fullName || `${form.firstName || ''} ${form.lastName || ''}`.trim(),
-            country: form.country || '',
-            address: form.address || '',
-            organization: form.organization || '',
-            role: form.role || '',
-        });
-        return { token: res.token, user: normaliseUser(res.user) };
     },
     logout: async (token) => { try { await apiLogout(token); } catch { /* ignore */ } },
     history: async (token) => javaApi.history(token),
@@ -649,9 +633,9 @@ function App() {
     } else if (route === 'messages') {
         content = <MessagesPage Header={AppHeader} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} openCompose={openCompose} onProjectsChange={loadProjects} />;
     } else if (route === 'login') {
-        content = <AuthPage mode="login" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} authProblem={authProblem} clearAuthProblem={() => setAuthProblem('')} />;
+        content = <AuthPage Header={AppHeader} mode="login" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} authProblem={authProblem} clearAuthProblem={() => setAuthProblem('')} />;
     } else if (route === 'register') {
-        content = <AuthPage mode="register" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} authProblem={authProblem} clearAuthProblem={() => setAuthProblem('')} />;
+        content = <AuthPage Header={AppHeader} mode="register" setRoute={setRoute} setUser={setUser} setUserToken={setUserToken} authProblem={authProblem} clearAuthProblem={() => setAuthProblem('')} />;
     } else if (route === 'home') {
         content = <HomePage Header={AppHeader} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />;
     } else if (route === 'notFound') {
@@ -1186,339 +1170,6 @@ async function waitForAuditCompletion(id, token, setStage) {
         }
         window.addEventListener('verdictAuditChanged', onAudit);
     });
-}
-
-function AuthPage({ mode, setRoute, setUser, setUserToken, authProblem = '', clearAuthProblem = () => {} }) {
-    const { t } = useLanguage();
-    const isRegister = mode === 'register';
-    const [form, setForm] = useState({
-        firstName: '',
-        lastName: '',
-        fullName: '',
-        username: '',
-        email: '',
-        country: '',
-        address: '',
-        organization: '',
-        role: '',
-        identifier: '',
-        password: '',
-        confirmInfo: false,
-    });
-    const [registerStep, setRegisterStep] = useState(0);
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    const registerSteps = getRegisterSteps(form);
-    const activeStep = registerSteps[registerStep] || registerSteps[0];
-    const activeChecks = activeStep?.checks || [];
-    const stepValid = activeChecks.every((check) => check.valid);
-
-    async function submit() {
-        setError('');
-        clearAuthProblem();
-        if (isRegister) {
-            const invalidStep = registerSteps.findIndex((step) => step.checks.some((check) => !check.valid));
-            if (invalidStep >= 0) {
-                setRegisterStep(invalidStep);
-                setError('Finish the highlighted step before creating the account.');
-                return;
-            }
-        }
-        setLoading(true);
-        track(isRegister ? 'register_submit' : 'login_submit', 'auth');
-        try {
-            const response = isRegister ? await api.register(registerPayload(form)) : await api.login(form);
-            if (!response.token) {
-                setError('Account created. Email verification is required before login; ask an admin to verify the account.');
-                return;
-            }
-            writeUserToken(response.token);
-            setUserToken(response.token);
-            setUser(response.user);
-            navigateTo(setRoute, 'dashboard');
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    function updateForm(patch) {
-        setForm((current) => ({ ...current, ...patch }));
-        setError('');
-    }
-
-    function nextStep() {
-        if (!stepValid) {
-            setError('Complete the checks on this step before continuing.');
-            return;
-        }
-        setError('');
-        setRegisterStep((current) => Math.min(current + 1, registerSteps.length - 1));
-    }
-
-    function previousStep() {
-        setError('');
-        setRegisterStep((current) => Math.max(current - 1, 0));
-    }
-
-    function handleAuthSubmit(event) {
-        event.preventDefault();
-        if (loading) {
-            return;
-        }
-        if (isRegister && registerStep < registerSteps.length - 1) {
-            nextStep();
-            return;
-        }
-        submit();
-    }
-
-    return (
-        <div className="shell">
-            <div className="pageGlow contentFadeIn" />
-            <Header setRoute={setRoute} user={null} userToken="" setUser={setUser} setUserToken={setUserToken} />
-            <main className="authWrap contentFadeIn">
-                <form className="authCard" onSubmit={handleAuthSubmit}>
-                    <span className="eyebrow">{isRegister ? t('createAccount') : t('welcomeBack')}</span>
-                    <h1>{isRegister ? t('privateAuditWorkspace') : t('loginToContinue')}</h1>
-                    {authProblem && <div className="error compact">{authProblem}</div>}
-                    {isRegister ? (
-                        <div className="registerWizard">
-                            <div className="registerProgress" aria-label={t('registrationProgress')}>
-                                <div className="progressTop">
-                                    <strong>{registerStep + 1}/{registerSteps.length}</strong>
-                                    <span>{activeStep.title}</span>
-                                </div>
-                                <div className="progressRail">
-                                    <span style={{ width: `${((registerStep + 1) / registerSteps.length) * 100}%` }} />
-                                </div>
-                                <div className="stepDots">
-                                    {registerSteps.map((step, index) => (
-                                        <button
-                                            type="button"
-                                            key={step.title}
-                                            className={index === registerStep ? 'active' : index < registerStep ? 'done' : ''}
-                                            onClick={() => index <= registerStep && setRegisterStep(index)}
-                                            disabled={index > registerStep}
-                                            aria-label={`Step ${index + 1}: ${step.title}`}
-                                        >
-                                            {index + 1}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="registerStepPanel" key={registerStep}>
-                                <div className="stepHead">
-                                    <span className="eyebrow">{t('step')} {registerStep + 1}</span>
-                                    <h2>{activeStep.title}</h2>
-                                </div>
-                                {registerStep === 0 && (
-                                    <div className="authGrid">
-                                        <Input label={t('firstName')} value={form.firstName} onChange={(firstName) => updateForm({ firstName })} />
-                                        <Input label={t('lastName')} value={form.lastName} onChange={(lastName) => updateForm({ lastName })} />
-                                    </div>
-                                )}
-                                {registerStep === 1 && (
-                                    <div className="authGrid single">
-                                        <Input label={t('username')} value={form.username} onChange={(username) => updateForm({ username })} />
-                                    </div>
-                                )}
-                                {registerStep === 2 && (
-                                    <div className="authGrid single">
-                                        <Input label={t('email')} value={form.email} onChange={(email) => updateForm({ email })} />
-                                    </div>
-                                )}
-                                {registerStep === 3 && (
-                                    <div className="authGrid">
-                                        <Input label={t('country')} value={form.country} onChange={(country) => updateForm({ country })} />
-                                        <Input label={t('address')} value={form.address} onChange={(address) => updateForm({ address })} />
-                                    </div>
-                                )}
-                                {registerStep === 4 && (
-                                    <div className="authGrid">
-                                        <Input label={t('organization')} value={form.organization} onChange={(organization) => updateForm({ organization })} />
-                                        <Input label={t('role')} value={form.role} onChange={(role) => updateForm({ role })} />
-                                    </div>
-                                )}
-                                {registerStep === 5 && (
-                                    <div className="authGrid single">
-                                        <Input type="password" label={t('password')} value={form.password} onChange={(password) => updateForm({ password })} />
-                                    </div>
-                                )}
-                                {registerStep === 6 && (
-                                    <>
-                                        <div className="confirmSummaryCard">
-                                            <div>
-                                                <span className="eyebrow">Final review</span>
-                                                <strong>Ready to create this workspace account?</strong>
-                                                <small>Check spelling now. You can still go back and edit anything before submitting.</small>
-                                            </div>
-                                            <div className="confirmIdentityBadge">
-                                                <span>{accountInitials(form)}</span>
-                                                <strong>{registerPayload(form).fullName || 'New account'}</strong>
-                                                <small>{form.email || 'Email required'}</small>
-                                            </div>
-                                        </div>
-                                        <div className="reviewBox">
-                                            {reviewRows(form).map(([label, value]) => (
-                                                <div key={label}>
-                                                    <span>{label}</span>
-                                                    <strong>{value || t('notProvided')}</strong>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <label className={`confirmRow confirmRowFinal ${form.confirmInfo ? 'checked' : ''}`}>
-                                            <input type="checkbox" checked={form.confirmInfo} onChange={(event) => updateForm({ confirmInfo: event.target.checked })} />
-                                            <span>
-                                                <strong>{t('infoCorrect')}</strong>
-                                                <small>Press Enter or Create account after this is checked.</small>
-                                            </span>
-                                        </label>
-                                    </>
-                                )}
-                                <ValidationList checks={activeChecks} />
-                                <div className="stepActions">
-                                    <button className="ghost" disabled={registerStep === 0 || loading} onClick={previousStep} type="button">{t('back')}</button>
-                                    {registerStep < registerSteps.length - 1 ? (
-                                        <button className="primary" disabled={!stepValid || loading} type="submit">
-                                            {t('next')} <ArrowRight size={18} />
-                                        </button>
-                                    ) : (
-                                        <button className="primary" disabled={!stepValid || loading} type="submit">
-                                            <UserPlus size={18} /> {loading ? t('working') : t('createAccount')}
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="authGrid single">
-                            <Input label={t('usernameOrEmail')} value={form.identifier} onChange={(identifier) => setForm({ ...form, identifier })} />
-                            <Input type="password" label={t('password')} value={form.password} onChange={(password) => setForm({ ...form, password })} />
-                        </div>
-                    )}
-                    {!isRegister && (
-                        <button className="primary authSubmit" disabled={loading} type="submit">
-                            <Lock size={18} />
-                            {loading ? t('working') : t('login')}
-                        </button>
-                    )}
-                    <button className="ghost authSubmit" onClick={() => navigateTo(setRoute, isRegister ? 'login' : 'register')} type="button">
-                        {isRegister ? t('alreadyHaveAccount') : t('createNewAccount')}
-                    </button>
-                    {error && <div className="error">{error}</div>}
-                </form>
-            </main>
-        </div>
-    );
-}
-
-function getRegisterSteps(form) {
-    const firstName = form.firstName.trim();
-    const lastName = form.lastName.trim();
-    const username = form.username.trim();
-    const email = form.email.trim();
-    const country = form.country.trim();
-    const address = form.address.trim();
-    const organization = form.organization.trim();
-    const role = form.role.trim();
-    const password = form.password;
-    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    const usernameOk = /^[a-zA-Z0-9_-]+$/.test(username);
-    const passwordDigits = (password.match(/\d/g) || []).length;
-    return [
-        {
-            title: 'First name and last name',
-            checks: [
-                { label: 'First name has at least 2 letters', valid: firstName.length >= 2 },
-                { label: 'Last name has at least 2 letters', valid: lastName.length >= 2 },
-            ],
-        },
-        {
-            title: 'Username',
-            checks: [
-                { label: 'Username is 3 to 80 characters', valid: username.length >= 3 && username.length <= 80 },
-                { label: 'Only letters, numbers, underscore, or dash', valid: usernameOk },
-            ],
-        },
-        {
-            title: 'Email address',
-            checks: [
-                { label: 'Email format is valid', valid: emailOk },
-                { label: 'Email is under 160 characters', valid: email.length > 0 && email.length <= 160 },
-            ],
-        },
-        {
-            title: 'Location',
-            checks: [
-                { label: 'Country is filled in', valid: country.length >= 2 && country.length <= 120 },
-                { label: 'Address is at least 6 characters', valid: address.length >= 6 && address.length <= 220 },
-                { label: 'Address includes at least one number', valid: /\d/.test(address) },
-            ],
-        },
-        {
-            title: 'Work profile',
-            checks: [
-                { label: 'Organization is 80 characters or less', valid: organization.length <= 80 },
-                { label: 'Role is 80 characters or less', valid: role.length <= 80 },
-            ],
-        },
-        {
-            title: 'Password',
-            checks: [
-                { label: 'Password is at least 8 characters', valid: password.length >= 8 },
-                { label: 'Password includes at least 1 digit', valid: passwordDigits >= 1 },
-                { label: 'Password includes at least 1 letter', valid: /[a-zA-Z]/.test(password) },
-            ],
-        },
-        {
-            title: 'Is all information correct?',
-            checks: [
-                { label: 'Name, email, location, and password checks are complete', valid: firstName.length >= 2 && lastName.length >= 2 && username.length >= 3 && emailOk && country.length >= 2 && address.length >= 6 && password.length >= 8 && passwordDigits >= 1 },
-                { label: 'You confirmed the information is correct', valid: form.confirmInfo },
-            ],
-        },
-    ];
-}
-
-function registerPayload(form) {
-    return {
-        fullName: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
-        username: form.username.trim(),
-        email: form.email.trim(),
-        country: form.country.trim(),
-        address: form.address.trim(),
-        organization: form.organization.trim(),
-        role: form.role.trim(),
-        password: form.password,
-    };
-}
-
-function reviewRows(form) {
-    const payload = registerPayload(form);
-    return [
-        ['Full name', payload.fullName],
-        ['Username', payload.username],
-        ['Email', payload.email],
-        ['Country', payload.country],
-        ['Address', payload.address],
-        ['Organization', payload.organization || 'Independent'],
-        ['Role', payload.role || 'Analyst'],
-    ];
-}
-
-function ValidationList({ checks }) {
-    return (
-        <div className="validationList">
-            {checks.map((check) => (
-                <div className={check.valid ? 'valid' : ''} key={check.label}>
-                    <CheckCircle2 size={16} />
-                    <span>{check.label}</span>
-                </div>
-            ))}
-        </div>
-    );
 }
 
 function AuditDetailPage({ setRoute, user, userToken, setUser, setUserToken, audit, loading, error, onRetry }) {
@@ -2240,12 +1891,6 @@ function formatAuditCost(value) {
 
 function shortHash(value) {
     return value ? `${value.slice(0, 8)}...` : 'None';
-}
-
-function accountInitials(form) {
-    const first = form.firstName.trim().charAt(0);
-    const last = form.lastName.trim().charAt(0);
-    return `${first}${last}`.toUpperCase() || 'VA';
 }
 
 function AuditResult({ audit, setRoute }) {
