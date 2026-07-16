@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, BriefcaseBusiness, CodeXml, Radar, Search, Users } from 'lucide-react';
+import { ArrowRight, BriefcaseBusiness, CodeXml, ExternalLink, Radar, RefreshCcw, Search, Users } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { apiRunCandidateOsint, apiUpdateCandidateAnalysisState } from '../../api';
 import { findCandidateFromPath } from './projectPageUtils';
@@ -338,19 +338,38 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
                             </div>
                         )}
                     </div>
-                    {osintError && <div className="emptyState">{osintError}</div>}
+                    {osintError && (
+                        <div className="signalTraceError" role="alert">
+                            <div>
+                                <strong>SignalTrace could not finish this check.</strong>
+                                <span>{osintError}</span>
+                            </div>
+                            <button className="secondary" type="button" disabled={osintLoading} onClick={runOsintCheck}>
+                                <RefreshCcw size={16} /> Retry
+                            </button>
+                        </div>
+                    )}
                     {osintLoading && <div className="emptyState">Running automatic OSINT check for {activeCandidate.name}...</div>}
                     {signalTraceUnlocked && selectedStateInitialized ? (
                         <div className="signalResultRows">
                             {resultRows.map((row) => (
-                                <article className={`signalResultCard ${row.tone}`} key={row.source}>
+                                <article className={`signalResultCard ${row.tone}`} key={`${row.source}-${row.url || row.finding}`}>
                                     <div>
                                         <span>{t('source')}</span>
                                         <strong>{row.source}</strong>
+                                        <small className={`signalFindingStatus ${findingStatus(row).tone}`}>{findingStatus(row).label}</small>
                                     </div>
                                     <div>
                                         <span>{t('finding')}</span>
                                         <p>{row.finding}</p>
+                                        <div className="signalSourceMeta">
+                                            {row.url ? (
+                                                <a href={row.url} target="_blank" rel="noreferrer">
+                                                    <ExternalLink size={13} /> Open public source
+                                                </a>
+                                            ) : <span>No public source URL was returned</span>}
+                                            {row.checkedAt && <time dateTime={row.checkedAt}>Checked {formatCheckedAt(row.checkedAt)}</time>}
+                                        </div>
                                     </div>
                                     <div>
                                         <span>{t('sourceConfidence')}</span>
@@ -432,6 +451,7 @@ function buildSignalResults(candidate, stateId, t, osintResult) {
             impact: source.impact,
             tone: source.tone || 'neutral',
             url: source.url || '',
+            checkedAt: osintResult.checked_at || osintResult.checkedAt || '',
         }));
     }
     const baseRows = [
@@ -460,4 +480,26 @@ function buildSignalResults(candidate, stateId, t, osintResult) {
         { source: 'GitHub', finding: t('githubFinding'), confidence: candidate.score >= 75 ? 84 : 48, impact: candidate.score >= 75 ? '+16' : '+4', tone: candidate.score >= 75 ? 'good' : 'warn' },
         { source: 'Socials', finding: t('socialFinding'), confidence: candidate.osint === 'Not started' ? 0 : 36, impact: candidate.osint === 'Not started' ? '0' : '+2', tone: 'neutral' },
     ];
+}
+
+function formatCheckedAt(value) {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+}
+
+function findingStatus(row) {
+    const finding = String(row.finding || '').toLowerCase();
+    if (finding.includes('not checked') || finding.includes('could not be checked') || finding.includes('interrupted')) {
+        return { label: 'Not checked', tone: 'neutral' };
+    }
+    if (finding.includes('did not resolve') || finding.includes('not found') || finding.includes('no visible')) {
+        return { label: 'Not found', tone: 'warn' };
+    }
+    if (row.tone === 'bad' || finding.includes('contradict')) {
+        return { label: 'Contradicted', tone: 'bad' };
+    }
+    if (row.tone === 'good') {
+        return { label: 'Supported', tone: 'good' };
+    }
+    return { label: 'Needs review', tone: 'warn' };
 }

@@ -1,5 +1,11 @@
-import { ArrowRight, CheckCircle2, Download, Printer, XCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle2, FileSpreadsheet, FileText, Printer, XCircle } from 'lucide-react';
 import { buildAtsReport, candidateSourceText, projectDescriptionText } from './atsReportUtils';
+import {
+    buildExecutiveSummary,
+    buildRequirementRows,
+    downloadCandidateReportCsv,
+    downloadCandidateReportText,
+} from './candidateReportExports';
 import { findCandidateFromPath } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
 
@@ -11,6 +17,7 @@ export function CandidateMatchReportPage({ Header, navigateTo, setRoute, user, u
     }
 
     const report = buildAtsReport(project, candidate);
+    const requirementRows = buildRequirementRows(project, candidate);
     const printReport = () => window.print();
 
     return (
@@ -19,7 +26,9 @@ export function CandidateMatchReportPage({ Header, navigateTo, setRoute, user, u
             <main className="atsReportWorkspace contentFadeIn">
                 <div className="atsReportActions noPrint">
                     <button className="secondary" type="button" onClick={() => navigateTo(setRoute, 'candidateDetail', project.id, candidate.id)}><ArrowRight size={16} /> Back</button>
-                    <button className="primary" type="button" onClick={printReport}><Printer size={16} /> Print Report</button>
+                    <button className="secondary" type="button" onClick={() => downloadCandidateReportCsv(project, candidate, report)}><FileSpreadsheet size={16} /> CSV</button>
+                    <button className="secondary" type="button" onClick={() => downloadCandidateReportText(project, candidate, report)}><FileText size={16} /> TXT</button>
+                    <button className="primary" type="button" onClick={printReport}><Printer size={16} /> Print / PDF</button>
                 </div>
                 <article className="atsReportPaper">
                     <header className="atsReportHeader">
@@ -28,7 +37,7 @@ export function CandidateMatchReportPage({ Header, navigateTo, setRoute, user, u
                             <p>{project.title}</p>
                             <small>{candidate.name} / {candidate.role}</small>
                         </div>
-                        <button className="primary noPrint" type="button" onClick={printReport}><Download size={16} /> Download PDF</button>
+                        <span className="atsReportGenerated">Generated {new Date().toLocaleDateString()}</span>
                     </header>
                     <section className="atsReportSummary">
                         <div className="atsMiniDonut" style={{ '--ats-score': `${report.score * 3.6}deg` }}>
@@ -42,7 +51,34 @@ export function CandidateMatchReportPage({ Header, navigateTo, setRoute, user, u
                             </article>
                         ))}
                     </section>
+                    <section className="atsReportSection atsExecutiveSummary">
+                        <h2>Executive Summary</h2>
+                        <p>{buildExecutiveSummary(project, candidate, report)}</p>
+                    </section>
                     <ReportTable title="Searchability" rows={report.searchabilityRows} />
+                    <section className="atsReportSection">
+                        <h2>Requirement Coverage</h2>
+                        {requirementRows.length ? (
+                            <table className="atsReportTable">
+                                <thead>
+                                    <tr>
+                                        <th>Requirement</th>
+                                        <th>Status</th>
+                                        <th>Evidence</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {requirementRows.map((row) => (
+                                        <tr key={row.requirement}>
+                                            <td>{row.requirement}</td>
+                                            <td><span className={`atsLegendPill ${requirementTone(row.status)}`}>{row.status}</span></td>
+                                            <td>{row.evidence}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : <p>No project requirements were stored for this report.</p>}
+                    </section>
                     <section className="atsReportSection">
                         <h2>Skills</h2>
                         <table className="atsReportTable">
@@ -104,4 +140,10 @@ function statusLabel(status) {
     if (status === 'matching') return 'Matching Skill';
     if (status === 'missing') return 'Missing Skill';
     return 'Skill Variation';
+}
+
+function requirementTone(status) {
+    if (status === 'Supported' || status === 'Mentioned') return 'matching';
+    if (status === 'Gap' || status === 'Unsupported') return 'missing';
+    return 'variation';
 }

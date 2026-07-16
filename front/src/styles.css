@@ -6954,6 +6954,70 @@ mark {
     line-height: 1.45;
 }
 
+.signalFindingStatus {
+    display: inline-flex;
+    width: fit-content;
+    margin-top: 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px 7px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.signalFindingStatus.good {
+    color: #8bf0ae;
+    border-color: rgba(102, 217, 145, 0.35);
+}
+
+.signalFindingStatus.warn {
+    color: #ffd38a;
+    border-color: rgba(240, 184, 90, 0.38);
+}
+
+.signalFindingStatus.bad {
+    color: #ff9b9b;
+    border-color: rgba(255, 99, 99, 0.4);
+}
+
+.signalSourceMeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-top: 9px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.signalSourceMeta a {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #8bbcff;
+}
+
+.signalTraceError {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 14px;
+    border: 1px solid rgba(255, 99, 99, 0.38);
+    border-radius: 8px;
+    padding: 12px;
+    background: rgba(255, 99, 99, 0.08);
+}
+
+.signalTraceError div {
+    display: grid;
+    gap: 5px;
+}
+
+.signalTraceError span {
+    color: var(--soft);
+}
+
 .signalResultCard.good {
     border-color: rgba(102, 217, 145, 0.28);
 }
@@ -6964,6 +7028,18 @@ mark {
 
 .signalResultCard.bad {
     border-color: rgba(255, 99, 99, 0.38);
+}
+
+.atsReportGenerated {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.atsExecutiveSummary p {
+    margin: 0;
+    color: var(--soft);
+    line-height: 1.7;
+    font-size: 15px;
 }
 
 .consentGatePanel {

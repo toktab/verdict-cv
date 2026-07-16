@@ -157,6 +157,31 @@ test('project and audit route failures expose retry actions without clearing sav
     assert.match(source, /Profiling mode failed to load\./);
 });
 
+test('SignalTrace exposes backend provenance, check time, and retry recovery', async () => {
+    const [pageSource, translations] = await Promise.all([
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/projects/SignalTracePage.jsx', import.meta.url), 'utf8')),
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/i18n.jsx', import.meta.url), 'utf8')),
+    ]);
+    assert.match(pageSource, /Open public source/);
+    assert.match(pageSource, /checked_at/);
+    assert.match(pageSource, /onClick=\{runOsintCheck\}/);
+    assert.match(pageSource, /Not checked/);
+    assert.doesNotMatch(translations, /visual only until the backend SignalTrace engine is connected/);
+});
+
+test('candidate match report includes requirement coverage and independent exports', async () => {
+    const [pageSource, exportSource] = await Promise.all([
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/projects/CandidateMatchReportPage.jsx', import.meta.url), 'utf8')),
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/projects/candidateReportExports.js', import.meta.url), 'utf8')),
+    ]);
+    assert.match(pageSource, /Executive Summary/);
+    assert.match(pageSource, /Requirement Coverage/);
+    assert.match(pageSource, /Print \/ PDF/);
+    assert.match(exportSource, /downloadCandidateReportCsv/);
+    assert.match(exportSource, /downloadCandidateReportText/);
+    assert.match(exportSource, /URL\.createObjectURL/);
+});
+
 function memoryStorage(initial = {}) {
     const rows = new Map(Object.entries(initial));
     return {
