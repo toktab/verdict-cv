@@ -53,6 +53,13 @@ test('user normalization keeps server notification preferences', () => {
     assert.equal(user.messageNotificationsMutedUntil, null);
 });
 
+test('message normalization preserves explicit unread state', async () => {
+    const { normaliseMessage } = await import('../src/api.js');
+    const message = normaliseMessage({ id: 8, from: 'a@example.com', to: 'b@example.com', read: false, manual_unread: true });
+    assert.equal(message.read, false);
+    assert.equal(message.manualUnread, true);
+});
+
 test('project normalization preserves server permissions and candidates', () => {
     const project = normaliseProject({
         id: 3,

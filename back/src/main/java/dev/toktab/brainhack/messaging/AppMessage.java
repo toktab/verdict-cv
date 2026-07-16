@@ -72,6 +72,9 @@ public class AppMessage {
     @Column(nullable = false)
     private boolean archived;
 
+    @Column(nullable = false)
+    private boolean manualUnread;
+
     @Column(columnDefinition = "LONGTEXT")
     private String candidateAttachmentsJson = "[]";
 
@@ -113,6 +116,8 @@ public class AppMessage {
     public void setReadAt(Instant readAt) { this.readAt = readAt; }
     public boolean isArchived() { return archived; }
     public void setArchived(boolean archived) { this.archived = archived; }
+    public boolean isManualUnread() { return manualUnread; }
+    public void setManualUnread(boolean manualUnread) { this.manualUnread = manualUnread; }
     public String getCandidateAttachmentsJson() { return candidateAttachmentsJson; }
     public void setCandidateAttachmentsJson(String candidateAttachmentsJson) { this.candidateAttachmentsJson = candidateAttachmentsJson; }
     public Instant getCreatedAt() { return createdAt; }

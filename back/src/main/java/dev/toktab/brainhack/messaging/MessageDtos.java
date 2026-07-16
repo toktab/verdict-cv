@@ -24,6 +24,7 @@ public final class MessageDtos {
             @JsonProperty("read") Boolean read,
             Boolean starred,
             Boolean archived,
+            @JsonProperty("manual_unread") Boolean manualUnread,
             @JsonProperty("invite_status") @Size(max = 40) String inviteStatus
     ) {
     }
@@ -54,6 +55,7 @@ public final class MessageDtos {
             boolean starred,
             @JsonProperty("read_at") Instant readAt,
             boolean archived,
+            @JsonProperty("manual_unread") boolean manualUnread,
             @JsonProperty("delivery_status") String deliveryStatus,
             @JsonProperty("reply_to_message_id") Long replyToMessageId,
             @JsonProperty("forwarded_from_message_id") Long forwardedFromMessageId,

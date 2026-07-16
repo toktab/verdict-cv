@@ -10,7 +10,6 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     const [actionMessage, setActionMessage] = useState('');
     const [loading, setLoading] = useState(() => Boolean(userToken));
     const [loadError, setLoadError] = useState('');
-    const [manualUnreadIds, setManualUnreadIds] = useState(() => readManualUnreadIds(user));
     const [highlightedId, setHighlightedId] = useState(null);
     const seenMessageIds = useRef(new Set());
     const visible = useMemo(() => messages.filter((message) => {
@@ -65,7 +64,6 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     }, [loadMessages, messages, userToken]);
 
     useEffect(() => {
-        setManualUnreadIds(readManualUnreadIds(user));
         function refreshMessages() {
             loadMessages();
         }
@@ -77,10 +75,10 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
     useEffect(() => {
         setActionMessage('');
         const message = visible.find((row) => row.id === activeId);
-        if (message && !message.read && messageBelongsTo(message, user, 'to') && !manualUnreadIds.includes(String(message.id))) {
-            updateMessage(message.id, { read: true });
+        if (message && !message.read && messageBelongsTo(message, user, 'to') && !message.manualUnread) {
+            updateMessage(message.id, { read: true, manualUnread: false });
         }
-    }, [activeId, manualUnreadIds, updateMessage, user, visible]);
+    }, [activeId, updateMessage, user, visible]);
 
     function toggleStar(id) {
         const message = messages.find((row) => row.id === id);
@@ -93,9 +91,7 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
         const message = messages.find((row) => row.id === id);
         if (message) {
             const nextRead = !message.read;
-            rememberManualUnread(user, id, !nextRead);
-            setManualUnreadIds(readManualUnreadIds(user));
-            updateMessage(id, { read: nextRead });
+            updateMessage(id, { read: nextRead, manualUnread: !nextRead });
         }
     }
 
@@ -105,16 +101,14 @@ export function MessagesPage({ Header, setRoute, user, userToken, setUser, setUs
             return;
         }
         const unreadIds = new Set(unreadRows.map((message) => String(message.id)));
-        const updated = messages.map((message) => unreadIds.has(String(message.id)) ? { ...message, read: true } : message);
-        unreadRows.forEach((message) => {
-            rememberManualUnread(user, message.id, false);
-        });
-        setManualUnreadIds(readManualUnreadIds(user));
+        const updated = messages.map((message) => unreadIds.has(String(message.id))
+            ? { ...message, read: true, manualUnread: false }
+            : message);
         setMessages(updated);
         if (!userToken) writeMessages(updated);
         Promise.all(unreadRows
             .filter((message) => message.serverBacked)
-            .map((message) => apiUpdateMessage(message.id, serverPatch({ read: true }), userToken)))
+            .map((message) => apiUpdateMessage(message.id, serverPatch({ read: true, manualUnread: false }), userToken)))
             .then(loadMessages)
             .catch((error) => {
                 setLoadError(error.message || 'Could not mark all messages as read.');
@@ -347,29 +341,7 @@ function serverPatch(patch) {
     if (patch.read !== undefined) next.read = patch.read;
     if (patch.starred !== undefined) next.starred = patch.starred;
     if (patch.archived !== undefined) next.archived = patch.archived;
+    if (patch.manualUnread !== undefined) next.manual_unread = patch.manualUnread;
     if (patch.meta?.inviteStatus) next.invite_status = patch.meta.inviteStatus;
     return next;
-}
-
-function manualUnreadKey(user) {
-    return `verdictManualUnread:${(user?.email || user?.username || 'guest').toLowerCase()}`;
-}
-
-function readManualUnreadIds(user) {
-    try {
-        return JSON.parse(localStorage.getItem(manualUnreadKey(user)) || '[]').map(String);
-    } catch {
-        return [];
-    }
-}
-
-function rememberManualUnread(user, id, keepUnread) {
-    const next = new Set(readManualUnreadIds(user));
-    const value = String(id);
-    if (keepUnread) {
-        next.add(value);
-    } else {
-        next.delete(value);
-    }
-    localStorage.setItem(manualUnreadKey(user), JSON.stringify([...next]));
 }

@@ -62,6 +62,7 @@ public class MessageFileLogger {
                 starred=%s
                 read_at=%s
                 archived=%s
+                manual_unread=%s
                 reply_to_message_id=%s
                 forwarded_from_message_id=%s
                 candidate_attachments=%s
@@ -87,6 +88,7 @@ public class MessageFileLogger {
                 value(message.isStarred()),
                 value(message.getReadAt()),
                 value(message.isArchived()),
+                value(message.isManualUnread()),
                 value(message.getReplyToMessageId()),
                 value(message.getForwardedFromMessageId()),
                 clean(message.getCandidateAttachmentsJson())

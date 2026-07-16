@@ -614,6 +614,26 @@ class HiringFlowTest {
                 .andExpect(jsonPath("$.starred").value(true))
                 .andExpect(jsonPath("$.read_at").isNotEmpty());
 
+        mockMvc.perform(patch("/api/messages/" + messageId)
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"read\":false,\"manual_unread\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.read").value(false))
+                .andExpect(jsonPath("$.manual_unread").value(true))
+                .andExpect(jsonPath("$.read_at").value(blankOrNullString()));
+
+        mockMvc.perform(get("/api/messages").header("X-User-Token", reviewerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.subject == 'Manual message')].manual_unread").value(hasItem(true)));
+
+        mockMvc.perform(patch("/api/messages/" + messageId)
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"read\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.manual_unread").value(false));
+
         mockMvc.perform(post("/api/messages")
                         .header("X-User-Token", reviewerToken)
                         .contentType(MediaType.APPLICATION_JSON)

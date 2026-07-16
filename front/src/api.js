@@ -479,6 +479,7 @@ export function normaliseMessage(raw) {
         starred: Boolean(raw.starred),
         readAt: raw.read_at || raw.readAt || null,
         archived: Boolean(raw.archived),
+        manualUnread: Boolean(raw.manual_unread ?? raw.manualUnread),
         deliveryStatus: raw.delivery_status || raw.deliveryStatus || 'SENT',
         replyToMessageId: raw.reply_to_message_id || raw.replyToMessageId || null,
         forwardedFromMessageId: raw.forwarded_from_message_id || raw.forwardedFromMessageId || null,

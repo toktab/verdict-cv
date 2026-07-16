@@ -68,6 +68,12 @@ public class MessageService {
         if (request.read() != null) {
             message.setRead(request.read());
             message.setReadAt(request.read() ? Instant.now() : null);
+            if (request.read()) {
+                message.setManualUnread(false);
+            }
+        }
+        if (request.manualUnread() != null && !message.isRead()) {
+            message.setManualUnread(request.manualUnread());
         }
         if (request.starred() != null) {
             message.setStarred(request.starred());
@@ -142,6 +148,7 @@ public class MessageService {
                 message.isStarred(),
                 message.getReadAt(),
                 message.isArchived(),
+                message.isManualUnread(),
                 "SENT",
                 message.getReplyToMessageId(),
                 message.getForwardedFromMessageId(),

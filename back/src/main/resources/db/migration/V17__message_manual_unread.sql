@@ -1,0 +1,2 @@
+ALTER TABLE app_messages
+    ADD COLUMN manual_unread BOOLEAN NOT NULL DEFAULT FALSE;
