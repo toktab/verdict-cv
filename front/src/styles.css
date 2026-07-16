@@ -7803,6 +7803,13 @@ select {
     box-shadow: none;
 }
 
+.uploadLimitHint {
+    display: block;
+    color: var(--muted);
+    margin: -2px 0 10px;
+    font-size: 11px;
+}
+
 .stickyAuditBar > div:not(.exportActions) {
     min-height: 42px;
     border: 1px solid var(--line);

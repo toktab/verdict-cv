@@ -153,6 +153,17 @@ class AuthAuditAdminFlowTest {
                 .andExpect(jsonPath("$.filename").value("claim.txt"))
                 .andExpect(jsonPath("$.text").value("Built Java APIs from uploaded text."))
                 .andExpect(jsonPath("$.warnings[0]").value("Extraction returned very little text. Confirm the document content before auditing."));
+
+        MockMultipartFile oversized = new MockMultipartFile(
+                "file",
+                "too-large.txt",
+                MediaType.TEXT_PLAIN_VALUE,
+                new byte[(8 * 1024 * 1024) + 1]);
+        mockMvc.perform(multipart("/api/audit/extract-file")
+                        .file(oversized)
+                        .header("X-User-Token", token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Audit file is too large. Upload a PDF, DOCX, or TXT file no larger than 8 MB."));
     }
 
     @Test

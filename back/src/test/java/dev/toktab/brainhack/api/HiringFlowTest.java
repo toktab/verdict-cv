@@ -298,6 +298,25 @@ class HiringFlowTest {
     }
 
     @Test
+    void oversizedCandidateResumeIsRejectedBeforeDocumentParsing() throws Exception {
+        String token = register("hiring_large_resume");
+        long projectId = createProject(token, "Upload Limit Role", "Requirements:\n- Java", "[\"Java\"]");
+        MockMultipartFile oversized = new MockMultipartFile(
+                "resume",
+                "oversized.txt",
+                MediaType.TEXT_PLAIN_VALUE,
+                new byte[(8 * 1024 * 1024) + 1]);
+
+        mockMvc.perform(multipart("/api/projects/" + projectId + "/candidates/upload")
+                        .file(oversized)
+                        .param("name", "Oversized Candidate")
+                        .param("role", "Engineer")
+                        .header("X-User-Token", token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Resume is too large. Upload a PDF, DOCX, or TXT file no larger than 8 MB."));
+    }
+
+    @Test
     void candidatesCanBeListedWithOffsetLimitAndTotal() throws Exception {
         String token = register("hiring_candidate_page");
         long projectId = createProject(token, "Paged Candidate Role", "Requirements:\n- Java", "[\"Java\"]");

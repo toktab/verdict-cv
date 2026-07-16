@@ -15,9 +15,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class AuditTextExtractionService {
+    private static final long MAX_UPLOAD_BYTES = 8L * 1024L * 1024L;
+
     public ExtractedText extract(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Audit file is required.");
+        }
+        if (file.getSize() > MAX_UPLOAD_BYTES) {
+            throw new IllegalArgumentException("Audit file is too large. Upload a PDF, DOCX, or TXT file no larger than 8 MB.");
         }
         String filename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
         String normalized = filename.toLowerCase(Locale.ROOT);

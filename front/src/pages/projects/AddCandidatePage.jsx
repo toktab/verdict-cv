@@ -6,6 +6,8 @@ import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
 import { findProjectFromPath } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
 
+const MAX_RESUME_BYTES = 8 * 1024 * 1024;
+
 export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, projects = [], projectsLoading = false, onProjectsChange }) {
     const { t } = useLanguage();
     const project = findProjectFromPath(projects);
@@ -29,7 +31,7 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
 
     async function analyzeCandidate() {
         if (!resumeFile && !cvText.trim()) {
-            setError('Paste CV text or upload a PDF/DOCX resume.');
+            setError('Paste CV text or upload a PDF, DOCX, or TXT resume.');
             return;
         }
         setAnalyzed(false);
@@ -86,9 +88,16 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
             return;
         }
         const name = file.name.toLowerCase();
-        if (!name.endsWith('.pdf') && !name.endsWith('.docx')) {
+        if (!name.endsWith('.pdf') && !name.endsWith('.docx') && !name.endsWith('.txt')) {
             setResumeFile(null);
-            setError('Upload a PDF or DOCX resume.');
+            setError('Upload a PDF, DOCX, or TXT resume.');
+            event.target.value = '';
+            return;
+        }
+        if (file.size > MAX_RESUME_BYTES) {
+            setResumeFile(null);
+            setError(`${file.name} is ${formatFileSize(file.size)}. Resume files must be 8 MB or smaller.`);
+            event.target.value = '';
             return;
         }
         setResumeFile(file);
@@ -132,9 +141,9 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
                                 <p>{t('uploadCandidateResume')}</p>
                             </div>
                             <label className="smallUploadButton">
-                                <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={chooseResume} />
+                                <input type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={chooseResume} />
                                 <UploadCloud size={16} />
-                                Upload PDF/DOCX
+                                Upload PDF/DOCX/TXT
                             </label>
                         </div>
                         <label className="field compactField">
@@ -148,6 +157,7 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
                                 <strong>{formatFileSize(resumeFile.size)}</strong>
                             </div>
                         )}
+                        <small className="uploadLimitHint">PDF, DOCX, or TXT. Maximum file size: 8 MB.</small>
                         <label className="field candidatePasteField">
                             <span>Paste CV / resume text</span>
                             <textarea

@@ -57,6 +57,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class HiringService {
+    private static final long MAX_RESUME_BYTES = 8L * 1024L * 1024L;
     private static final Set<String> STOP_WORDS = Set.of(
             "with", "from", "into", "that", "this", "they", "them", "have", "will", "your", "and", "the", "for", "are",
             "using", "use", "basic", "basics", "knowledge", "understanding", "experience", "familiarity", "ability",
@@ -1018,6 +1019,9 @@ public class HiringService {
     private String extractResumeText(MultipartFile resume) {
         if (resume == null || resume.isEmpty()) {
             throw new IllegalArgumentException("Resume file is required");
+        }
+        if (resume.getSize() > MAX_RESUME_BYTES) {
+            throw new IllegalArgumentException("Resume is too large. Upload a PDF, DOCX, or TXT file no larger than 8 MB.");
         }
         String name = defaulted(resume.getOriginalFilename(), "").toLowerCase(Locale.ROOT);
         try {

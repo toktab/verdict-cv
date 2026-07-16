@@ -86,6 +86,8 @@ const demoStates = [
     { id: 'state-war-ai', name: 'WAR+AI State', description: 'Highest scrutiny with AI, deterministic rules, optional OSINT escalation, and full claim-by-claim report scoring.' },
 ];
 
+const MAX_DOCUMENT_UPLOAD_BYTES = 8 * 1024 * 1024;
+
 const api = {
     telemetry: async (payload) => fetch('/api/telemetry', {
         method: 'POST',
@@ -590,6 +592,10 @@ function App() {
         setError('');
         if (!userToken) {
             setError('Sign in before uploading audit files.');
+            return;
+        }
+        if (file.size > MAX_DOCUMENT_UPLOAD_BYTES) {
+            setError(`${file.name} is ${formatUploadSize(file.size)}. Audit documents must be 8 MB or smaller.`);
             return;
         }
         setUploadingField(field);
@@ -2531,6 +2537,10 @@ async function exportAudit(id, format = 'txt') {
     link.download = exportFilename(id, format, response.headers.get('Content-Disposition'));
     link.click();
     URL.revokeObjectURL(url);
+}
+
+function formatUploadSize(size) {
+    return size >= 1024 * 1024 ? `${(size / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(size / 1024))} KB`;
 }
 
 function exportFilename(id, format, disposition) {
