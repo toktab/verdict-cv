@@ -68,6 +68,13 @@ test('message rows expose separate keyboard controls for open, star, and read st
     assert.match(source, /aria-label=\{`Mark \$\{message\.subject\} as/);
 });
 
+test('team loading failures preserve the last successful member state', async () => {
+    const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/projects/ProjectTeamPage.jsx', import.meta.url), 'utf8'));
+    assert.doesNotMatch(source, /apiListProjectMembers\(project\.id, userToken\)\.catch\(\(\) => \[\]\)/);
+    assert.match(source, /The last successfully loaded member list is still shown\./);
+    assert.match(source, /Team sync failed\./);
+});
+
 test('registration API accepts the reviewed profile fields', async () => {
     const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/api.js', import.meta.url), 'utf8'));
     assert.match(source, /country:\s*country \|\| 'Unspecified'/);

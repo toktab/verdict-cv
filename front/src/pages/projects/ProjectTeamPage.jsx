@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, AlertTriangle, ArrowRight, Crown, Lock, Mail, Plus, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowRight, Crown, Lock, Mail, Plus, RefreshCcw, Search, Shield, Trash2, UserCog, UserPlus, X } from 'lucide-react';
 import { apiCreateProjectInvite, apiListProjectActivity, apiListProjectInvites, apiListProjectMemberPermissions, apiListProjectMembers, apiLookupUser, apiRemoveProjectMember, apiSaveProjectMemberPermissions, apiSendMessage, apiUpdateProjectMemberRole } from '../../api';
 import { recordProjectActivityOnServer } from './projectActivity';
 import { findProjectFromPath } from './projectPageUtils';
@@ -35,6 +35,8 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     const [memberModal, setMemberModal] = useState(null);
     const [confirmAction, setConfirmAction] = useState(null);
     const [activityRows, setActivityRows] = useState([]);
+    const [teamLoading, setTeamLoading] = useState(false);
+    const [teamLoadError, setTeamLoadError] = useState('');
     const members = useMemo(() => buildMembers(project, user, invites, serverMembers), [project, user, invites, serverMembers]);
     const updateRankModal = useCallback((patch) => {
         setRankModal((current) => {
@@ -55,12 +57,20 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
     }, [candidateSearch, project?.candidates]);
     const loadTeamData = useCallback(async () => {
         if (!project?.id || !userToken) return;
-        const [inviteRows, memberRows] = await Promise.all([
-            apiListProjectInvites(project.id, userToken).catch(() => []),
-            apiListProjectMembers(project.id, userToken).catch(() => []),
-        ]);
-        setInvites(inviteRows);
-        setServerMembers(memberRows);
+        setTeamLoading(true);
+        setTeamLoadError('');
+        try {
+            const [inviteRows, memberRows] = await Promise.all([
+                apiListProjectInvites(project.id, userToken),
+                apiListProjectMembers(project.id, userToken),
+            ]);
+            setInvites(inviteRows);
+            setServerMembers(memberRows);
+        } catch (error) {
+            setTeamLoadError(error.message || 'Could not load the project team.');
+        } finally {
+            setTeamLoading(false);
+        }
     }, [project?.id, userToken]);
     const loadActivityData = useCallback(async () => {
         if (!project?.id || !userToken) {
@@ -72,9 +82,9 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
 
     useEffect(() => {
         if (!project?.id || !userToken) return;
-        loadTeamData();
+        void loadTeamData();
         function refreshOnFocus() {
-            loadTeamData();
+            void loadTeamData();
         }
         window.addEventListener('focus', refreshOnFocus);
         window.addEventListener('verdictProjectsChanged', refreshOnFocus);
@@ -269,6 +279,20 @@ export function ProjectTeamPage({ Header, navigateTo, setRoute, user, userToken,
                     <button className="secondary" onClick={() => navigateTo(setRoute, 'projectDetail', project.id)}><ArrowRight size={16} /> Back to project</button>
                     <button className="primary" onClick={() => navigateTo(setRoute, 'messages')}><Mail size={16} /> Messages</button>
                 </section>
+                {teamLoadError && (
+                    <div className="retryNotice error compact">
+                        <div>
+                            <strong>Team sync failed.</strong>
+                            <span>{teamLoadError} The last successfully loaded member list is still shown.</span>
+                        </div>
+                        <div className="retryActions">
+                            <button className="secondary" disabled={teamLoading} type="button" onClick={() => void loadTeamData()}>
+                                <RefreshCcw size={15} /> {teamLoading ? 'Retrying...' : 'Retry'}
+                            </button>
+                            <button className="secondary" type="button" onClick={() => setTeamLoadError('')}>Dismiss</button>
+                        </div>
+                    </div>
+                )}
                 {canTeamManage && (
                 <section className="dashboardGrid">
                     <article className="dashboardPanel">
