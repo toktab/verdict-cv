@@ -44,6 +44,38 @@ test.beforeEach(async ({ page }) => {
             });
             return;
         }
+        if (path === '/api/audit/42') {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    id: 42,
+                    claimTitle: 'Backend candidate',
+                    claimText: 'Java developer with Spring Boot and PostgreSQL experience.',
+                    evidenceTitle: 'Backend role',
+                    evidenceText: 'The role requires Java, Spring Boot, SQL, and testing.',
+                    credibilityScore: 84,
+                    supportedCount: 1,
+                    stretchedCount: 0,
+                    unsupportedCount: 0,
+                    gapCount: 0,
+                    status: 'COMPLETED',
+                    engine: 'LOCAL',
+                    analyzerVersion: 'smoke-1',
+                    promptVersion: 'smoke-1',
+                    processingMillis: 125,
+                    verdicts: [{
+                        id: 1,
+                        sentenceIndex: 0,
+                        sentence: 'Java developer with Spring Boot experience.',
+                        status: 'SUPPORTED',
+                        confidence: 'HIGH',
+                        explanation: 'The supplied role evidence supports this skill.',
+                    }],
+                }),
+            });
+            return;
+        }
         await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 });
@@ -90,4 +122,17 @@ test('registration Enter flow reaches the improved final review', async ({ page 
     await expect(page.getByText('Nino Tester', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('nino@example.com', { exact: true }).first()).toBeVisible();
     await expect(page.locator('.registerStepPanel button.primary')).toBeDisabled();
+});
+
+test('audit detail and profiling routes render directly for an authenticated session', async ({ page }) => {
+    await page.addInitScript(() => sessionStorage.setItem('verdictUserToken', 'smoke-token'));
+
+    await page.goto('/audit/42');
+    await expect(page.getByRole('heading', { name: 'Backend candidate' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Verdicts' })).toBeVisible();
+
+    await page.goto('/audit/42/profile');
+    await expect(page.getByText('Profiling mode', { exact: true })).toBeVisible();
+    await expect(page.locator('.profileDocumentHead').getByText('Candidate CV', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Select a highlight' })).toBeVisible();
 });

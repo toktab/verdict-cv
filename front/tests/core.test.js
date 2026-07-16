@@ -131,7 +131,7 @@ test('authentication tokens stay tab scoped and purge legacy persistent copies',
 });
 
 test('audit detail exposes persisted LLM usage and estimated cost', async () => {
-    const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8'));
+    const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/AuditAnalysisPages.jsx', import.meta.url), 'utf8'));
     assert.match(source, /label="Prompt tokens" value=\{audit\.promptTokens \|\| 0\}/);
     assert.match(source, /label="Completion tokens" value=\{audit\.completionTokens \|\| 0\}/);
     assert.match(source, /label="Total tokens" value=\{audit\.totalTokens \|\| 0\}/);
@@ -158,11 +158,14 @@ test('logged-in messages never fall back to persistent browser authority', async
 });
 
 test('project and audit route failures expose retry actions without clearing saved data', async () => {
-    const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8'));
-    assert.doesNotMatch(source, /catch \(err\) \{\s*setHistory\(\[\]\)/);
-    assert.match(source, /PROJECT_DATA_ROUTES\.has\(route\).*projectsError/s);
-    assert.match(source, /Audit detail failed to load\./);
-    assert.match(source, /Profiling mode failed to load\./);
+    const [appSource, auditSource] = await Promise.all([
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8')),
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/AuditAnalysisPages.jsx', import.meta.url), 'utf8')),
+    ]);
+    assert.doesNotMatch(appSource, /catch \(err\) \{\s*setHistory\(\[\]\)/);
+    assert.match(appSource, /PROJECT_DATA_ROUTES\.has\(route\).*projectsError/s);
+    assert.match(auditSource, /Audit detail failed to load\./);
+    assert.match(auditSource, /Profiling mode failed to load\./);
 });
 
 test('SignalTrace exposes backend provenance, check time, and retry recovery', async () => {
@@ -212,6 +215,18 @@ test('authentication wizard is isolated as a lazy route page', async () => {
     assert.match(authSource, /apiLogin/);
     assert.match(authSource, /apiRegister/);
     assert.match(authSource, /Ready to create this workspace account/);
+});
+
+test('audit detail and profiling presentation are isolated from the app router', async () => {
+    const [appSource, auditSource] = await Promise.all([
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8')),
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/AuditAnalysisPages.jsx', import.meta.url), 'utf8')),
+    ]);
+    assert.doesNotMatch(appSource, /function AuditDetailPage/);
+    assert.doesNotMatch(appSource, /function ProfilingModePage/);
+    assert.match(auditSource, /export function AuditDetailPage/);
+    assert.match(auditSource, /export function ProfilingModePage/);
+    assert.match(auditSource, /export function AuditResult/);
 });
 
 function memoryStorage(initial = {}) {
