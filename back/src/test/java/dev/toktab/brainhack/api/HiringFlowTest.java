@@ -300,7 +300,8 @@ class HiringFlowTest {
     @Test
     void candidateAnalysisStateIsSharedAndAuditedOnTheServer() throws Exception {
         String token = register("candidate_state");
-        long projectId = createProject(token, "Stateful Review", "Java platform role", "[\"Java\"]");
+        long projectId = createProject(token, "Stateful Review", "Java platform role",
+                "[\"Java\", \"Kubernetes production ownership\", \"Engineering leadership\"]");
 
         MvcResult created = mockMvc.perform(post("/api/projects/" + projectId + "/candidates")
                         .header("X-User-Token", token)
@@ -309,14 +310,28 @@ class HiringFlowTest {
                                 {
                                   "name":"State Candidate",
                                   "role":"Engineer",
-                                  "cv_text":"Java engineer with production API experience."
+                                  "cv_text":"Java expert with API experience."
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.analysis_state").value("strict-war-ai"))
                 .andExpect(jsonPath("$.initialized_analysis_states", hasItem("strict-war-ai")))
                 .andReturn();
-        long candidateId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asLong();
+        JsonNode createdCandidate = objectMapper.readTree(created.getResponse().getContentAsString());
+        long candidateId = createdCandidate.get("id").asLong();
+        int strictScore = createdCandidate.get("score").asInt();
+
+        MvcResult lightResult = mockMvc.perform(patch("/api/projects/" + projectId + "/candidates/" + candidateId + "/analysis-state")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"state\":\"light\",\"initialize\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.analysis_state").value("light"))
+                .andExpect(jsonPath("$.initialized_analysis_states", hasItem("strict-war-ai")))
+                .andExpect(jsonPath("$.initialized_analysis_states", hasItem("light")))
+                .andReturn();
+        int lightScore = objectMapper.readTree(lightResult.getResponse().getContentAsString()).get("score").asInt();
+        org.assertj.core.api.Assertions.assertThat(lightScore).isGreaterThan(strictScore);
 
         mockMvc.perform(patch("/api/projects/" + projectId + "/candidates/" + candidateId + "/analysis-state")
                         .header("X-User-Token", token)
@@ -324,7 +339,6 @@ class HiringFlowTest {
                         .content("{\"state\":\"war\",\"initialize\":true}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.analysis_state").value("war"))
-                .andExpect(jsonPath("$.initialized_analysis_states", hasItem("strict-war-ai")))
                 .andExpect(jsonPath("$.initialized_analysis_states", hasItem("war")));
 
         mockMvc.perform(get("/api/projects/" + projectId + "/candidates/" + candidateId)

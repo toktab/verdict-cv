@@ -231,21 +231,9 @@ public class HiringService {
     @Transactional
     public CandidateResponse reanalyzeCandidate(UserAccount owner, Long projectId, Long candidateId) {
         HiringCandidate candidate = candidateEntity(owner, projectId, candidateId);
-        HiringCandidate refreshed = buildCandidate(candidate.getProject(), candidate.getName(), candidate.getRole(), candidate.getCvText(), candidate.getResumeFilename(), candidate.getId());
-        candidate.setScore(refreshed.getScore());
-        candidate.setMatchScore(refreshed.getMatchScore());
-        candidate.setRisk(refreshed.getRisk());
-        candidate.setCandidateEmail(refreshed.getCandidateEmail());
-        candidate.setMemory(refreshed.getMemory());
-        candidate.setMemoryHistoryJson(refreshed.getMemoryHistoryJson());
-        candidate.setState(refreshed.getState());
-        candidate.setFlags(refreshed.getFlags());
-        candidate.setSupported(refreshed.getSupported());
-        candidate.setStretched(refreshed.getStretched());
-        candidate.setUnsupported(refreshed.getUnsupported());
-        candidate.setSummary(refreshed.getSummary());
-        candidate.setClaimsJson(refreshed.getClaimsJson());
-        candidate.setAuditPhraseMatchesJson(refreshed.getAuditPhraseMatchesJson());
+        HiringCandidate refreshed = buildCandidate(candidate.getProject(), candidate.getName(), candidate.getRole(),
+                candidate.getCvText(), candidate.getResumeFilename(), candidate.getId(), candidate.getAnalysisState());
+        applyCandidateAnalysis(candidate, refreshed);
         CandidateResponse response = mapper.candidate(saveAnalyzedCandidate(candidate));
         recordCandidateActivity(candidate, owner, "candidate_reanalyze", "Reanalyzed candidate " + candidate.getName(), "info", "Candidate scoring and phrase checks were refreshed.");
         publishProjectChange(candidate.getProject());
@@ -261,11 +249,17 @@ public class HiringService {
         String previous = candidate.getAnalysisState();
         List<String> initialized = new ArrayList<>(mapper.strings(candidate.getInitializedAnalysisStatesJson()));
         boolean newlyInitialized = request.initialize() && !initialized.contains(state);
+        boolean analyzeForState = request.initialize() || initialized.contains(state);
 
         candidate.setAnalysisState(state);
         if (newlyInitialized) {
             initialized.add(state);
             candidate.setInitializedAnalysisStatesJson(mapper.json(initialized));
+        }
+        if (analyzeForState) {
+            HiringCandidate refreshed = buildCandidate(candidate.getProject(), candidate.getName(), candidate.getRole(),
+                    candidate.getCvText(), candidate.getResumeFilename(), candidate.getId(), state);
+            applyCandidateAnalysis(candidate, refreshed);
         }
         candidateRepository.save(candidate);
 
@@ -622,10 +616,16 @@ public class HiringService {
     }
 
     private HiringCandidate buildCandidate(HiringProject project, String name, String role, String cvText, String filename) {
-        return buildCandidate(project, name, role, cvText, filename, null);
+        return buildCandidate(project, name, role, cvText, filename, null, analysisStateFromProject(project.getState()));
     }
 
     private HiringCandidate buildCandidate(HiringProject project, String name, String role, String cvText, String filename, Long excludedCandidateId) {
+        return buildCandidate(project, name, role, cvText, filename, excludedCandidateId, analysisStateFromProject(project.getState()));
+    }
+
+    private HiringCandidate buildCandidate(HiringProject project, String name, String role, String cvText, String filename,
+                                           Long excludedCandidateId, String analysisState) {
+        CandidateAnalysisPolicy policy = analysisPolicy(analysisState);
         List<String> requirements = splitLines(project.getRequirementsText());
         if (requirements.isEmpty()) {
             requirements = extractRequirements(project.getDescription());
@@ -635,11 +635,18 @@ public class HiringService {
         int stretched = (int) claims.stream().filter(row -> "Stretched".equals(row.get(1))).count();
         int unsupported = (int) claims.stream().filter(row -> "Unsupported".equals(row.get(1))).count();
         int total = Math.max(1, supported + stretched + unsupported);
-        int match = Math.max(requirementMatch(requirements, cvText), Math.round((supported * 100f + stretched * 55f) / total));
+        int match = Math.max(requirementMatch(requirements, cvText),
+                Math.round((supported * 100f + stretched * policy.stretchedMatchWeight()) / total));
         match = Math.min(98, Math.max(12, match));
-        int flags = unsupported * 2 + stretched + riskyMatches(cvText).size();
-        int positiveEvidence = Math.min(18, supported / 2);
-        int score = Math.max(8, Math.min(99, match + positiveEvidence - unsupported * 6 - stretched * 2 - Math.min(12, flags)));
+        int flags = unsupported * policy.unsupportedFlagWeight()
+                + stretched * policy.stretchedFlagWeight()
+                + riskyMatches(cvText).size() * policy.riskyPhraseWeight();
+        int positiveEvidence = Math.min(policy.positiveEvidenceCap(), supported / 2);
+        int score = Math.max(8, Math.min(99,
+                match + positiveEvidence
+                        - unsupported * policy.unsupportedScorePenalty()
+                        - stretched * policy.stretchedScorePenalty()
+                        - Math.min(policy.flagPenaltyCap(), flags)));
 
         HiringCandidate candidate = new HiringCandidate();
         String candidateEmail = extractCandidateEmail(cvText);
@@ -655,13 +662,14 @@ public class HiringService {
         candidate.setUnsupported(unsupported);
         candidate.setMatchScore(match);
         candidate.setScore(score);
-        candidate.setRisk(score < 45 || unsupported >= 3 ? "High" : score < 70 || stretched >= 3 ? "Medium" : "Low");
+        candidate.setRisk(score < policy.highRiskScore() || unsupported >= policy.highRiskUnsupported()
+                ? "High"
+                : score < policy.mediumRiskScore() || stretched >= policy.mediumRiskStretched() ? "Medium" : "Low");
         candidate.setState("Unreviewed");
         candidate.setOsint("Partial");
         candidate.setMemory(memoryStatus(priorApplications, unsupported));
-        String defaultAnalysisState = analysisStateFromProject(project.getState());
-        candidate.setAnalysisState(defaultAnalysisState);
-        candidate.setInitializedAnalysisStatesJson(mapper.json(List.of(defaultAnalysisState)));
+        candidate.setAnalysisState(policy.stateId());
+        candidate.setInitializedAnalysisStatesJson(mapper.json(List.of(policy.stateId())));
         candidate.setMemoryHistoryJson(mapper.json(priorApplications.stream().map(prior -> Map.<String, Object>of(
                 "candidateId", prior.getId(),
                 "projectId", prior.getProject().getId(),
@@ -676,6 +684,22 @@ public class HiringService {
         candidate.setClaimsJson(mapper.json(claims));
         candidate.setAuditPhraseMatchesJson(mapper.json(riskyMatches(cvText)));
         return candidate;
+    }
+
+    private void applyCandidateAnalysis(HiringCandidate candidate, HiringCandidate refreshed) {
+        candidate.setScore(refreshed.getScore());
+        candidate.setMatchScore(refreshed.getMatchScore());
+        candidate.setRisk(refreshed.getRisk());
+        candidate.setCandidateEmail(refreshed.getCandidateEmail());
+        candidate.setMemory(refreshed.getMemory());
+        candidate.setMemoryHistoryJson(refreshed.getMemoryHistoryJson());
+        candidate.setFlags(refreshed.getFlags());
+        candidate.setSupported(refreshed.getSupported());
+        candidate.setStretched(refreshed.getStretched());
+        candidate.setUnsupported(refreshed.getUnsupported());
+        candidate.setSummary(refreshed.getSummary());
+        candidate.setClaimsJson(refreshed.getClaimsJson());
+        candidate.setAuditPhraseMatchesJson(refreshed.getAuditPhraseMatchesJson());
     }
 
     private String normalizeAnalysisState(String state) {
@@ -705,6 +729,37 @@ public class HiringService {
             case CheckStateIds.STRICT_WAR_AI -> "WAR_AI State";
             default -> "default state";
         };
+    }
+
+    private CandidateAnalysisPolicy analysisPolicy(String state) {
+        return switch (normalizeAnalysisState(state)) {
+            case CheckStateIds.LIGHT -> new CandidateAnalysisPolicy(
+                    CheckStateIds.LIGHT, 72, 1, 0, 0, 3, 1, 16, 8, 35, 4, 62, 5);
+            case CheckStateIds.WAR -> new CandidateAnalysisPolicy(
+                    CheckStateIds.WAR, 52, 2, 1, 1, 7, 3, 16, 15, 52, 2, 76, 2);
+            case CheckStateIds.PERSON -> new CandidateAnalysisPolicy(
+                    CheckStateIds.PERSON, 64, 1, 1, 1, 5, 2, 20, 12, 44, 3, 70, 3);
+            case CheckStateIds.STRICT_WAR_AI -> new CandidateAnalysisPolicy(
+                    CheckStateIds.STRICT_WAR_AI, 45, 3, 1, 2, 8, 3, 14, 18, 58, 2, 80, 2);
+            default -> throw new IllegalArgumentException("Unsupported candidate analysis state");
+        };
+    }
+
+    private record CandidateAnalysisPolicy(
+            String stateId,
+            int stretchedMatchWeight,
+            int unsupportedFlagWeight,
+            int stretchedFlagWeight,
+            int riskyPhraseWeight,
+            int unsupportedScorePenalty,
+            int stretchedScorePenalty,
+            int positiveEvidenceCap,
+            int flagPenaltyCap,
+            int highRiskScore,
+            int highRiskUnsupported,
+            int mediumRiskScore,
+            int mediumRiskStretched
+    ) {
     }
 
     private List<HiringCandidate> priorApplications(HiringProject project, String name, String email, Long excludedCandidateId) {
