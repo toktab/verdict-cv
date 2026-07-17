@@ -105,6 +105,29 @@
 					<include>default-ats.json</include>
 				</includes>
 			</resource>
+			<resource>
+				<directory>tools/verdict-cli</directory>
+				<targetPath>cli</targetPath>
+				<includes>
+					<include>verdict.mjs</include>
+					<include>README.txt</include>
+				</includes>
+			</resource>
+			<resource>
+				<directory>installer</directory>
+				<targetPath>cli</targetPath>
+				<includes>
+					<include>install-verdict.ps1</include>
+				</includes>
+			</resource>
+			<resource>
+				<directory>dist</directory>
+				<targetPath>cli</targetPath>
+				<includes>
+					<include>verdict.exe</include>
+					<include>verdict.exe.sha256</include>
+				</includes>
+			</resource>
 		</resources>
 		<testResources>
 			<testResource>
@@ -135,6 +158,26 @@
 						</path>
 					</annotationProcessorPaths>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.5.0</version>
+				<executions>
+					<execution>
+						<id>build-verdict-exe</id>
+						<phase>prepare-package</phase>
+						<goals>
+							<goal>exec</goal>
+						</goals>
+						<configuration>
+							<executable>node</executable>
+							<arguments>
+								<argument>tools/build-sea.js</argument>
+							</arguments>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>

@@ -1,0 +1,6 @@
+{
+    "main": "verdict.mjs",
+    "output": "sea-prep.blob",
+    "disableExperimentalSEAWarning": true,
+    "useESM": true
+}

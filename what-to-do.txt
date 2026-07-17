@@ -1,0 +1,509 @@
+================================================================================
+                    VERDICT — COMPREHENSIVE WHAT TO DO
+         Aggregated from: SENIOR_ADVICES.TXT, front/todo.txt, TODO.md,
+         STARTUP_FULLSTACK_STEPS.txt, WEBSITE_SYSTEM_REMAINING_WORK.txt,
+         docs/analysis-result-pages-50-improvements.txt,
+         front/newstufftodo, project-review-fixes.txt,
+         docs/osint-investigator-mode.md, docs/deployment.md,
+         docs/release-checklist.md, verdict-question-answers.txt,
+         verdict-scenario-test-report.txt, hackathon-idea.txt
+================================================================================
+
+  Project state: VERDICT is a fully built hiring verification platform.
+  Backend: Spring Boot + JPA + MySQL + RabbitMQ
+  Frontend: React + Vite (App.jsx ~3,000+ lines, styles.css ~7,000 lines)
+  Everything below is remaining work organized by priority.
+
+================================================================================
+P0 — CRITICAL: ROUTE STABILITY, PERMISSIONS, & MESSAGING
+================================================================================
+
+1. Make app routes impossible to break into the Recovery screen
+   Why: The user already hit "VERDICT hit a display problem." If the app
+        crashes, every feature feels untrustworthy.
+   Do this:
+   - Route-level error boundaries with fallback actions (Back to dashboard,
+     Reload data, Logout).
+   - Guard all code that assumes project/user/message data exists before
+     async loading finishes.
+   - Make empty, loading, forbidden, and not-found states explicit for
+     every route.
+   - Add a manual smoke checklist (docs/smoke-checklist.md).
+
+2. Fix blank route loading on direct navigation
+   Why: Opening /audit, /projects, etc. shows a blank screen for a few
+        seconds before content appears. This feels like a crash.
+   Do this:
+   - Add real loading skeletons for direct routes instead of blank screens.
+   - Make the intro animation run only once, not block every route.
+   - Add refresh/retry states for Messages, Projects, Admin, Audit history.
+
+3. Make permissions server-authoritative (Team, Invite, Project)
+   Why: Team page has frontend permission atoms, but backend leans on
+        project owner checks. This can cause invited users, owners, and
+        team views to disagree.
+   Do this:
+   - Define one backend permission model: Viewer, Voter, Reviewer, Screener,
+     Coordinator, Admin, Head Admin, Custom.
+   - Persist custom permissions instead of localStorage overrides.
+   - Add canInvite and canTeamManage on the backend.
+   - Return myPermissions and myRole from project/member APIs.
+   - Make accepted invite membership visible to both accounts immediately.
+   - Add backend tests for all permission flows.
+
+4. Stabilize message delivery and message state
+   Why: If sent/received/read/star/reply/forward state differs between
+        accounts, users will not trust the product.
+   Do this:
+   - Make server messages the source of truth; local fallback only for
+     logged-out demo mode.
+   - Add backend replyToMessageId, forwardedFromMessageId, readAt,
+     starred, archived, and candidate attachments support.
+   - Log message events (sender, receiver, title, body summary, timestamp).
+   - Add visible delivery states: sending, sent, failed, retry.
+   - Verify both accounts see same inbox/sent/team state after refresh.
+
+5. Lock the core hiring workflow end to end
+   Why: VERDICT is valuable only if a team can create a job, add candidates,
+        review them, discuss them, and make a decision without confusion.
+   Do this:
+   - Persist candidate votes, score out of 5, star, downvote, notes, and
+     status changes on the backend.
+   - Add candidate lifecycle statuses: Unreviewed, OnCheck, OnInterview,
+     Hired, Closed (as specified in front/newstufftodo).
+   - Gate each status transition by backend permission.
+   - Add per-candidate activity history (viewed, note added, vote changed,
+     status changed, message sent).
+
+6. Fix admin password field (plain text on /admin)
+   Why: Currently type="text" instead of type="password".
+   Do this:
+   - Change the admin login password input to type="password".
+
+================================================================================
+P0.5 — VISUAL & I18N URGENT FIXES
+================================================================================
+
+7. Finish i18n consistency or force English default
+   Why: Georgian UI contains "Messages", "Risky claims", "Saved reports",
+        "PRIVATE WORKSPACE", etc. in English. Makes product feel unfinished.
+   Do this:
+   - Finish translating all UI strings or default to English entirely.
+   - Translate legacy audit workspace internals, admin panel, validation
+     messages, and demo data records.
+
+8. Mobile contrast and density pass
+   Why: Dashboard/audit mobile screens are responsive but text is dim and
+        hard to read. Hero text is huge and faded.
+   Do this:
+   - Improve mobile contrast, especially on dashboard and audit result.
+   - Tone down excessive glow/dark overlays on mobile.
+   - Make button/card animations consistent across screens.
+
+9. Fix audit result sticky bar overlap and duplicate exports
+   Why: The sticky score/export bar covers result area while scrolling.
+        Export buttons appear twice near the result.
+   Do this:
+   - Make sticky bars reserve space and not cover content.
+   - Remove duplicate export buttons.
+   - Reduce heavy card density; use full-width bands for major sections.
+
+================================================================================
+P1 — HIGH IMPACT PRODUCT WORK
+================================================================================
+
+10. Add score levels out of 10 with explanations
+    Why: Currently shows percentage only. Users need to understand what
+         a score means at a glance.
+    Do this:
+    - 9-10: Highly evidence-backed
+    - 7-8: Mostly reliable with small wording risks
+    - 5-6: Partially supported, needs revision
+    - 3-4: Risky and weakly proven
+    - 1-2: Mostly unsupported
+    - Explain each level in the UI.
+
+11. Add profiling mode (Grammarly-style view)
+    Why: The profiling page exists (CandidateProfilePage) but needs real
+         CV text from project_candidate.cv_text instead of demo data.
+    Do this:
+    - Pass real cv_text from candidate object to the profiling highlighter.
+    - Connect to real audit verdicts once candidate audit persistence exists.
+    - On hover/click, explain risky words, sentence role, evidence status,
+      and template/state reason.
+    - Add animated hover hints and right inspector panel (already built).
+
+12. Connect SignalTrace to the OSINT backend
+    Why: SignalTracePage exists with source UI (GitHub, LinkedIn, etc.)
+         but is not wired to any backend.
+    Do this:
+    - Wire "Run trace" button to backend endpoint (/stages/enqueue or
+      similar) with correct candidate_id and stage.
+    - Link project_candidate ↔ candidate (VERDICT core) — currently
+      they are separate.
+    - Add OSINT consent gate before any public-source verification.
+
+13. Add candidate memory UI (repeat applicant detection)
+    Why: VERDICT is supposed to remember candidates across applications.
+         Currently there is no UI for this.
+    Do this:
+    - Detect repeat applicants across projects; match by name or email.
+    - Show history banner on candidate detail with previous scores,
+      repeated contradictions, and reputation history.
+    - Build the feature described in the founding concept.
+
+14. Implement the four States as real selectable engines
+    Why: Currently States are display copy only (Light, WAR, Person,
+         WAR+AI). They don't actually change behavior.
+    Do this:
+    - Light State: no AI, template-only obvious contradictions.
+    - WAR State: strict template review, expects every claim backed
+      by evidence in the application.
+    - Person State: AI-assisted reviewer judgment.
+    - WAR+AI State: highest scrutiny, AI + deterministic rules + OSINT.
+
+15. Add verified admin template management for large JSON CV rule sets
+    Why: The catchphrase rule pack exists but needs admin UI for
+         managing large JSON catchphrase sets.
+    Do this:
+    - Admin panel for creating/editing official templates.
+    - Community/private template flows only after official templates work.
+    - Expand the condensed JSON catchphrase pack into the full
+      admin-maintained production template.
+
+16. Replace demo/API local data with real backend persistence
+    Why: Projects, candidates, CV text, consent records, source links,
+         votes, permissions, states all have localStorage fallbacks.
+    Do this:
+    - Replace local demo API with real backend API calls.
+    - Add actual backend persistence for job projects, candidates, CV text,
+      consent records, and source links.
+    - Ensure admin, profile, audits all use server-side data.
+    - Remove or minimize localStorage-only demo paths.
+
+================================================================================
+P1.5 — BACKEND INFRASTRUCTURE & QUALITY
+================================================================================
+
+17. Add real seeded demo workspace
+    Why: One-click demo still shows mostly form sample data, not a full
+         seeded product workspace.
+    Do this:
+    - Seed demo projects, candidates, team members, messages, audit history.
+    - Make sample data visually impressive and realistic.
+    - Add contextual empty states that guide the next action.
+
+18. Add LLM observability (token tracking, cost, retry policy)
+    Why: Already added at code level, but need to verify it works end-to-end.
+    Do this:
+    - Confirm prompt/completion token counters and estimated cost are
+      persisted and visible in audit detail.
+    - Verify configurable LLM connect/read timeout, max attempts, and
+      linear backoff.
+    - Add structured logs for audit duration, LLM failures, queue depth.
+
+19. Admin health/version panel
+    Why: No centralized view of system health.
+    Do this:
+    - Add admin health panel showing database, LLM, RabbitMQ, and static
+      frontend build version status.
+    - Add build version and commit hash to the UI.
+
+20. Admin dangerous action guardrails
+    Why: Table clearing is powerful; needs guardrails.
+    Do this:
+    - Require typing the table/group name before clearing.
+    - Show affected row counts before clearing.
+    - Add "clear demo data" presets separate from real tables.
+    - Log admin clear actions with request ID, admin identity, selected
+      tables, and timestamp.
+
+================================================================================
+P2 — PRODUCT DEPTH AND DIFFERENTIATION
+================================================================================
+
+21. Visual result page improvements (docs/analysis-result-pages-50-improvements.txt)
+    Why: The 50 improvements plan outlines a complete visual/product overhaul
+         of candidate and project result pages.
+    Phase 1 — Immediate visual lift:
+    - Add Decision Summary band on CandidateDetailPage
+    - Add candidate verdict hero with score ring, state badge, risk badge
+    - Add Proof Coverage Meter (percent of job requirements backed by evidence)
+    - Better verdict filters with counts (segmented tabs)
+    - Add Recruiter-ready summary section
+    Phase 2 — Deeper analysis:
+    - Technology matrix (claimed CV evidence GitHub confidence)
+    - Per-requirement evidence cards
+    - State impact panel
+    - Verdict row expansion
+    - Interview pack generation
+    Phase 3 — OSINT product polish:
+    - SignalTrace source cards
+    - OSINT run timeline
+    - GitHub language evidence
+    - Identity confidence gauge
+    Phase 4 — Project-level:
+    - Candidate comparison (2-4 candidates)
+    - Funnel visualization (Applied→Parsed→Reviewed→Interview Ready→Hired)
+    - Best candidate spotlight
+    - Risk clusters
+    - Project OSINT coverage
+
+22. Implement team management spec (front/newstufftodo)
+    Why: Full spec exists for Team page, messaging, voting, status pipeline.
+    Do this:
+    - Team page (per-project, /projects/:id/team) with role management.
+    - Candidate voting: upvote (0-5 in 0.5 increments), downvote, star.
+    - Candidate status pipeline: Unreviewed → OnCheck → OnInterview →
+      Hired / Closed.
+    - Role templates: Viewer, Reviewer, Screener, Coordinator, Admin.
+    - Custom role with hand-picked permissions.
+    - Activity log / audit trail per member (Coordinator+).
+    - Team button next to Add Candidate on project detail.
+
+23. Improve export/report value
+    Why: Exports are what users share with decision-makers.
+    Do this:
+    - Make PDF reports beautiful and branded.
+    - Add candidate comparison export for a project.
+    - Add executive summary and claim-by-claim appendix sections.
+    - Include score explanation, evidence status, reviewer notes, and
+      final decision.
+    - Support TXT, DOC, CSV, PDF with charts.
+
+24. Add evidence/source cards
+    Why: GitHub, LinkedIn, portfolio, certificates, public traces not
+         shown as sources.
+    Do this:
+    - Add evidence source tags to verdict rows (CV, GitHub, LinkedIn,
+      Portfolio, Manual, OSINT).
+    - Add evidence quality indicators (Direct, Partial, Weak, Missing,
+      Contradictory).
+    - Add source trust levels (user-provided, public API, manually
+      verified, admin override).
+
+================================================================================
+P2.5 — OSINT & INVESTIGATOR MODE
+================================================================================
+
+25. Implement OSINT investigator pipeline
+    Why: The OSINT plan is fully specified in docs/osint-investigator-mode.md
+         and SENIOR_ADVICES.TXT items 38-42.
+    Do this:
+    - Phase 0: Consent & data-protection layer (legal precondition)
+    - Phase 1: Data model (Candidate, Claim, VerificationCase, Evidence, Score)
+    - Phase 2: Source adapters (GitHub API first, then search/enrichment,
+      email/domain, LinkedIn, direct page)
+    - Phase 3: Identity resolution (multi-signal anchoring)
+    - Phase 4: Verification logic (existence vs specific claim)
+    - Phase 5: Scoring engine (pure, deterministic, evidence-derived)
+    - Phase 6: Employer outreach (automated, human-in-the-loop)
+    - Use the Python prototype tools/osint_candidate_check.py as starting point
+
+26. Add GitHub evidence depth scoring
+    Why: Technical candidates need real GitHub signal checking.
+    Do this:
+    - Score languages, repo age, commit recency, README quality.
+    - Detect forks, tutorial repos, stale projects.
+    - Show detected repo languages against claimed languages.
+    - Add repository depth score.
+
+27. Add OSINT consent gate and privacy controls
+    Why: Never silently scrape or infer private data.
+    Do this:
+    - Keep investigator mode opt-in.
+    - Track which sources were checked, when, with what confidence.
+    - Separate "not found" from "contradicted".
+    - Add source cards with exact URLs and timestamps.
+    - Never overstate external findings; use cautious language.
+    - Make every external check visible and scoped.
+
+================================================================================
+P3 — ARCHITECTURE & CODE QUALITY
+================================================================================
+
+28. Split App.jsx (~3,000) into real route/page modules
+    Why: App.jsx still owns too much routing, admin, audit, and shell
+         behavior. Makes bugs easier to introduce.
+    Do this:
+    - Move AdminPanel out of App.jsx.
+    - Move audit workspace/result/detail logic into dedicated pages.
+    - Use one route map instead of long if/else rendering.
+    - Keep api.js as the only place for fetch details.
+    - Remove duplicate local/demo state paths where server state exists.
+
+29. Split styles.css (~7,000 lines) by feature
+    Why: One enormous CSS file makes maintenance hard.
+    Do this:
+    - Split CSS by feature or migrate gradually to component-scoped modules.
+    - Keep styles grouped by feature area.
+    - Normalize visual language: compose window currently has blue Gmail
+      block that doesn't match red/black VERDICT system.
+
+30. Clean frontend lint warnings
+    Why: Hook dependency warnings and unused state warnings exist.
+    Do this:
+    - Fix all React hook dependency warnings.
+    - Remove unused state variables.
+    - Run npm run typecheck and fix TypeScript issues.
+    - Run npm run build and verify no warnings.
+
+31. Add E2E smoke tests / CI pipeline
+    Why: No active E2E suite after earlier rollback.
+    Do this:
+    - Add smoke tests for login, audit run, project create, candidate add,
+      invite accept, messages, admin clear guard.
+    - Set up CI pipeline: backend tests, frontend typecheck/lint/build,
+      smoke run.
+    - Add Playwright tests if feasible.
+
+32. Address production security checklist
+    Why: Multiple security items deferred.
+    Do this:
+    - Remove localStorage token storage or add safer session handling.
+    - Add admin-only shell with badge, logout, session expiry.
+    - Confirm CORS origins configured properly.
+    - Confirm admin credentials are not default admin/admin.
+    - Deploy behind HTTPS.
+
+================================================================================
+P3.5 — PERFORMANCE & ACCESSIBILITY
+================================================================================
+
+33. Performance pass
+    Why: Slow screens feel broken with big candidate lists and histories.
+    Do this:
+    - Pagination/search for projects, candidates, messages.
+    - Avoid loading every candidate detail when only summary needed.
+    - Memoize heavy frontend computations (audit result, candidate views).
+    - Add backend indexes for team membership, project membership,
+      messages, candidate status, activity logs.
+
+34. Accessibility and keyboard quality
+    Why: Professional software should be usable without fighting the UI.
+    Do this:
+    - Modals must trap focus and close with Escape.
+    - Buttons need accessible labels (especially icon buttons).
+    - Keyboard flow for compose, reply, forward, candidate search.
+    - Check contrast on risk badges, muted text, red-on-dark states.
+    - Audit keyboard navigation, focus states, dialog semantics, form labels.
+
+================================================================================
+P4 — FUTURE / STRETCH GOALS
+================================================================================
+
+35. Better claim analysis depth
+    - Claim grouping by category (skills, leadership, dates, metrics, education)
+    - Job requirement coverage (which requirements met/weak/missing/contradicted)
+    - Interview question generation from weak claims
+    - Evidence highlighting (click verdict → jump to matching evidence excerpt)
+    - Confidence explanation tooltips
+
+36. Project-level analytics
+    - Score distribution histogram
+    - Risk cluster cards
+    - Missing requirement trends
+    - Review workload metrics
+    - State readiness per project
+
+37. Candidate comparison
+    - Compare 2-4 candidates across score, proof coverage, risk, gaps, OSINT
+    - Export comparison results
+
+38. Collaboration polish
+    - @mentions in notes/messages
+    - Notification center or unread activity badge
+    - Member activity drawer with filters
+    - "Send candidate package" as compose attachment flow
+    - Project-level announcements or pinned notes
+
+39. Light growth/marketing layer
+    - Make home page explain product in one strong sentence
+    - Add real product screenshots
+    - Add sample report preview
+    - Clear CTAs: Try demo, Create account, Start candidate audit
+
+40. Build the candidate matching feature for applicants
+    Why: Original concept includes applicants finding jobs that match their CV.
+    Do this:
+    - Let applicants see job vacancies tailored to them.
+    - Generate a compatibility dashboard showing how well they fit.
+    - Generate interview questions based on CV gaps.
+
+41. Add app-wide refresh/retry mechanism
+    Why: Failed audit, message send, project load, export all need
+         user-facing retry actions.
+    Do this:
+    - Better retry on failed audit.
+    - Better retry on failed message send.
+    - Better retry on failed project load.
+    - File upload needs clearer limits and error recovery.
+
+================================================================================
+DEFINITION OF DONE
+================================================================================
+
+- Works after browser refresh.
+- Works from both owner and invited member accounts.
+- Backend rejects forbidden actions even if frontend is bypassed.
+- Empty/loading/error states are visible and polished.
+- Mobile layout does not overlap or clip.
+- Important actions create an audit/activity/log entry.
+- Feature has at least backend test coverage for permission/data rules.
+- The UI looks professional enough for a live demo.
+- All screens share the same visual language (no mismatched components).
+
+================================================================================
+RECOMMENDED SPRINT ORDER
+================================================================================
+
+Sprint 1 (Route Stability & Data Integrity):
+  1. Route-level error boundaries + fix blank loading
+  2. Backend permission model for Team/Invite
+  3. Message source-of-truth fixes
+  4. Admin password field fix
+  5. Fix i18n consistency or force English
+
+Sprint 2 (Core Hiring Workflow):
+  1. Persist candidate votes/status/activity
+  2. Candidate Detail visual upgrade (Phase 1 of 50 improvements)
+  3. Audit score levels out of 10
+  4. Admin danger-zone guardrails
+
+Sprint 3 (Product Depth):
+  1. Split App.jsx into real route modules
+  2. Profiling mode with real CV data
+  3. SignalTrace wired to backend
+  4. Connect demo to real backend
+  5. Visual trust pass on highest-value screens
+
+Sprint 4 (Team & Collaboration):
+  1. Team management page + role/permission UI
+  2. Candidate voting/star system
+  3. Candidate status pipeline
+  4. Visual pass on Messages and Team
+
+Sprint 5 (Analysis & Reports):
+  1. Evidence/source cards
+  2. Per-requirement evidence cards
+  3. Recruitment-ready summary
+  4. Technology matrix
+  5. Export format polish
+
+Sprint 6 (OSINT & Investigation):
+  1. OSINT consent gate
+  2. GitHub adapter + evidence scoring
+  3. Identity resolution
+  4. OSINT report UI
+  5. Candidate memory UI
+
+Sprint 7 (Hardening):
+  1. Split styles.css
+  2. Add E2E smoke tests / CI
+  3. Performance pass + indexes
+  4. Accessibility pass
+  5. Admin health / observability
+
+================================================================================
+TOTAL ITEMS: 41
+================================================================================

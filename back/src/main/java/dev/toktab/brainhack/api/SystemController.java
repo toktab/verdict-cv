@@ -7,6 +7,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.sql.Connection;
 import java.util.Map;
 import javax.sql.DataSource;
+import java.nio.charset.StandardCharsets;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import java.security.MessageDigest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,5 +47,71 @@ public class SystemController {
     @GetMapping("/evaluation-dataset")
     public EvaluationDatasetResponse evaluationDataset() {
         return evaluationDatasetService.dataset();
+    }
+
+    @GetMapping("/cli/installer")
+    public ResponseEntity<byte[]> cliInstaller() {
+        String server = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+        String script = """
+                @echo off
+                setlocal
+                title VERDICT CLI Installer
+                set "INSTALL_PS1=%%TEMP%%\\verdict-cli-install-%%RANDOM%%.ps1"
+                powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest '%s/api/system/cli/files/install-verdict.ps1' -UseBasicParsing -OutFile '%%INSTALL_PS1%%'"
+                if errorlevel 1 (
+                  echo Could not download the VERDICT installer.
+                  pause
+                  exit /b 1
+                )
+                powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%%INSTALL_PS1%%" -Server "%s" -DownloadBase "%s/api/system/cli/files"
+                set "RESULT=%%errorlevel%%"
+                del "%%INSTALL_PS1%%" >nul 2>&1
+                exit /b %%RESULT%%
+                """.formatted(server, server, server);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/x-msdownload"));
+        headers.setContentDisposition(ContentDisposition.attachment().filename("install-verdict.cmd").build());
+        return ResponseEntity.ok().headers(headers).body(script.getBytes(StandardCharsets.US_ASCII));
+    }
+
+    @GetMapping("/cli/version")
+    public ResponseEntity<Map<String, Object>> cliVersion() throws Exception {
+        String sha256 = "";
+        try {
+            Resource exeResource = new ClassPathResource("cli/verdict.exe.sha256");
+            if (exeResource.exists()) {
+                String manifest = new String(exeResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+                String[] parts = manifest.split("\\s+");
+                if (parts.length > 0) sha256 = parts[0];
+            }
+        } catch (Exception ignored) {}
+        String version = "1.1.0";
+        return ResponseEntity.ok(Map.of(
+                "version", version,
+                "exe_sha256", sha256,
+                "download_url", "/api/system/cli/files/verdict.exe"
+        ));
+    }
+
+    @GetMapping("/cli/files/{filename}")
+    public ResponseEntity<Resource> cliFile(@org.springframework.web.bind.annotation.PathVariable String filename) {
+        if (!filename.matches("verdict\\.mjs|verdict\\.exe|verdict\\.exe\\.sha256|README\\.txt|install-verdict\\.ps1")) {
+            return ResponseEntity.notFound().build();
+        }
+        ClassPathResource resource = new ClassPathResource("cli/" + filename);
+        if (!resource.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+        MediaType type;
+        if (filename.endsWith(".txt")) {
+            type = MediaType.TEXT_PLAIN;
+        } else if (filename.endsWith(".exe")) {
+            type = MediaType.parseMediaType("application/x-msdownload");
+        } else if (filename.endsWith(".sha256")) {
+            type = MediaType.TEXT_PLAIN;
+        } else {
+            type = MediaType.APPLICATION_OCTET_STREAM;
+        }
+        return ResponseEntity.ok().contentType(type).body(resource);
     }
 }
