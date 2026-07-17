@@ -2,13 +2,13 @@
 
 import { createInterface } from 'node:readline/promises';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, createWriteStream } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, createWriteStream, renameSync, unlinkSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { homedir, hostname, platform } from 'node:os';
 import { Readable } from 'node:stream';
 import { finished } from 'node:stream/promises';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const USER_AGENT = `VERDICT-CLI/${VERSION} ${platform()}`;
 const CONFIG_DIR = process.env.APPDATA ? join(process.env.APPDATA, 'VERDICT') : join(homedir(), '.verdict');
 const CONFIG_FILE = join(CONFIG_DIR, 'cli-config.json');
@@ -33,6 +33,7 @@ async function main() {
     if (command === 'config') return configCommand(args.slice(1));
     if (command === 'profile') return profileCommand(args.slice(1));
     if (command === 'login') return login(false);
+    if (command === 'connect' || command === 'pair') return connectWithCode(args[1]);
     if (command === 'logout') return logout(false);
     if (command === 'whoami') return whoami();
     if (command === 'session') return sessionCommand(args.slice(1));
@@ -55,6 +56,7 @@ async function main() {
     if (command === 'ats') return atsCommand(args.slice(1));
     if (command === 'signaltrace' || command === 'osint') return signalTraceCommand(args.slice(1));
     if (command === 'admin') return adminCommand(args.slice(1));
+    if (command === 'update') return updateCommand();
     throw cliError(`Unknown command: ${command}. Run "verdict help".`, EXIT.ARGUMENT);
 }
 
@@ -83,6 +85,7 @@ Usage:
 
 Start:
   verdict setup
+  verdict connect ABCD-EFGH
   verdict login
   verdict whoami
   verdict doctor
@@ -91,7 +94,7 @@ Resources:
 ${Object.entries(groups).map(([name, actions]) => `  ${name.padEnd(15)} ${actions}`).join('\n')}
 
 Other:
-  dashboard, shell, reports, notifications, batch
+  dashboard, shell, reports, notifications, batch, update
   health, watch, open, config, profile, session, version, help
 
 Global options:
@@ -177,6 +180,23 @@ async function login(admin = false) {
         : { accessToken: response.access_token || response.token, refreshToken: response.refresh_token, accessExpiresAt: response.access_expires_at, refreshExpiresAt: response.refresh_expires_at });
     if (admin) return success(`Admin session connected to ${server}.`);
     success(`Signed in as ${response.user?.fullName || response.user?.username} (${response.user?.username}) on ${profileName}.`);
+}
+
+async function connectWithCode(value) {
+    const code = String(value || options.code || await prompt('Pairing code from Profile: ')).trim().toUpperCase();
+    if (!/^[A-HJ-NP-Z2-9]{4}-?[A-HJ-NP-Z2-9]{4}$/.test(code)) {
+        throw cliError('Pairing code must look like ABCD-EFGH.', EXIT.VALIDATION);
+    }
+    const clientName = String(options.name || `${hostname()} CMD`);
+    const response = await rawRequest('POST', '/api/auth/cli/pair', { code, clientName }, { publicRequest: true });
+    await storeCredentials(profileName, {
+        accessToken: response.access_token || response.token,
+        refreshToken: response.refresh_token,
+        accessExpiresAt: response.access_expires_at,
+        refreshExpiresAt: response.refresh_expires_at,
+    });
+    success(`Connected ${clientName} as ${response.user?.fullName || response.user?.username} on ${profileName}.`);
+    if (outputFormat !== 'quiet') console.log(`Run "verdict dashboard" to open your terminal workspace.`);
 }
 
 async function logout(admin = false) {
@@ -615,6 +635,101 @@ async function adminCommand(parts) {
         return output(await adminApi('POST', '/api/admin/clear-tables', { targets: [target], confirmation: target }));
     }
     throw cliError('Usage: verdict admin login|logout|health|users|audits|logs|settings|clear-targets|clear', EXIT.ARGUMENT);
+}
+
+async function updateCommand() {
+    const isSea = typeof process !== 'undefined' && process.argv[1] && (process.argv[1].endsWith('.exe') || process.argv[1].includes('verdict'));
+    if (!isSea) {
+        return success(`You are running verdict ${VERSION}. Download the latest from your VERDICT website Profile page, or re-run the installer.`);
+    }
+    const currentExe = resolve(process.argv[1]);
+    const currentDir = dirname(currentExe);
+    const backupExe = join(currentDir, `verdict.${VERSION}.exe`);
+
+    // Fetch version info from server
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    let versionInfo;
+    try {
+        const response = await fetch(`${server}/api/system/cli/version`, {
+            headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+            signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`Server returned ${response.status}`);
+        versionInfo = await response.json();
+    } catch (error) {
+        throw cliError(`Cannot check for updates: ${error.message}`, EXIT.NETWORK);
+    } finally {
+        clearTimeout(timeout);
+    }
+
+    if (!versionInfo.download_url) {
+        throw cliError('Update information is incomplete.', EXIT.VERSION);
+    }
+    if (versionInfo.version === VERSION) {
+        return success(`verdict ${VERSION} is the latest version.`);
+    }
+
+    success(`Update available: ${VERSION} → ${versionInfo.version}`);
+
+    // Download the new exe to a temp location
+    const tempExe = join(currentDir, `verdict-${versionInfo.version}.exe.tmp`);
+    console.error(`Downloading verdict ${versionInfo.version}...`);
+    const dlController = new AbortController();
+    const dlTimeout = setTimeout(() => dlController.abort(), 120_000);
+    try {
+        const dlResponse = await fetch(`${server}${versionInfo.download_url}`, {
+            headers: { 'User-Agent': USER_AGENT },
+            signal: dlController.signal,
+        });
+        if (!dlResponse.ok) throw new Error(`Download returned ${dlResponse.status}`);
+        mkdirSync(dirname(tempExe), { recursive: true });
+        const fileStream = createWriteStream(tempExe);
+        await finished(Readable.fromWeb(dlResponse.body).pipe(fileStream));
+    } catch (error) {
+        try { unlinkSync(tempExe); } catch { /* ignore */ }
+        throw cliError(`Download failed: ${error.message}`, EXIT.NETWORK);
+    } finally {
+        clearTimeout(dlTimeout);
+    }
+
+    // Verify SHA-256 if available
+    if (versionInfo.exe_sha256) {
+        const { createHash } = await import('node:crypto');
+        const downloadedBuffer = readFileSync(tempExe);
+        const actualHash = createHash('sha256').update(downloadedBuffer).digest('hex').toLowerCase();
+        if (actualHash !== versionInfo.exe_sha256.toLowerCase()) {
+            try { unlinkSync(tempExe); } catch { /* ignore */ }
+            throw cliError('SHA-256 mismatch. The downloaded file may be corrupted.', EXIT.FILE);
+        }
+        success('SHA-256 verified.');
+    }
+
+    // Replace the current executable
+    // On Windows we cannot overwrite a running exe, so we rename current and move new
+    const newExe = join(currentDir, `verdict.exe`);
+    try {
+        // Rename current exe as backup
+        if (existsSync(backupExe)) unlinkSync(backupExe);
+        renameSync(currentExe, backupExe);
+        // Move temp exe to final location
+        renameSync(tempExe, newExe);
+    } catch (error) {
+        // Rollback: restore backup if new exe not in place
+        if (!existsSync(newExe) && existsSync(backupExe)) {
+            try { renameSync(backupExe, currentExe); } catch { /* ignore */ }
+        }
+        throw cliError(`Could not replace verdict.exe: ${error.message}`, EXIT.FILE);
+    }
+
+    // Write SHA-256 manifest alongside
+    if (versionInfo.exe_sha256) {
+        try {
+            writeFileSync(join(currentDir, 'verdict.exe.sha256'), `${versionInfo.exe_sha256}  verdict.exe\n`);
+        } catch { /* non-fatal */ }
+    }
+
+    success(`Updated to verdict ${versionInfo.version}. Restart your terminal or run "verdict --version" to confirm.`);
 }
 
 async function waitForAudit(id) {
