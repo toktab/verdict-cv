@@ -102,7 +102,7 @@ export function GlobalCompose({ draft, open, setDraft, setOpen, user }) {
             {composeError && <div className="composeError">{composeError}</div>}
             <label className="composeRecipientField">
                 <span>To</span>
-                <input value={draft.to} disabled={!canEdit} onChange={(event) => setDraft({ ...draft, to: event.target.value })} placeholder="Username or email" required />
+                <input autoFocus data-dialog-initial-focus value={draft.to} disabled={!canEdit} onChange={(event) => setDraft({ ...draft, to: event.target.value })} placeholder="Username or email" required />
             </label>
             <RecipientPreview lookup={recipientLookup} rawValue={draft.to} />
             <input value={draft.subject} disabled={!canEdit} onChange={(event) => setDraft({ ...draft, subject: event.target.value })} placeholder="Subject" />

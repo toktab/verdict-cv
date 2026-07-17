@@ -19,7 +19,9 @@ import java.time.Instant;
         indexes = {
                 @Index(name = "idx_app_messages_recipient", columnList = "recipient_email"),
                 @Index(name = "idx_app_messages_recipient_read", columnList = "recipient_email,read_at"),
+                @Index(name = "idx_app_messages_recipient_created", columnList = "recipient_email,created_at"),
                 @Index(name = "idx_app_messages_sender", columnList = "sender_id"),
+                @Index(name = "idx_app_messages_sender_created", columnList = "sender_id,created_at"),
                 @Index(name = "idx_app_messages_created_at", columnList = "created_at")
         }
 )

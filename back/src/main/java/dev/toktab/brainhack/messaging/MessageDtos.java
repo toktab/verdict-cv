@@ -63,4 +63,13 @@ public final class MessageDtos {
             @JsonProperty("created_at") Instant createdAt
     ) {
     }
+
+    public record MessagePageResponse(
+            List<MessageResponse> items,
+            int page,
+            int size,
+            long total,
+            int totalPages
+    ) {
+    }
 }

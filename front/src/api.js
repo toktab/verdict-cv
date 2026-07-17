@@ -94,6 +94,11 @@ export async function apiListProjects(token) {
     return get('/projects', token);
 }
 
+export async function apiListProjectsPage({ page = 0, size = 25, search = '' } = {}, token) {
+    const params = new URLSearchParams({ page: String(page), size: String(size), search });
+    return get(`/projects/page?${params}`, token);
+}
+
 export async function apiGetProject(id, token) {
     return get(`/projects/${id}`, token);
 }
@@ -225,6 +230,12 @@ export async function apiAcceptProjectInvite(inviteToken, token) {
 export async function apiListMessages(token) {
     const rows = await get('/messages', token);
     return rows.map(normaliseMessage);
+}
+
+export async function apiListMessagesPage({ page = 0, size = 25, search = '' } = {}, token) {
+    const params = new URLSearchParams({ page: String(page), size: String(size), search });
+    const result = await get(`/messages/page?${params}`, token);
+    return { ...result, items: (result.items || []).map(normaliseMessage) };
 }
 
 export function apiRealtimeUrl(token) {

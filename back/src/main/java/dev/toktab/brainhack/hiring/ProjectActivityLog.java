@@ -7,6 +7,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
@@ -14,7 +15,14 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 @Entity
-@Table(name = "project_activity_logs")
+@Table(
+        name = "project_activity_logs",
+        indexes = {
+                @Index(name = "idx_project_activity_project_created", columnList = "project_id,created_at"),
+                @Index(name = "idx_project_activity_project_candidate", columnList = "project_id,candidate_id"),
+                @Index(name = "idx_project_activity_project_actor", columnList = "project_id,actor_id")
+        }
+)
 public class ProjectActivityLog {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

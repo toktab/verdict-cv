@@ -86,7 +86,7 @@ test.beforeEach(async ({ page }) => {
             return;
         }
         if (path === '/api/projects/invites/accept' && method === 'POST') {
-            await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ projectId: 7, status: 'ACCEPTED' }) });
+            await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 81, projectId: 7, email: 'smoke@example.com', role: 'REVIEWER', token: 'invite-smoke-123', status: 'ACCEPTED', createdAt: new Date().toISOString() }) });
             return;
         }
         if (path === '/api/messages' && method === 'GET') {
@@ -254,6 +254,20 @@ test('compose resolves a platform user and reports successful delivery', async (
     const request = await delivery;
     expect(request.postDataJSON()).toMatchObject({ to: 'reviewer@example.com', subject: 'Candidate review', body: 'Please review the new backend candidate.' });
     await expect(page.getByRole('dialog', { name: /new message|message sent/i })).toBeHidden();
+});
+
+test('dialogs receive focus, close with Escape, and restore the trigger focus', async ({ page }) => {
+    await page.addInitScript(() => sessionStorage.setItem('verdictUserToken', 'smoke-token'));
+    await page.goto('/messages');
+    const compose = page.getByRole('button', { name: /compose/i });
+    await compose.focus();
+    await compose.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByPlaceholder('Username or email')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(compose).toBeFocused();
 });
 
 test('admin table clearing remains locked until the generated phrase is typed', async ({ page }) => {

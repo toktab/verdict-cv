@@ -19,6 +19,7 @@ import dev.toktab.brainhack.hiring.HiringDtos.OsintRunRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintRunResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectMemberResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectRequest;
+import dev.toktab.brainhack.hiring.HiringDtos.ProjectPageResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.VoteRequest;
 import dev.toktab.brainhack.hiring.HiringService;
@@ -95,6 +96,15 @@ public class HiringController {
                        @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
                        @PathVariable Long projectId) {
         hiringService.deleteProject(owner(authorization, legacyToken), projectId);
+    }
+
+    @GetMapping("/page")
+    public ProjectPageResponse page(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                    @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                    @RequestParam(defaultValue = "0") int page,
+                                    @RequestParam(defaultValue = "25") int size,
+                                    @RequestParam(defaultValue = "") String search) {
+        return hiringService.projectPage(owner(authorization, legacyToken), page, size, search);
     }
 
     @GetMapping("/{projectId}/settings")

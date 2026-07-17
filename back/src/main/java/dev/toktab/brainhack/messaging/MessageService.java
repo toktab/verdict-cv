@@ -7,6 +7,7 @@ import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageRequest;
 import dev.toktab.brainhack.messaging.MessageDtos.CandidateAttachment;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageResponse;
+import dev.toktab.brainhack.messaging.MessageDtos.MessagePageResponse;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageUpdateRequest;
 import dev.toktab.brainhack.realtime.RealtimeService;
 import dev.toktab.brainhack.hiring.ProjectStateService;
@@ -18,6 +19,9 @@ import java.util.HashSet;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 @Service
 public class MessageService {
@@ -41,6 +45,18 @@ public class MessageService {
     @Transactional(readOnly = true)
     public List<MessageResponse> messages(UserAccount actor) {
         return messageRepository.findMailbox(actor.getEmail(), actor.getId()).stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public MessagePageResponse messagePage(UserAccount actor, int page, int size, String search) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(100, size));
+        String safeSearch = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
+        Page<AppMessage> result = messageRepository.findMailboxPage(
+                actor.getEmail(), actor.getId(), safeSearch,
+                PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt")));
+        return new MessagePageResponse(result.getContent().stream().map(this::toResponse).toList(),
+                safePage, safeSize, result.getTotalElements(), result.getTotalPages());
     }
 
     @Transactional

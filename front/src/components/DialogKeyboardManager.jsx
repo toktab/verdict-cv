@@ -6,6 +6,7 @@ export function DialogKeyboardManager() {
     useEffect(() => {
         let restoreTarget = null;
         let activeDialog = null;
+        let lastOutsideFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
         function currentDialog() {
             const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
@@ -20,15 +21,24 @@ export function DialogKeyboardManager() {
             }
             activeDialog = dialog;
             if (dialog) {
-                restoreTarget = document.activeElement;
-                window.requestAnimationFrame(() => dialog.querySelector(FOCUSABLE)?.focus({ preventScroll: true }));
+                restoreTarget = lastOutsideFocus;
+                window.requestAnimationFrame(() => {
+                    const initial = dialog.querySelector('[data-dialog-initial-focus]') || dialog.querySelector('[autofocus]') || dialog.querySelector(FOCUSABLE);
+                    initial?.focus({ preventScroll: true });
+                });
+            }
+        }
+
+        function onFocusIn(event) {
+            if (event.target instanceof HTMLElement && !event.target.closest('[role="dialog"][aria-modal="true"]')) {
+                lastOutsideFocus = event.target;
             }
         }
 
         function closeDialog(dialog) {
             const buttons = [...dialog.querySelectorAll('button')];
             const close = dialog.querySelector('[data-dialog-close], [aria-label*="close" i]')
-                || buttons.find((button) => /^(close|cancel|dismiss|x|×)$/i.test(button.textContent.trim()));
+                || buttons.find((button) => /^(close|cancel|dismiss|x)$/i.test(button.textContent.trim()));
             close?.click();
         }
 
@@ -60,10 +70,12 @@ export function DialogKeyboardManager() {
         const observer = new MutationObserver(syncDialog);
         observer.observe(document.body, { childList: true, subtree: true });
         document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('focusin', onFocusIn);
         syncDialog();
         return () => {
             observer.disconnect();
             document.removeEventListener('keydown', onKeyDown);
+            document.removeEventListener('focusin', onFocusIn);
         };
     }, []);
 

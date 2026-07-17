@@ -42,6 +42,53 @@ class HiringFlowTest {
     ObjectMapper objectMapper;
 
     @Test
+    void projectAndMessagePagesAreBoundedSearchableAndReportTotals() throws Exception {
+        String email = "paging_" + UUID.randomUUID().toString().substring(0, 8) + "@example.com";
+        String token = registerWithEmail("paging", email);
+        createProject(token, "Java Platform Engineer", "Build Java services.", "[\"Java\"]");
+        createProject(token, "Product Designer", "Design accessible interfaces.", "[\"Figma\"]");
+        createProject(token, "Data Analyst", "Analyze product metrics.", "[\"SQL\"]");
+
+        mockMvc.perform(get("/api/projects/page")
+                        .header("X-User-Token", token)
+                        .param("page", "0")
+                        .param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items", hasSize(2)))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(2))
+                .andExpect(jsonPath("$.total").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2));
+
+        mockMvc.perform(get("/api/projects/page")
+                        .header("X-User-Token", token)
+                        .param("search", "java platform"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].title").value("Java Platform Engineer"))
+                .andExpect(jsonPath("$.total").value(1));
+
+        sendMessage(token, email, "Quarterly hiring update", "First searchable message");
+        sendMessage(token, email, "Interview schedule", "Second message");
+
+        mockMvc.perform(get("/api/messages/page")
+                        .header("X-User-Token", token)
+                        .param("page", "0")
+                        .param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.totalPages").value(2));
+
+        mockMvc.perform(get("/api/messages/page")
+                        .header("X-User-Token", token)
+                        .param("search", "quarterly"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].subject").value("Quarterly hiring update"));
+    }
+
+    @Test
     void demoWorkspaceSeedsProjectsCandidatesMembersMessagesAndAuditHistoryOnce() throws Exception {
         String token = register("demo_workspace");
 
@@ -1073,6 +1120,17 @@ class HiringFlowTest {
                 .andExpect(status().isOk())
                 .andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
+    }
+
+    private void sendMessage(String token, String recipient, String subject, String body) throws Exception {
+        mockMvc.perform(post("/api/messages")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"to":%s,"subject":%s,"body":%s}
+                                """.formatted(objectMapper.writeValueAsString(recipient),
+                                objectMapper.writeValueAsString(subject), objectMapper.writeValueAsString(body))))
+                .andExpect(status().isOk());
     }
 
     private String projectPayload(String title, String description, String requirementsJson) throws Exception {

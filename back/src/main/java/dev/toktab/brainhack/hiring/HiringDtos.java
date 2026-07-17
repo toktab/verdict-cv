@@ -86,6 +86,15 @@ public class HiringDtos {
     ) {
     }
 
+    public record ProjectPageResponse(
+            List<ProjectResponse> items,
+            int page,
+            int size,
+            long total,
+            int totalPages
+    ) {
+    }
+
     public record CandidateResponse(
             Long id,
             String name,

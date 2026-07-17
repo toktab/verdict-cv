@@ -5,6 +5,7 @@ import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.account.UserSessionService;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageRequest;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageResponse;
+import dev.toktab.brainhack.messaging.MessageDtos.MessagePageResponse;
 import dev.toktab.brainhack.messaging.MessageDtos.MessageUpdateRequest;
 import dev.toktab.brainhack.messaging.MessageService;
 import jakarta.validation.Valid;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/messages")
@@ -35,6 +37,15 @@ public class MessageController {
     public List<MessageResponse> messages(@RequestHeader(value = "Authorization", required = false) String authorization,
                                           @RequestHeader(value = "X-User-Token", required = false) String legacyToken) {
         return messageService.messages(owner(authorization, legacyToken));
+    }
+
+    @GetMapping("/page")
+    public MessagePageResponse page(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                    @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+                                    @RequestParam(defaultValue = "0") int page,
+                                    @RequestParam(defaultValue = "25") int size,
+                                    @RequestParam(defaultValue = "") String search) {
+        return messageService.messagePage(owner(authorization, legacyToken), page, size, search);
     }
 
     @PostMapping

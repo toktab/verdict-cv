@@ -292,7 +292,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                     <div className="dashboardPanel">
                         <h2><ShieldCheck size={18} /> {t('roleRequirements')}</h2>
                         <div className="requirementList">
-                            {requirements.map((requirement) => <span key={requirement}>{requirement}</span>)}
+                            {requirements.map((requirement, index) => <span key={`${index}-${requirement}`}>{requirement}</span>)}
                             {requirements.length === 0 && <p className="mutedPanelText">No requirements have been separated from this job description yet.</p>}
                         </div>
                     </div>
@@ -325,8 +325,8 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                     <article className="projectAnalyticsPanel requirementTrendPanel">
                         <div className="projectAnalyticsHead"><div><span className="eyebrow">Requirement trends</span><h2>Coverage across candidates</h2></div><strong>{requirementTrends.length}</strong></div>
                         <div className="requirementTrendRows">
-                            {requirementTrends.map((row) => (
-                                <div key={row.requirement}>
+                            {requirementTrends.map((row, index) => (
+                                <div key={`${index}-${row.requirement}`}>
                                     <strong>{row.requirement}</strong>
                                     <span className="requirementTrendRail"><i className="supported" style={{ width: `${row.supportedPercent}%` }} /><i className="partial" style={{ width: `${row.partialPercent}%` }} /></span>
                                     <small>{row.supported} supported / {row.partial} partial / {row.missing} missing</small>
@@ -476,7 +476,7 @@ function JobBulletPanel({ title, items, fallback }) {
             <h2><ShieldCheck size={18} /> {title}</h2>
             {items.length > 0 ? (
                 <ul className="jobBulletList">
-                    {items.map((item) => <li key={item}>{item}</li>)}
+                    {items.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
                 </ul>
             ) : (
                 <p className="mutedPanelText">{fallback}</p>

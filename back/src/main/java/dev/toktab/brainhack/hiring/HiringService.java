@@ -25,6 +25,7 @@ import dev.toktab.brainhack.hiring.HiringDtos.OsintRunResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintSourceResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectMemberResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectRequest;
+import dev.toktab.brainhack.hiring.HiringDtos.ProjectPageResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.VoteRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.VoteSummaryResponse;
@@ -57,6 +58,8 @@ import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -141,6 +144,21 @@ public class HiringService {
         return projectRepository.findAccessible(owner.getId(), owner.getEmail()).stream()
                 .map(project -> mapper.project(project, actorRole(owner, project), permissionsFor(owner, project)))
                 .toList();
+    }
+
+    @Transactional
+    public ProjectPageResponse projectPage(UserAccount owner, int page, int size, String search) {
+        ensureOrganization(owner);
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(100, size));
+        String safeSearch = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
+        Page<HiringProject> result = projectRepository.findAccessiblePage(
+                owner.getId(), owner.getEmail(), safeSearch,
+                PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt")));
+        List<ProjectResponse> items = result.getContent().stream()
+                .map(project -> mapper.project(project, actorRole(owner, project), permissionsFor(owner, project)))
+                .toList();
+        return new ProjectPageResponse(items, safePage, safeSize, result.getTotalElements(), result.getTotalPages());
     }
 
     @Transactional
