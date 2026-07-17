@@ -79,6 +79,14 @@ test.beforeEach(async ({ page }) => {
             });
             return;
         }
+        if (path === '/api/auth/me/cmd-pairing-code' && method === 'POST') {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ code: 'ABCD-EFGH', expires_at: new Date(Date.now() + 300000).toISOString(), expires_in_seconds: 300 }),
+            });
+            return;
+        }
         if (path === '/api/auth/me/cmd-sessions/cmd-session-1' && method === 'DELETE') {
             await route.fulfill({ status: 200, contentType: 'application/json', body: '' });
             return;
@@ -297,6 +305,10 @@ test('profile shows CMD access details and confirms immediate revocation', async
     await expect(page.getByText('Office workstation')).toBeVisible();
     await expect(page.getByText('203.0.113.42')).toBeVisible();
     await expect(page.getByText('Active', { exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: /download installer/i })).toHaveAttribute('href', 'http://localhost:8080/api/system/cli/installer');
+    await page.getByRole('button', { name: /generate pairing code/i }).click();
+    await expect(page.getByText('ABCD-EFGH', { exact: true })).toBeVisible();
+    await expect(page.getByText(/verdict connect ABCD-EFGH/)).toBeVisible();
     await page.getByRole('button', { name: 'Revoke' }).click();
     await expect(page.getByRole('heading', { name: 'Disconnect Office workstation?' })).toBeVisible();
     const revocation = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/auth/me/cmd-sessions/cmd-session-1' && request.method() === 'DELETE');

@@ -12,7 +12,7 @@ const cli = resolve('tools/verdict-cli/verdict.mjs');
 
 test('help exposes the runnable connector command groups', async () => {
     const { stdout } = await execute(process.execPath, [cli, 'help'], { env: isolatedEnvironment() });
-    assert.match(stdout, /VERDICT CLI 1\.0\.0/);
+    assert.match(stdout, /VERDICT CLI 1\.1\.0/);
     assert.match(stdout, /dashboard, shell, reports, notifications, batch/);
     assert.match(stdout, /projects\s+list, show, create/);
 });
@@ -27,7 +27,7 @@ test('unknown commands use the stable argument exit code', async () => {
 test('health connects to the selected server and emits machine-readable JSON', async (context) => {
     const server = createServer((request, response) => {
         assert.equal(request.url, '/api/system/health');
-        assert.match(request.headers['user-agent'], /^VERDICT-CLI\/1\.0\.0/);
+        assert.match(request.headers['user-agent'], /^VERDICT-CLI\/1\.1\.0/);
         response.writeHead(200, { 'content-type': 'application/json' });
         response.end(JSON.stringify({ status: 'UP', database: { status: 'UP' } }));
     });
@@ -39,6 +39,37 @@ test('health connects to the selected server and emits machine-readable JSON', a
     assert.equal(result.status, 'UP');
     assert.equal(result.database.status, 'UP');
     assert.equal(typeof result.responseMillis, 'number');
+});
+
+test('one-time pairing connects without sending a password', async (context) => {
+    let received;
+    const server = createServer(async (request, response) => {
+        let body = '';
+        for await (const chunk of request) body += chunk;
+        received = { url: request.url, method: request.method, body: JSON.parse(body) };
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({
+            access_token: 'paired-access-token',
+            refresh_token: 'paired-refresh-token',
+            access_expires_at: new Date(Date.now() + 900000).toISOString(),
+            refresh_expires_at: new Date(Date.now() + 86400000).toISOString(),
+            user: { username: 'paired-user', fullName: 'Paired User' },
+        }));
+    });
+    await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
+    context.after(() => server.close());
+    const address = server.address();
+    const { stdout } = await execute(process.execPath, [
+        cli, 'connect', 'ABCD-EFGH', '--name', 'QA terminal',
+        '--server', `http://127.0.0.1:${address.port}`, '--no-color',
+    ], { env: isolatedEnvironment() });
+    assert.match(stdout, /Connected QA terminal as Paired User/);
+    assert.deepEqual(received, {
+        url: '/api/auth/cli/pair',
+        method: 'POST',
+        body: { code: 'ABCD-EFGH', clientName: 'QA terminal' },
+    });
+    assert.equal(Object.hasOwn(received.body, 'password'), false);
 });
 
 function isolatedEnvironment() {

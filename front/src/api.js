@@ -90,6 +90,10 @@ export async function apiListCmdSessions(token) {
     return get('/auth/me/cmd-sessions', token);
 }
 
+export async function apiCreateCmdPairingCode(token) {
+    return post('/auth/me/cmd-pairing-code', {}, token);
+}
+
 export async function apiRevokeCmdSession(sessionId, token) {
     return del(`/auth/me/cmd-sessions/${encodeURIComponent(sessionId)}`, token);
 }

@@ -135,6 +135,54 @@ class AuthAuditAdminFlowTest {
     }
 
     @Test
+    void cmdPairingCodeIsOneTimeAndCreatesTrackedPasswordlessSession() throws Exception {
+        String webToken = register("cmd_pairing_user");
+        MvcResult generated = mockMvc.perform(post("/api/auth/me/cmd-pairing-code")
+                        .header("X-User-Token", webToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(org.hamcrest.Matchers.matchesPattern("[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}")))
+                .andExpect(jsonPath("$.expires_in_seconds").value(300))
+                .andReturn();
+        String code = objectMapper.readTree(generated.getResponse().getContentAsString()).get("code").asText();
+        String payload = """
+                {
+                  "code":"%s",
+                  "clientName":"QA terminal"
+                }
+                """.formatted(code);
+
+        mockMvc.perform(post("/api/auth/cli/pair")
+                        .header("User-Agent", "VERDICT-CLI/1.1 Windows")
+                        .header("X-Forwarded-For", "198.51.100.17")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token", not(blankOrNullString())))
+                .andExpect(jsonPath("$.user.username").value("cmd_pairing_user"));
+
+        mockMvc.perform(post("/api/auth/cli/pair")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/auth/me/cmd-sessions").header("X-User-Token", webToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].client_name").value("QA terminal"))
+                .andExpect(jsonPath("$[0].ip_address").value("198.51.100.17"))
+                .andExpect(jsonPath("$[0].active").value(true));
+
+        mockMvc.perform(get("/api/system/cli/installer"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString("install-verdict.cmd")))
+                .andExpect(content().string(containsString("install-verdict.ps1")));
+
+        mockMvc.perform(get("/api/system/cli/files/verdict.mjs"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("VERDICT CLI")));
+    }
+
+    @Test
     void auditApisRequireUserTokenAndOnlyReturnOwnedAudits() throws Exception {
         String firstToken = register("ownerone");
         String secondToken = register("ownertwo");

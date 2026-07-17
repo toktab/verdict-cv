@@ -9,8 +9,12 @@ Requirements:
 
 Run from the project directory:
 
+  install-verdict.cmd
+
+Or without installing:
+
   verdict.cmd setup
-  verdict.cmd login
+  verdict.cmd connect ABCD-EFGH
   verdict.cmd whoami
 
 Optional global installation for the current terminal:
@@ -42,6 +46,7 @@ Examples
 --------
 
   verdict setup
+  verdict connect ABCD-EFGH --name "Home PC"
   verdict login --user toko1 --name "Home PC"
   verdict doctor
   verdict dashboard

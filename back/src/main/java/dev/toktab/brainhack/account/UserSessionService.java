@@ -5,7 +5,11 @@ import dev.toktab.brainhack.api.dto.RegisterRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import java.security.SecureRandom;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.Duration;
+import java.util.HexFormat;
 import java.util.Base64;
 import java.util.List;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -16,12 +20,15 @@ public class UserSessionService {
     private final UserAccountRepository userRepository;
     private final AccountSettingsService settingsService;
     private final UserSessionRepository sessionRepository;
+    private final CliPairingCodeRepository pairingCodeRepository;
     private final SecureRandom secureRandom = new SecureRandom();
+    private static final char[] PAIRING_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
 
-    public UserSessionService(UserAccountRepository userRepository, AccountSettingsService settingsService, UserSessionRepository sessionRepository) {
+    public UserSessionService(UserAccountRepository userRepository, AccountSettingsService settingsService, UserSessionRepository sessionRepository, CliPairingCodeRepository pairingCodeRepository) {
         this.userRepository = userRepository;
         this.settingsService = settingsService;
         this.sessionRepository = sessionRepository;
+        this.pairingCodeRepository = pairingCodeRepository;
     }
 
     @Transactional
@@ -136,12 +143,48 @@ public class UserSessionService {
     public List<CmdSessionView> cliSessions(UserAccount account) {
         Instant now = Instant.now();
         return sessionRepository.findByUserIdAndClientTypeOrderByLastUsedAtDesc(account.getId(), "CLI").stream()
+                .filter(session -> !"refresh rotated".equals(session.getRevocationReason()))
                 .map(session -> new CmdSessionView(
                         session.getSessionId(), session.getClientName(), session.getIpAddress(), session.getUserAgent(),
                         session.getCreatedAt(), session.getLastUsedAt(), session.getExpiresAt(), session.getRefreshExpiresAt(),
                         session.getRevokedAt(), session.getRevocationReason(),
                         session.getRevokedAt() == null && session.getRefreshExpiresAt().isAfter(now)))
                 .toList();
+    }
+
+    @Transactional
+    public PairingCodeView createCliPairingCode(UserAccount account, HttpServletRequest request) {
+        pairingCodeRepository.deleteByUserIdAndUsedAtIsNull(account.getId());
+        pairingCodeRepository.deleteByExpiresAtBefore(Instant.now().minus(Duration.ofDays(1)));
+        String raw = randomPairingCode();
+        Instant expiresAt = Instant.now().plus(Duration.ofMinutes(5));
+        CliPairingCode pairingCode = new CliPairingCode();
+        pairingCode.setCodeHash(hashPairingCode(raw));
+        pairingCode.setUser(account);
+        pairingCode.setExpiresAt(expiresAt);
+        pairingCode.setRequestedFromIp(remoteAddress(request));
+        pairingCodeRepository.save(pairingCode);
+        return new PairingCodeView(formatPairingCode(raw), expiresAt, Duration.ofMinutes(5).toSeconds());
+    }
+
+    @Transactional
+    public SessionResult pairCli(String code, String clientName, HttpServletRequest request) {
+        String codeHash = hashPairingCode(code);
+        CliPairingCode pairingCode = pairingCodeRepository.findAvailableForUpdate(codeHash)
+                .orElseThrow(() -> new IllegalArgumentException("Pairing code is invalid, expired, or already used"));
+        Instant now = Instant.now();
+        if (!pairingCode.getExpiresAt().isAfter(now)) {
+            pairingCode.setUsedAt(now);
+            pairingCodeRepository.save(pairingCode);
+            throw new IllegalArgumentException("Pairing code is invalid, expired, or already used");
+        }
+        UserAccount account = pairingCode.getUser();
+        if (account.getDeletedAt() != null) {
+            throw new IllegalArgumentException("Pairing code is invalid, expired, or already used");
+        }
+        pairingCode.setUsedAt(now);
+        pairingCodeRepository.save(pairingCode);
+        return token(account.getId(), request, "CLI", defaulted(clientName, "VERDICT CLI"));
     }
 
     @Transactional
@@ -214,7 +257,31 @@ public class UserSessionService {
         return clean.isBlank() ? fallback : clean;
     }
 
+    private String randomPairingCode() {
+        StringBuilder result = new StringBuilder(8);
+        for (int index = 0; index < 8; index += 1) {
+            result.append(PAIRING_ALPHABET[secureRandom.nextInt(PAIRING_ALPHABET.length)]);
+        }
+        return result.toString();
+    }
+
+    private String formatPairingCode(String raw) {
+        return raw.substring(0, 4) + "-" + raw.substring(4);
+    }
+
+    private String hashPairingCode(String code) {
+        String normalized = clean(code).replace("-", "").toUpperCase();
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(normalized.getBytes(StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
+    }
+
     public record SessionResult(String token, String refreshToken, Instant accessExpiresAt, Instant refreshExpiresAt, UserAccount account) {
+    }
+
+    public record PairingCodeView(String code, Instant expiresAt, long expiresInSeconds) {
     }
 
     public record CmdSessionView(

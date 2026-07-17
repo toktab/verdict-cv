@@ -114,16 +114,10 @@
 				</includes>
 			</resource>
 			<resource>
-				<directory>installer</directory>
+				<directory>tools/installer</directory>
 				<targetPath>cli</targetPath>
 				<includes>
 					<include>install-verdict.ps1</include>
-				</includes>
-			</resource>
-			<resource>
-				<directory>installer</directory>
-				<targetPath>cli</targetPath>
-				<includes>
 					<include>install-oneliner.cmd</include>
 				</includes>
 			</resource>

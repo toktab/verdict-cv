@@ -2,7 +2,9 @@
     margin-top: 18px;
     border: 1px solid var(--line);
     border-radius: 8px;
-    background: var(--panel);
+    background:
+        linear-gradient(135deg, rgba(220, 38, 38, .045), transparent 34%),
+        var(--panel);
     overflow: hidden;
 }
 
@@ -11,7 +13,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 20px;
-    padding: 20px;
+    padding: 24px;
     border-bottom: 1px solid var(--line);
 }
 
@@ -46,6 +48,239 @@
     background: rgba(102, 217, 145, 0.08);
 }
 
+.cmdConnectWorkspace {
+    padding: 20px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(0, 0, 0, .16);
+}
+
+.cmdConnectIntro {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 18px;
+}
+
+.cmdConnectIntro h3,
+.cmdDevicesHead h3 {
+    margin: 4px 0 5px;
+    font-size: 17px;
+}
+
+.cmdConnectIntro p,
+.cmdPairingSteps small,
+.cmdPairingEmpty span,
+.cmdDevicesHead > span {
+    color: var(--muted);
+}
+
+.cmdConnectIcon {
+    width: 50px;
+    height: 50px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(248, 80, 80, .35);
+    border-radius: 8px;
+    color: #ff9a9a;
+    background: rgba(220, 38, 38, .1);
+    box-shadow: inset 0 0 20px rgba(220, 38, 38, .04);
+}
+
+.cmdInstallerButton {
+    min-height: 42px;
+    text-decoration: none;
+}
+
+.cmdPairingGrid {
+    display: grid;
+    grid-template-columns: minmax(240px, .72fr) minmax(420px, 1.28fr);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(4, 5, 8, .52);
+}
+
+.cmdPairingSteps {
+    display: grid;
+    align-content: center;
+    gap: 20px;
+    padding: 24px;
+    border-right: 1px solid var(--line);
+}
+
+.cmdPairingSteps > span {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    column-gap: 11px;
+    align-items: center;
+}
+
+.cmdPairingSteps i {
+    width: 28px;
+    height: 28px;
+    grid-row: span 2;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    color: var(--soft);
+    background: rgba(255, 255, 255, .04);
+    font-style: normal;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.cmdPairingSteps small {
+    margin-top: 3px;
+    line-height: 1.35;
+}
+
+.cmdPairingCard {
+    min-height: 250px;
+    display: grid;
+    align-content: center;
+    padding: 24px;
+    background: rgba(255, 255, 255, .018);
+}
+
+.cmdPairingCard.ready {
+    align-content: stretch;
+    background:
+        linear-gradient(135deg, rgba(36, 174, 96, .08), transparent 55%),
+        rgba(255, 255, 255, .018);
+}
+
+.cmdPairingEmpty {
+    display: grid;
+    justify-items: start;
+    gap: 8px;
+}
+
+.cmdPairingEmpty > svg {
+    margin-bottom: 3px;
+    color: #ff8585;
+}
+
+.cmdPairingEmpty .primary {
+    margin-top: 8px;
+}
+
+.cmdPairingMeta,
+.cmdPairingActions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.cmdPairingMeta > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.cmdPairingMeta i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #66d991;
+    box-shadow: 0 0 10px rgba(102, 217, 145, .6);
+}
+
+.cmdPairingCode {
+    width: 100%;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin: 14px 0 11px;
+    border: 1px solid rgba(102, 217, 145, .32);
+    border-radius: 7px;
+    color: #eafff0;
+    background: rgba(102, 217, 145, .065);
+}
+
+.cmdPairingCode strong {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 30px;
+    letter-spacing: 0;
+}
+
+.cmdCommandLine {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 38px;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #050609;
+    overflow: hidden;
+}
+
+.cmdCommandLine code {
+    min-width: 0;
+    padding: 11px 13px;
+    overflow-x: auto;
+    color: #d7dde8;
+    white-space: nowrap;
+}
+
+.cmdCommandLine button {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-left: 1px solid var(--line);
+    border-radius: 0;
+    color: var(--soft);
+    background: rgba(255, 255, 255, .04);
+}
+
+.cmdPairingActions {
+    margin-top: 11px;
+}
+
+.cmdSecurityStrip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    margin-top: 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--line);
+}
+
+.cmdSecurityStrip span {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 10px;
+    color: var(--muted);
+    background: #0b0c10;
+    font-size: 11px;
+}
+
+.cmdSecurityStrip svg {
+    color: #66d991;
+}
+
+.cmdDevicesHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px 12px;
+}
+
 .profileCmdTable {
     display: grid;
 }
@@ -56,7 +291,7 @@
     grid-template-columns: minmax(180px, 1.35fr) minmax(120px, .75fr) minmax(150px, 1fr) minmax(150px, 1fr) 100px 100px;
     gap: 14px;
     align-items: center;
-    padding: 12px 18px;
+    padding: 12px 20px;
     border-bottom: 1px solid var(--line);
 }
 
@@ -112,9 +347,23 @@
     .profileCmdRow.heading { display: none; }
     .profileCmdRow { grid-template-columns: 1fr 1fr; }
     .profileCmdRow > * { min-width: 0; }
+    .cmdConnectIntro { grid-template-columns: auto 1fr; }
+    .cmdInstallerButton { grid-column: 1 / -1; justify-self: stretch; }
+    .cmdPairingGrid { grid-template-columns: 1fr; }
+    .cmdPairingSteps { border-right: 0; border-bottom: 1px solid var(--line); }
+    .cmdSecurityStrip { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 560px) {
     .profileCmdRow { grid-template-columns: 1fr; }
     .profileCmdSummary { align-items: stretch; flex-direction: column; }
+    .cmdConnectWorkspace { padding: 13px; }
+    .cmdConnectIntro { grid-template-columns: 1fr; }
+    .cmdConnectIcon { width: 42px; height: 42px; }
+    .cmdPairingSteps,
+    .cmdPairingCard { padding: 17px; }
+    .cmdPairingCode strong { font-size: 23px; }
+    .cmdPairingActions { align-items: stretch; flex-direction: column; }
+    .cmdSecurityStrip { grid-template-columns: 1fr; }
+    .cmdDevicesHead { align-items: flex-start; flex-direction: column; }
 }

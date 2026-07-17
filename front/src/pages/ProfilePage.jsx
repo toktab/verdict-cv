@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { RefreshCcw, Save, ShieldOff, Terminal, X } from 'lucide-react';
-import { apiListCmdSessions, apiRevokeCmdSession, apiUpdateNotificationPreferences, javaApi, normaliseUser } from '../api';
+import { Check, Clock3, Copy, Download, KeyRound, MonitorSmartphone, RefreshCcw, Save, ShieldCheck, ShieldOff, Terminal, X } from 'lucide-react';
+import { apiCreateCmdPairingCode, apiListCmdSessions, apiRevokeCmdSession, apiUpdateNotificationPreferences, javaApi, normaliseUser } from '../api';
 import { Input } from '../components/ui';
 import '../styles/profile.css';
 
@@ -22,6 +22,9 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
   const [cmdLoading, setCmdLoading] = useState(false);
   const [cmdError, setCmdError] = useState('');
   const [revokeTarget, setRevokeTarget] = useState(null);
+  const [pairingCode, setPairingCode] = useState(null);
+  const [pairingSeconds, setPairingSeconds] = useState(0);
+  const [copied, setCopied] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -49,6 +52,14 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
     return () => { cancelled = true; };
   }, [userToken]);
 
+  useEffect(() => {
+    if (!pairingCode?.expires_at) return undefined;
+    const update = () => setPairingSeconds(Math.max(0, Math.ceil((new Date(pairingCode.expires_at).getTime() - Date.now()) / 1000)));
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [pairingCode]);
+
   async function refreshCmdSessions() {
     setCmdLoading(true);
     setCmdError('');
@@ -73,6 +84,31 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
     } catch (err) {
       setCmdError(err.message || 'Could not revoke CMD access.');
       setCmdLoading(false);
+    }
+  }
+
+  async function generatePairingCode() {
+    setCmdLoading(true);
+    setCmdError('');
+    setCopied('');
+    try {
+      const created = await apiCreateCmdPairingCode(userToken);
+      setPairingCode(created);
+      setPairingSeconds(created.expires_in_seconds || 300);
+    } catch (err) {
+      setCmdError(err.message || 'Could not generate a pairing code.');
+    } finally {
+      setCmdLoading(false);
+    }
+  }
+
+  async function copyConnectorValue(value, label) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(label);
+      window.setTimeout(() => setCopied(''), 1800);
+    } catch {
+      setCmdError('Clipboard access was blocked. Select and copy the command manually.');
     }
   }
 
@@ -161,9 +197,9 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
         <section className="profileCmdPanel">
           <div className="profileCmdHead">
             <div>
-              <span className="eyebrow">Connected tools</span>
-              <h2><Terminal size={20} /> CMD access</h2>
-              <p>See terminal connectors that signed in to your account. Revoke anything you do not recognize.</p>
+              <span className="eyebrow">Developer access</span>
+              <h2><Terminal size={20} /> VERDICT for CMD</h2>
+              <p>Install once, pair without a password, and control every trusted terminal from here.</p>
             </div>
             <div className="profileCmdSummary">
               <span><strong>{cmdSessions.filter((session) => session.active).length}</strong> active</span>
@@ -171,6 +207,50 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
             </div>
           </div>
           {cmdError && <div className="retryNotice error compact"><div><strong>CMD access could not be loaded.</strong><span>{cmdError}</span></div><button className="secondary" onClick={refreshCmdSessions} type="button">Retry</button></div>}
+          <div className="cmdConnectWorkspace">
+            <div className="cmdConnectIntro">
+              <div className="cmdConnectIcon"><MonitorSmartphone size={27} /></div>
+              <div>
+                <span className="eyebrow">Connect this account</span>
+                <h3>Authorize a terminal in under a minute</h3>
+                <p>The installer configures Node.js, PATH, updates, and uninstall support. Your password never enters the terminal.</p>
+              </div>
+              <a className="primary cmdInstallerButton" download href={`${connectorServerUrl()}/api/system/cli/installer`}><Download size={16} /> Download installer</a>
+            </div>
+            <div className="cmdPairingGrid">
+              <div className="cmdPairingSteps">
+                <span><i>1</i><strong>Run the installer</strong><small>Open the downloaded `install-verdict.cmd` file.</small></span>
+                <span><i>2</i><strong>Create a one-time code</strong><small>Codes expire after five minutes and work once.</small></span>
+                <span><i>3</i><strong>Connect from CMD</strong><small>The terminal becomes visible below immediately.</small></span>
+              </div>
+              <div className={`cmdPairingCard ${pairingCode && pairingSeconds > 0 ? 'ready' : ''}`}>
+                {!pairingCode || pairingSeconds <= 0 ? (
+                  <div className="cmdPairingEmpty">
+                    <KeyRound size={24} />
+                    <strong>{pairingCode ? 'Pairing code expired' : 'Ready for secure pairing'}</strong>
+                    <span>Generating a new code invalidates any previous unused code.</span>
+                    <button className="primary" disabled={cmdLoading} onClick={generatePairingCode} type="button"><KeyRound size={15} /> {cmdLoading ? 'Generating...' : 'Generate pairing code'}</button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="cmdPairingMeta"><span><i /> One-time code</span><span><Clock3 size={14} /> {formatCountdown(pairingSeconds)}</span></div>
+                    <button className="cmdPairingCode" onClick={() => copyConnectorValue(pairingCode.code, 'code')} title="Copy pairing code" type="button">
+                      <strong>{pairingCode.code}</strong>{copied === 'code' ? <Check size={18} /> : <Copy size={18} />}
+                    </button>
+                    <div className="cmdCommandLine"><code>verdict connect {pairingCode.code} --server {connectorServerUrl()}</code><button onClick={() => copyConnectorValue(`verdict connect ${pairingCode.code} --server ${connectorServerUrl()}`, 'command')} title="Copy command" type="button">{copied === 'command' ? <Check size={16} /> : <Copy size={16} />}</button></div>
+                    <div className="cmdPairingActions"><span>Do not share this code.</span><button className="secondary" disabled={cmdLoading} onClick={generatePairingCode} type="button"><RefreshCcw size={14} /> Replace code</button></div>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="cmdSecurityStrip">
+              <span><ShieldCheck size={17} /><strong>Passwordless pairing</strong></span>
+              <span><Clock3 size={17} /><strong>5-minute expiry</strong></span>
+              <span><KeyRound size={17} /><strong>Single use</strong></span>
+              <span><ShieldOff size={17} /><strong>Instant revoke</strong></span>
+            </div>
+          </div>
+          <div className="cmdDevicesHead"><div><span className="eyebrow">Trusted terminals</span><h3>Connector activity</h3></div><span>{cmdSessions.length} device record{cmdSessions.length === 1 ? '' : 's'}</span></div>
           <div className="profileCmdTable" role="table" aria-label="CMD access sessions">
             <div className="profileCmdRow heading" role="row"><span>Connector</span><span>IP address</span><span>First access</span><span>Last active</span><span>Status</span><span>Action</span></div>
             {cmdSessions.map((session) => (
@@ -183,7 +263,7 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
                 <button className="destructive" disabled={!session.active || cmdLoading} onClick={() => setRevokeTarget(session)} type="button"><ShieldOff size={15} /> Revoke</button>
               </div>
             ))}
-            {!cmdLoading && !cmdSessions.length && <div className="profileCmdEmpty"><Terminal size={28} /><strong>No CMD connectors yet</strong><span>Run `verdict login` from the connector and the access will appear here.</span></div>}
+            {!cmdLoading && !cmdSessions.length && <div className="profileCmdEmpty"><Terminal size={28} /><strong>No trusted terminals yet</strong><span>Download the installer and use a one-time code to connect your first device.</span></div>}
           </div>
         </section>
       </main>
@@ -220,6 +300,16 @@ function formatSessionTime(value) {
   if (!value) return 'Never';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleString();
+}
+
+function connectorServerUrl() {
+  if (typeof window === 'undefined') return 'http://localhost:8080';
+  return window.location.port === '5173' ? `${window.location.protocol}//${window.location.hostname}:8080` : window.location.origin;
+}
+
+function formatCountdown(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 function notificationStatus(settings) {

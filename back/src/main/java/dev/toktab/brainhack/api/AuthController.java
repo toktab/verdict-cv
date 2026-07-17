@@ -9,6 +9,8 @@ import dev.toktab.brainhack.api.dto.AuthResponse;
 import dev.toktab.brainhack.api.dto.LoginRequest;
 import dev.toktab.brainhack.api.dto.CliLoginRequest;
 import dev.toktab.brainhack.api.dto.CmdSessionResponse;
+import dev.toktab.brainhack.api.dto.CliPairingRequest;
+import dev.toktab.brainhack.api.dto.CliPairingCodeResponse;
 import dev.toktab.brainhack.api.dto.NotificationPreferencesRequest;
 import dev.toktab.brainhack.api.dto.RefreshTokenRequest;
 import dev.toktab.brainhack.api.dto.RegisterRequest;
@@ -69,6 +71,14 @@ public class AuthController {
         return response(result);
     }
 
+    @PostMapping("/cli/pair")
+    public AuthResponse pairCli(@Valid @RequestBody CliPairingRequest request, HttpServletRequest httpRequest) {
+        UserSessionService.SessionResult result = sessionService.pairCli(request.code(), request.clientName(), httpRequest);
+        logService.record("CLI_PAIR", httpRequest, 200, 0, result.account().getUsername(),
+                "userId=" + result.account().getId() + ", client=" + request.clientName());
+        return response(result);
+    }
+
     @PostMapping("/refresh")
     public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request, HttpServletRequest httpRequest) {
         UserSessionService.SessionResult result = sessionService.refresh(request.refreshToken(), httpRequest);
@@ -117,6 +127,18 @@ public class AuthController {
                         session.lastUsedAt(), session.accessExpiresAt(), session.refreshExpiresAt(), session.revokedAt(),
                         session.revocationReason(), session.active()))
                 .toList();
+    }
+
+    @PostMapping("/me/cmd-pairing-code")
+    public CliPairingCodeResponse createCmdPairingCode(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+            HttpServletRequest httpRequest) {
+        UserAccount account = sessionService.me(tokenResolver.userToken(authorization, legacyToken, null));
+        UserSessionService.PairingCodeView pairingCode = sessionService.createCliPairingCode(account, httpRequest);
+        logService.record("CLI_PAIR_CODE_CREATE", httpRequest, 200, 0, account.getUsername(),
+                "expiresAt=" + pairingCode.expiresAt());
+        return new CliPairingCodeResponse(pairingCode.code(), pairingCode.expiresAt(), pairingCode.expiresInSeconds());
     }
 
     @DeleteMapping("/me/cmd-sessions/{sessionId}")
