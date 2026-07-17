@@ -121,6 +121,13 @@
 				</includes>
 			</resource>
 			<resource>
+				<directory>installer</directory>
+				<targetPath>cli</targetPath>
+				<includes>
+					<include>install-oneliner.cmd</include>
+				</includes>
+			</resource>
+			<resource>
 				<directory>dist</directory>
 				<targetPath>cli</targetPath>
 				<includes>
