@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2317
 #
 #  install.sh — VERDICT CLI installer for macOS and Linux
 #
@@ -9,7 +8,7 @@
 #
 #  Options:
 #    --server URL         VERDICT server (default: http://localhost:8080)
-#    --install-dir PATH   Installation directory (default: ~/.local/bin or /usr/local/bin)
+#    --install-dir PATH   Installation directory (default: ~/.local/bin)
 #    --no-path            Skip PATH modification
 #    --no-start-menu      Skip creating desktop entry (Linux only)
 #    --quiet              Suppress prompts
@@ -23,18 +22,17 @@ INSTALL_DIR=""
 NO_PATH=false
 NO_START_MENU=false
 QUIET=false
-VERSION="1.1.0"
 
 # ── Parse arguments ──────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --server)     VERDICT_SERVER="$2"; shift 2 ;;
-        --install-dir) INSTALL_DIR="$2"; shift 2 ;;
-        --no-path)    NO_PATH=true; shift ;;
+        --server)       VERDICT_SERVER="$2"; shift 2 ;;
+        --install-dir)  INSTALL_DIR="$2"; shift 2 ;;
+        --no-path)      NO_PATH=true; shift ;;
         --no-start-menu) NO_START_MENU=true; shift ;;
-        --quiet)      QUIET=true; shift ;;
-        --help|-h)    echo "Usage: bash install.sh [--server URL] [--install-dir PATH] [--no-path] [--quiet]"; exit 0 ;;
-        *)            echo "Unknown option: $1"; exit 2 ;;
+        --quiet)        QUIET=true; shift ;;
+        --help|-h)      echo "Usage: bash install.sh [--server URL] [--install-dir PATH] [--no-path] [--quiet]"; exit 0 ;;
+        *)              echo "Unknown option: $1"; exit 2 ;;
     esac
 done
 
@@ -47,25 +45,19 @@ case "$ARCH" in
     *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
-case "$OS" in
-    linux)   CLI_FILENAME="verdict-linux-${ARCH}" ;;
-    darwin)  CLI_FILENAME="verdict-macos-${ARCH}" ;;
-    *)       echo "Unsupported OS: $OS. Use the Node.js version directly: node tools/verdict-cli/verdict.mjs"; exit 1 ;;
-esac
+if [[ "$OS" != "linux" && "$OS" != "darwin" ]]; then
+    echo "Unsupported OS: $OS. Use the Node.js version directly: node tools/verdict-cli/verdict.mjs"
+    exit 1
+fi
 
 # ── Determine install directory ──────────────────────────────────────
 if [[ -z "$INSTALL_DIR" ]]; then
-    if [[ "$OS" == "darwin" ]]; then
+    if [[ -d "${HOME}/.local/bin" ]]; then
         INSTALL_DIR="${HOME}/.local/bin"
+    elif [[ -d "/usr/local/bin" && -w "/usr/local/bin" ]]; then
+        INSTALL_DIR="/usr/local/bin"
     else
-        # Linux: prefer ~/.local/bin for user installs
-        if [[ -d "${HOME}/.local/bin" ]]; then
-            INSTALL_DIR="${HOME}/.local/bin"
-        elif [[ -d "/usr/local/bin" && -w "/usr/local/bin" ]]; then
-            INSTALL_DIR="/usr/local/bin"
-        else
-            INSTALL_DIR="${HOME}/.local/bin"
-        fi
+        INSTALL_DIR="${HOME}/.local/bin"
     fi
 fi
 
@@ -89,108 +81,71 @@ if [[ -z "$NODE_PATH" ]]; then
     exit 1
 fi
 
+# ── Welcome ──────────────────────────────────────────────────────────
 echo ""
 echo "  VERDICT CLI INSTALLER"
 echo "  Secure terminal access for your VERDICT workspace"
 echo ""
 
-# ── Create install directory ─────────────────────────────────────────
 mkdir -p "$INSTALL_DIR"
 echo "  Installing into $INSTALL_DIR"
 
-# ── Download or copy copy verdict.mjs ────────────────────────────────
+# ── Install verdict.mjs and create wrapper ────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-MJS_SOURCE="${SCRIPT_DIR}/tools/verdict-cli/verdict.mjs"
-TARGET="${INSTALL_DIR}/verdict"
+MJS_TARGET="${INSTALL_DIR}/verdict.mjs"
+WRAPPER_TARGET="${INSTALL_DIR}/verdict"
+README_TARGET="${INSTALL_DIR}/verdict-README.txt"
 
-if [[ -f "$MJS_SOURCE" ]]; then
-    cp "$MJS_SOURCE" "$TARGET" && chmod +x "$TARGET"
-    echo "  Installed from local source."
+# Copy from local source or download from server
+if [[ -f "${SCRIPT_DIR}/tools/verdict-cli/verdict.mjs" ]]; then
+    cp "${SCRIPT_DIR}/tools/verdict-cli/verdict.mjs" "$MJS_TARGET"
+    echo "  Installed verdict.mjs from local source."
 else
-    # Download via API
     DOWNLOAD_BASE="${VERDICT_SERVER}/api/system/cli/files"
     echo "  Downloading from ${DOWNLOAD_BASE}..."
     if command -v curl &>/dev/null; then
-        curl -fsSL "${DOWNLOAD_BASE}/verdict.mjs" -o "$TARGET" || {
+        curl -fsSL "${DOWNLOAD_BASE}/verdict.mjs" -o "$MJS_TARGET" || {
             echo "  Download failed. Check your server URL and internet connection."
             exit 1
         }
     elif command -v wget &>/dev/null; then
-        wget -q "${DOWNLOAD_BASE}/verdict.mjs" -O "$TARGET" || {
+        wget -q "${DOWNLOAD_BASE}/verdict.mjs" -O "$MJS_TARGET" || {
             echo "  Download failed. Check your server URL and internet connection."
             exit 1
         }
     else
-        echo "  Neither curl nor wget are available. Install one of them and re-run."
+        echo "  Neither curl nor wget are available. Install one and re-run."
         exit 1
     fi
-    chmod +x "$TARGET"
 fi
-
-# ── Create launcher script (sets up Node.js) ─────────────────────────
-LAUNCHER="${INSTALL_DIR}/verdict"
-cat > "$LAUNCHER" << 'LAUNCHER_EOF'
-#!/usr/bin/env bash
-exec node "$(dirname "$0")/verdict.mjs" "$@"
-LAUNCHER_EOF
-# Actually, let me redo this — verdict.mjs has a shebang itself
-if [[ -f "${INSTALL_DIR}/verdict.mjs" ]]; then
-    # We installed as .mjs, create a shim
-    cat > "$LAUNCHER" << LAUNCHER_EOF
-#!/usr/bin/env bash
-exec node "\$(dirname "\$0")/verdict.mjs" "\$@"
-LAUNCHER_EOF
-    chmod +x "$LAUNCHER"
-else
-    # The TARGET has the raw mjs content — make it executable directly
-    # Add shebang if missing
-    head -1 "$TARGET" | grep -q '^#!/usr/bin/env node' || {
-        echo '#!/usr/bin/env node' > "${TARGET}.tmp"
-        cat "$TARGET" >> "${TARGET}.tmp"
-        mv "${TARGET}.tmp" "$TARGET"
-        chmod +x "$TARGET"
-    }
-fi
-
-# ── Wrap properly ────────────────────────────────────────────────────
-# Re-do cleanly: install as verdict.mjs, create verdict wrapper
-rm -f "$TARGET"
-MJS_TARGET="${INSTALL_DIR}/verdict.mjs"
-cp "$MJS_SOURCE" "$MJS_TARGET" 2>/dev/null || {
-    if command -v curl &>/dev/null; then
-        curl -fsSL "${DOWNLOAD_BASE}/verdict.mjs" -o "$MJS_TARGET"
-    else
-        wget -q "${DOWNLOAD_BASE}/verdict.mjs" -O "$MJS_TARGET"
-    fi
-}
 chmod +x "$MJS_TARGET"
 
-# Also download README if available
-README_TARGET="${INSTALL_DIR}/verdict-README.txt"
-if command -v curl &>/dev/null; then
-    curl -fsSL "${DOWNLOAD_BASE}/README.txt" -o "$README_TARGET" 2>/dev/null || true
-else
-    wget -q "${DOWNLOAD_BASE}/README.txt" -O "$README_TARGET" 2>/dev/null || true
-fi
-
 # ── Create verdict wrapper ───────────────────────────────────────────
-cat > "${INSTALL_DIR}/verdict" << WRAPPER_EOF
+cat > "$WRAPPER_TARGET" << WRAPPER_EOF
 #!/usr/bin/env bash
 exec node "\$(dirname "\$0")/verdict.mjs" "\$@"
 WRAPPER_EOF
-chmod +x "${INSTALL_DIR}/verdict"
+chmod +x "$WRAPPER_TARGET"
 
-# ── PATH ─────────────────────────────────────────────────────────────
+# ── Download README (optional) ────────────────────────────────────────
+if [[ -f "${SCRIPT_DIR}/tools/verdict-cli/README.txt" ]]; then
+    cp "${SCRIPT_DIR}/tools/verdict-cli/README.txt" "$README_TARGET" 2>/dev/null || true
+else
+    if command -v curl &>/dev/null; then
+        curl -fsSL "${DOWNLOAD_BASE}/README.txt" -o "$README_TARGET" 2>/dev/null || true
+    elif command -v wget &>/dev/null; then
+        wget -q "${DOWNLOAD_BASE}/README.txt" -O "$README_TARGET" 2>/dev/null || true
+    fi
+fi
+
+# ── Add to PATH ──────────────────────────────────────────────────────
 if [[ "$NO_PATH" == "false" ]]; then
-    # Detect shell config
     SHELL_CONFIG=""
     case "$SHELL" in
-        */zsh) SHELL_CONFIG="${HOME}/.zshrc" ;;
+        */zsh)  SHELL_CONFIG="${HOME}/.zshrc" ;;
         */bash) SHELL_CONFIG="${HOME}/.bashrc" ;;
     esac
-    if [[ -z "$SHELL_CONFIG" ]]; then
-        SHELL_CONFIG="${HOME}/.profile"
-    fi
+    [[ -z "$SHELL_CONFIG" ]] && SHELL_CONFIG="${HOME}/.profile"
 
     if [[ ":$PATH:" != *":${INSTALL_DIR}:"* ]]; then
         echo "export PATH=\"\${PATH}:${INSTALL_DIR}\"" >> "$SHELL_CONFIG"
@@ -200,7 +155,7 @@ if [[ "$NO_PATH" == "false" ]]; then
 fi
 
 # ── Configure server ─────────────────────────────────────────────────
-node "${MJS_TARGET}" config set server "$VERDICT_SERVER" 2>/dev/null || true
+node "$MJS_TARGET" config set server "$VERDICT_SERVER" 2>/dev/null || true
 
 # ── Desktop entry (Linux only) ───────────────────────────────────────
 if [[ "$OS" == "linux" && "$NO_START_MENU" == "false" ]]; then
@@ -221,7 +176,7 @@ fi
 
 # ── Done ─────────────────────────────────────────────────────────────
 echo ""
-echo "  VERDICT CLI IS READY" 
+echo "  VERDICT CLI IS READY"
 echo "  Server:  $VERDICT_SERVER"
 echo "  Command: verdict"
 echo "  Install: ${INSTALL_DIR}/verdict.mjs"

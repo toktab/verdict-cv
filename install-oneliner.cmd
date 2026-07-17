@@ -10,7 +10,7 @@ rem
 rem  Or from a running server:
 rem    curl -fsSL https://server/api/system/cli/installer -o install.cmd && install.cmd
 rem ===========================================================================
-setlocal enabledelayedexpansion
+setlocal
 title VERDICT CLI Installer
 
 set "SERVER=http://localhost:8080"
