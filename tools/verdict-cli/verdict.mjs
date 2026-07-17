@@ -26,7 +26,7 @@ const colorEnabled = !options['no-color'] && !process.env.NO_COLOR && process.st
 main().catch((error) => fail(error));
 
 async function main() {
-    const command = args[0] || 'help';
+    const command = args[0] || 'startup';
     if (options.version || command === 'version') return versionCommand();
     if (options.help || command === 'help') return help(args[1]);
     if (command === 'setup') return setup();
@@ -56,8 +56,64 @@ async function main() {
     if (command === 'ats') return atsCommand(args.slice(1));
     if (command === 'signaltrace' || command === 'osint') return signalTraceCommand(args.slice(1));
     if (command === 'admin') return adminCommand(args.slice(1));
+    if (command === 'startup') return startupCommand();
     if (command === 'update') return updateCommand();
     throw cliError(`Unknown command: ${command}. Run "verdict help".`, EXIT.ARGUMENT);
+}
+
+async function startupCommand() {
+    const isSea = typeof process !== 'undefined' && process.argv[1] && process.argv[1].endsWith('.exe');
+    const runtime = isSea ? `standalone executable (${platform()})` : `Node.js ${process.version} (${platform()})`;
+
+    console.log(`\n  ${paint('VERDICT CLI', 'red')}  ${paint(VERSION, 'bold')}`);
+    console.log(`  ${paint('Confidence is not evidence.', 'muted')}`);
+    console.log('');
+    console.log(`  Runtime: ${runtime}`);
+    console.log(`  Profile: ${profileName} ${paint('→', 'muted')} ${server}`);
+
+    // Quick async update check (2s timeout — non-blocking feel)
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2500);
+        const response = await fetch(`${server}/api/system/cli/version`, {
+            headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+            signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (response.ok) {
+            const versionInfo = await response.json();
+            if (versionInfo.version && versionInfo.version !== VERSION) {
+                console.log(`\n  ${paint('UPDATE AVAILABLE', 'amber')}  ${VERSION} ${paint('→', 'muted')} ${versionInfo.version}`);
+                console.log(`  Run ${paint('verdict update', 'green')} to upgrade.`);
+            } else {
+                console.log(`\n  ${paint('UP TO DATE', 'green')}  verdict ${VERSION} is the latest version.`);
+            }
+        } else {
+            console.log(`\n  ${paint('UPDATE CHECK', 'muted')}  Server did not provide version info.`);
+        }
+    } catch {
+        console.log(`\n  ${paint('UPDATE CHECK', 'muted')}  Could not reach server for update check.`);
+    }
+
+    // Check session status
+    try {
+        const credentials = await loadCredentials(profileName);
+        if (credentials?.accessToken && (!credentials.accessExpiresAt || Date.parse(credentials.accessExpiresAt) > Date.now())) {
+            console.log(`  ${paint('SESSION', 'green')}  Signed in`);
+        } else {
+            console.log(`  ${paint('SESSION', 'amber')}  Not signed in`);
+        }
+    } catch {
+        console.log(`  ${paint('SESSION', 'muted')}  Unknown`);
+    }
+
+    console.log('');
+    console.log(`  ${paint('QUICK START', 'amber')}`);
+    console.log(`    verdict connect ABCD-EFGH    Pair with VERDICT Profile`);
+    console.log(`    verdict login                Sign in with password`);
+    console.log(`    verdict dashboard            Terminal workspace overview`);
+    console.log(`    verdict help                 All commands and options`);
+    console.log('');
 }
 
 function help(topic = '') {
