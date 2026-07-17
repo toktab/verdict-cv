@@ -747,7 +747,8 @@ function shortHash(value) {
 }
 
 export function AuditResult({ audit, setRoute }) {
-    const problems = audit.verdicts.filter((v) => ['UNSUPPORTED', 'STRETCHED', 'GAP'].includes(v.status));
+    const verdicts = audit.verdicts || [];
+    const problems = verdicts.filter((v) => ['UNSUPPORTED', 'STRETCHED', 'GAP'].includes(v.status));
     return (
         <section className="results">
             <StickyAuditBar audit={audit} />
@@ -764,13 +765,13 @@ export function AuditResult({ audit, setRoute }) {
                 </div>
             </div>
             <AuditScoreExplainer audit={audit} />
-            <DenseVerdictTable verdicts={audit.verdicts} />
+            <DenseVerdictTable verdicts={verdicts} />
             <div className="verdictGrid">
-                {audit.verdicts.map((verdict) => <VerdictCard key={verdict.id || verdict.sentenceIndex} verdict={verdict} />)}
+                {verdicts.map((verdict) => <VerdictCard key={verdict.id || verdict.sentenceIndex} verdict={verdict} />)}
             </div>
-            <SuspiciousWordsPanel text={audit.claimText || audit.verdicts.map((verdict) => verdict.sentence).join(' ')} />
-            <ProfilingModePanel audit={audit} verdicts={audit.verdicts} setRoute={setRoute} />
-            <RewriteSuggestions verdicts={audit.verdicts} />
+            <SuspiciousWordsPanel text={audit.claimText || verdicts.map((verdict) => verdict.sentence).join(' ')} />
+            <ProfilingModePanel audit={audit} verdicts={verdicts} setRoute={setRoute} />
+            <RewriteSuggestions verdicts={verdicts} />
             <div className="summaryStrip">
                 <ShieldCheck size={18} />
                 <span>Top risk count: {problems.length}. Status: {audit.status || 'COMPLETED'}. Engine: {audit.engine}. Tokens: {audit.totalTokens || 0}. Estimated cost: {formatAuditCost(audit.estimatedCostUsd)}. Completed in {audit.processingMillis}ms.</span>

@@ -467,7 +467,7 @@ function sortAnnouncements(left, right) {
 function highlightMentions(body = '') {
     return String(body).split(/(@[A-Za-z0-9._-]{2,40})/g).map((part, index) => part.startsWith('@')
         ? <mark className="projectMention" key={`${part}-${index}`}>{part}</mark>
-        : part);
+        : <span key={`text-${index}`}>{part}</span>);
 }
 
 function JobBulletPanel({ title, items, fallback }) {
