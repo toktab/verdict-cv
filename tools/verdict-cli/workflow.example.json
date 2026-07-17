@@ -1,0 +1,9 @@
+{
+  "steps": [
+    "whoami --output json",
+    "health --output json",
+    "projects list --size 5",
+    "messages list --folder inbox --size 5",
+    "audits list --size 5"
+  ]
+}

@@ -8,6 +8,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "user_sessions")
@@ -15,6 +16,9 @@ public class UserSession {
     @Id
     @Column(length = 96)
     private String token;
+
+    @Column(nullable = false, unique = true, length = 36)
+    private String sessionId = UUID.randomUUID().toString();
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
@@ -45,6 +49,12 @@ public class UserSession {
 
     private Instant revokedAt;
 
+    @Column(nullable = false, length = 16)
+    private String clientType = "WEB";
+
+    @Column(nullable = false, length = 120)
+    private String clientName = "Website";
+
     public String getToken() {
         return token;
     }
@@ -52,6 +62,9 @@ public class UserSession {
     public void setToken(String token) {
         this.token = token;
     }
+
+    public String getSessionId() { return sessionId; }
+    public void setSessionId(String sessionId) { this.sessionId = sessionId; }
 
     public UserAccount getUser() {
         return user;
@@ -132,4 +145,9 @@ public class UserSession {
     public void setRevokedAt(Instant revokedAt) {
         this.revokedAt = revokedAt;
     }
+
+    public String getClientType() { return clientType; }
+    public void setClientType(String clientType) { this.clientType = clientType; }
+    public String getClientName() { return clientName; }
+    public void setClientName(String clientName) { this.clientName = clientName; }
 }

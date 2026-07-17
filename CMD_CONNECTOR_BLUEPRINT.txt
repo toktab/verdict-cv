@@ -1,0 +1,1305 @@
+================================================================================
+                    VERDICT CMD CONNECTOR BLUEPRINT
+================================================================================
+
+Purpose
+-------
+Create a Windows command-line connector for the VERDICT website. The connector
+must let a signed-in user perform the important website workflows from CMD,
+PowerShell, Windows Terminal, CI jobs, and scripts without replacing the site.
+
+Suggested executable names:
+
+  verdict
+  verdict-cli
+
+Preferred name throughout this document:
+
+  verdict
+
+Implementation status (2026-07-17)
+----------------------------------
+The connector is implemented in tools/verdict-cli/verdict.mjs with the root
+verdict.cmd launcher. It includes one-command, interactive shell, dashboard,
+realtime SSE, structured output, encrypted credential storage, guarded
+destructive operations, admin tooling, batch workflows, and website deep links.
+
+The website Profile page also lists every CMD login with connector name, IP,
+user agent, first/last access, active state, and an immediate revoke action.
+
+Runnable examples and installation steps are in tools/verdict-cli/README.txt.
+Automated CLI checks are in tools/verdict-cli/verdict.test.mjs.
+
+
+================================================================================
+1. PRODUCT GOALS
+================================================================================
+
+The connector should:
+
+1. Connect to a local or hosted VERDICT server.
+2. Authenticate securely without exposing passwords or tokens in command history.
+3. Make projects, candidates, audits, messages, teams, templates, reports, and
+   health information available from the terminal.
+4. Support both human-readable output and stable JSON output for automation.
+5. Stream realtime events instead of requiring repeated refresh commands.
+6. Make destructive actions difficult to perform accidentally.
+7. Respect exactly the same backend permissions as the website.
+8. Open the relevant website page when a workflow is better completed visually.
+9. Work well from plain cmd.exe, PowerShell, Windows Terminal, and CI runners.
+10. Never create a separate source of truth. The server remains authoritative.
+
+The connector should not:
+
+- Reimplement candidate scoring locally.
+- Store projects, messages, votes, or permissions as authoritative local data.
+- Bypass backend permissions.
+- Silently scrape private websites.
+- Put passwords or long-lived tokens directly into command arguments.
+- perform destructive actions without confirmation.
+
+
+================================================================================
+2. THREE USAGE MODES
+================================================================================
+
+A. One-command mode
+
+  verdict projects list
+  verdict candidate show --project 12 --candidate 44
+  verdict messages send --to reviewer --subject "Review" --body "Please check 44"
+
+Best for quick actions and scripts.
+
+B. Interactive shell mode
+
+  verdict shell
+
+Example prompt:
+
+  VERDICT [local / toko1] > projects
+  VERDICT [local / toko1] > use project 12
+  VERDICT [project 12]    > candidates
+  VERDICT [project 12]    > use candidate 44
+  VERDICT [candidate 44]  > audit run
+
+The shell remembers the selected project and candidate for the current session.
+It should provide command completion, command history, help, and safe prompts.
+
+C. Watch/dashboard mode
+
+  verdict watch
+  verdict watch messages
+  verdict watch project 12
+  verdict dashboard
+
+Watch mode streams Server-Sent Events and prints new messages, audit completion,
+project deletion, invite acceptance, and team changes in real time.
+
+
+================================================================================
+3. INSTALLATION AND FIRST RUN
+================================================================================
+
+Possible installation forms:
+
+- A single Windows executable: verdict.exe
+- A Java runnable JAR with a verdict.cmd launcher
+- A Node package with a generated verdict.cmd shim
+- A native installer that adds VERDICT to PATH
+- A portable ZIP for hackathon/demo machines
+
+Recommended end-user experience:
+
+  verdict setup
+
+Setup wizard asks for:
+
+  Server URL       http://localhost:8080
+  Profile name     local
+  Open browser?    Yes/No
+  Color mode       Auto/Color/No color
+  Default output   Table/JSON
+
+Then:
+
+  verdict login
+
+The password must be entered through a hidden terminal prompt. It must never be
+accepted as `--password MyPassword` in normal use.
+
+Useful setup commands:
+
+  verdict setup
+  verdict config list
+  verdict config set server http://localhost:8080
+  verdict config set output table
+  verdict config set editor notepad
+  verdict config path
+  verdict profile add staging --server https://staging.verdict.example
+  verdict profile use local
+  verdict profile list
+  verdict profile remove staging
+
+
+================================================================================
+4. GLOBAL COMMAND SYNTAX
+================================================================================
+
+General grammar:
+
+  verdict [global-options] <resource> <action> [arguments] [options]
+
+Global options:
+
+  --profile <name>       Select local, staging, production, or another profile.
+  --server <url>         Override the configured server for this command.
+  --output <format>      table, json, jsonl, csv, text, or quiet.
+  --fields <list>        Select fields for table/CSV output.
+  --no-color             Disable ANSI colors.
+  --no-headers           Hide table headers.
+  --page <number>        Select a server page.
+  --size <number>        Select page size, capped by the server.
+  --search <text>        Search the selected resource.
+  --timeout <seconds>    Override request timeout.
+  --request-id <id>      Supply a traceable request ID.
+  --yes                  Accept ordinary confirmations, never critical phrases.
+  --dry-run              Show what would happen without changing the server.
+  --verbose              Show request timing and extra diagnostic information.
+  --debug                Show HTTP details with credentials redacted.
+  --help                 Display contextual help.
+  --version              Display CLI and compatible server versions.
+
+Examples:
+
+  verdict projects list --search backend --page 1 --size 20
+  verdict projects list --output json
+  verdict messages list --folder inbox --fields id,from,subject,createdAt
+  verdict --profile production health
+
+
+================================================================================
+5. AUTHENTICATION AND SESSION COMMANDS
+================================================================================
+
+Commands:
+
+  verdict login
+  verdict login --user toko1
+  verdict login --browser
+  verdict logout
+  verdict logout --all
+  verdict whoami
+  verdict session status
+  verdict session refresh
+  verdict session clear
+
+Login flow:
+
+1. Prompt for username/email if omitted.
+2. Prompt for password with hidden input.
+3. Call the normal VERDICT login API.
+4. Store the session token in Windows Credential Manager when available.
+5. Store only non-secret profile settings in the config file.
+6. Print the signed-in name, username, role, server, and session expiry.
+
+Example output:
+
+  Signed in
+  Name       Toko Tabagari
+  Username   toko1
+  Role       Analyst
+  Server     http://localhost:8080
+  Profile    local
+
+Authentication errors should say:
+
+  Authentication failed: your session is missing, expired, or invalid.
+  Run `verdict login` and try again.
+
+The connector must never trigger a browser Basic Authentication popup. It should
+always use the same Bearer-token contract as the website.
+
+
+================================================================================
+6. PROJECT COMMANDS
+================================================================================
+
+Read commands:
+
+  verdict projects list
+  verdict projects list --mine
+  verdict projects list --invited
+  verdict projects list --role reviewer
+  verdict projects show <project-id>
+  verdict projects status <project-id>
+  verdict projects open <project-id>
+  verdict projects stats <project-id>
+  verdict projects export <project-id> --format csv
+
+Create/edit commands:
+
+  verdict projects create
+  verdict projects create --title "Java Backend" --location Remote
+  verdict projects create --from-file job-description.txt
+  verdict projects edit <project-id>
+  verdict projects edit <project-id> --status Screening
+  verdict projects requirements <project-id>
+  verdict projects requirements add <project-id> "Spring Boot"
+  verdict projects requirements remove <project-id> "Spring Boot"
+
+Delete command:
+
+  verdict projects delete <project-id>
+
+Delete behavior:
+
+1. Display project title, candidate count, members, and affected records.
+2. Explain that invited members will lose access in real time.
+3. Wait for the server-required countdown.
+4. Require the exact confirmation phrase.
+5. Submit the deletion and display the project activity request ID.
+
+Example project table:
+
+  ID   ACCESS              TITLE                     STATUS       CANDIDATES
+  12   OWNER / HEAD ADMIN  Java Backend Developer    Screening    18
+  19   INVITED / REVIEWER  Product Security Analyst  OnCheck       7
+
+
+================================================================================
+7. CANDIDATE COMMANDS
+================================================================================
+
+Read commands:
+
+  verdict candidates list --project <project-id>
+  verdict candidates show --project <id> --candidate <id>
+  verdict candidates search --project <id> --query "Nino"
+  verdict candidates compare --project <id> 41 44 46
+  verdict candidates history --project <id> --candidate <id>
+  verdict candidates evidence --project <id> --candidate <id>
+  verdict candidates workflow --project <id> --candidate <id>
+  verdict candidates open --project <id> --candidate <id>
+
+Create/upload commands:
+
+  verdict candidates add --project <id>
+  verdict candidates add --project <id> --name "Nino Beridze" --role "Java"
+  verdict candidates upload --project <id> --file "C:\CVs\nino.pdf"
+  verdict candidates upload --project <id> --file resume.docx --name "Nino"
+  verdict candidates import --project <id> --directory "C:\CVs" --parallel 3
+
+Analysis commands:
+
+  verdict candidates analyze --project <id> --candidate <id>
+  verdict candidates analyze --project <id> --candidate <id> --state war
+  verdict candidates state --project <id> --candidate <id> --set person
+  verdict candidates score --project <id> --candidate <id>
+  verdict candidates interview-pack --project <id> --candidate <id>
+
+Workflow commands:
+
+  verdict candidates note add --project <id> --candidate <id>
+  verdict candidates notes --project <id> --candidate <id>
+  verdict candidates vote --project <id> --candidate <id> --score 4.5
+  verdict candidates star --project <id> --candidate <id>
+  verdict candidates downvote --project <id> --candidate <id>
+  verdict candidates status --project <id> --candidate <id> --set OnInterview
+
+Delete command:
+
+  verdict candidates delete --project <id> --candidate <id>
+
+Candidate output should show:
+
+- Name and role
+- Lifecycle status
+- Score percentage and score level out of 10
+- Match rate
+- Supported, stretched, unsupported, and missing evidence counts
+- Risk level
+- Current analysis state
+- OSINT consent/run status
+- Repeat-applicant memory summary
+- Last five activity events
+
+
+================================================================================
+8. AUDIT COMMANDS
+================================================================================
+
+Commands:
+
+  verdict audits list
+  verdict audits show <audit-id>
+  verdict audits run
+  verdict audits run --claim claim.txt --evidence evidence.txt
+  verdict audits run --claim-file cv.pdf --evidence-file job.docx
+  verdict audits run --template default-ats --state war-ai
+  verdict audits watch <audit-id>
+  verdict audits cancel <audit-id>
+  verdict audits retry <audit-id>
+  verdict audits open <audit-id>
+  verdict audits profile <audit-id>
+  verdict audits export <audit-id> --format pdf
+  verdict audits export <audit-id> --format txt
+  verdict audits export <audit-id> --format docx
+  verdict audits export <audit-id> --format csv
+
+Running an audit should:
+
+1. Validate file type and the 8 MB upload limit before sending.
+2. Print upload progress.
+3. Display the queued audit ID.
+4. Subscribe to realtime audit events.
+5. Show stage updates in place when the terminal supports it.
+6. Print the final score and highest-risk findings.
+7. Keep the command recoverable if the terminal closes.
+
+Example progress:
+
+  [1/5] Reading CV                                  done
+  [2/5] Uploading evidence                          done
+  [3/5] Audit queued                                #481
+  [4/5] Running WAR+AI checks                       12s
+  [5/5] Persisting verdicts                         done
+
+  Score       84% / 8.4 out of 10
+  Meaning     Mostly reliable with small wording risks
+  Supported   22
+  Stretched    4
+  Unsupported  1
+  Duration    14.2 seconds
+
+LLM observability in verbose output:
+
+  Engine              LLM
+  Model               configured server model
+  Prompt tokens       2,430
+  Completion tokens     812
+  Estimated cost      $0.0009
+  Attempts            1
+  Fallback used       No
+
+
+================================================================================
+9. MESSAGE COMMANDS
+================================================================================
+
+Commands:
+
+  verdict messages list
+  verdict messages list --folder inbox
+  verdict messages list --folder sent
+  verdict messages list --folder starred
+  verdict messages list --folder archived
+  verdict messages show <message-id>
+  verdict messages send
+  verdict messages send --to username --subject "Review" --body "Please check"
+  verdict messages send --to user@example.com --body-file message.txt
+  verdict messages reply <message-id>
+  verdict messages forward <message-id> --to reviewer
+  verdict messages read <message-id>
+  verdict messages unread <message-id>
+  verdict messages star <message-id>
+  verdict messages unstar <message-id>
+  verdict messages archive <message-id>
+  verdict messages mark-all-read --folder inbox
+  verdict messages watch
+
+Recipient lookup:
+
+When a username or email is entered, show the resolved platform user before send:
+
+  Recipient found
+  Name       Review User
+  Username   reviewer
+  Email      reviewer@example.com
+  Role       Reviewer
+
+Then ask for confirmation only if the address is external or unresolved.
+
+Interactive compose editor:
+
+- `--editor` opens Notepad or the configured editor for long messages.
+- Ctrl+Z then Enter ends multiline input in cmd.exe.
+- `--body-file` is preferred for scripts.
+- Candidate attachments use explicit project/candidate IDs.
+
+Example:
+
+  verdict messages send --to reviewer --attach-candidate 12:44
+
+
+================================================================================
+10. TEAM, INVITE, AND PERMISSION COMMANDS
+================================================================================
+
+Commands:
+
+  verdict team list --project <id>
+  verdict team show --project <id> --user reviewer
+  verdict team invite --project <id> --user reviewer --role Reviewer
+  verdict team invite --project <id> --email person@example.com --role Viewer
+  verdict team invites --project <id>
+  verdict team accept --token <invite-token>
+  verdict team role --project <id> --user reviewer --set Coordinator
+  verdict team permissions --project <id> --user reviewer
+  verdict team permissions set --project <id> --user reviewer --from permissions.json
+  verdict team message --project <id> --user reviewer
+  verdict team activity --project <id> --user reviewer
+  verdict team kick --project <id> --user reviewer
+  verdict team transfer-head-admin --project <id> --user admin2
+
+Role output:
+
+  USER       EMAIL                    ROLE          STATUS   PERMISSIONS
+  toko1      toko1@example.com        Head Admin    Active   protectedAccount
+  reviewer   reviewer@example.com     Reviewer      Active   canView,canVote,canAddNote
+
+Critical actions:
+
+- Kick: show consequences and require Yes/No.
+- Permission removal: show permissions being removed.
+- Head Admin transfer: enforce the server countdown and exact acknowledgement.
+- Notify user: optional `--notify` flag for role and permission changes.
+- Every action must appear in project activity history.
+
+
+================================================================================
+11. PROJECT ACTIVITY AND ANNOUNCEMENT COMMANDS
+================================================================================
+
+Commands:
+
+  verdict activity list --project <id>
+  verdict activity list --project <id> --candidate <id>
+  verdict activity list --project <id> --reviewer <username>
+  verdict activity list --project <id> --type kick
+  verdict activity watch --project <id>
+  verdict activity export --project <id> --format txt
+  verdict activity export --project <id> --format jsonl
+
+  verdict announcements list --project <id>
+  verdict announcements post --project <id> --body "Review closes Friday"
+  verdict announcements post --project <id> --body-file update.txt --pin
+  verdict announcements pin --project <id> <announcement-id>
+  verdict announcements unpin --project <id> <announcement-id>
+  verdict announcements delete --project <id> <announcement-id>
+
+Activity colors/icons in capable terminals:
+
+  + green     invite accepted, candidate hired, successful audit
+  ! amber     role changed, evidence warning, review requested
+  x red       kick, delete, failed audit, access revoked
+  i cyan      message, note, viewed candidate
+  # gray      system/configuration event
+
+Plain CMD must also include text labels so color is never the only signal.
+
+
+================================================================================
+12. ATS TEMPLATE COMMANDS
+================================================================================
+
+Commands:
+
+  verdict ats list --project <id>
+  verdict ats show default-ats
+  verdict ats validate template.json
+  verdict ats create --from template.json
+  verdict ats copy default-ats --name "Backend strict"
+  verdict ats edit <template-id>
+  verdict ats export <template-id> --file template.json
+  verdict ats import --project <id> --file template.json
+  verdict ats publish <template-id> --visibility private
+  verdict ats share <template-id> --with reviewer
+  verdict ats rules list <template-id>
+  verdict ats rules test <template-id> --text sample-cv.txt
+
+Template validation should report:
+
+- Invalid JSON path and line number
+- Duplicate keywords
+- Missing descriptions
+- Unsupported severity/tone values
+- Empty or overly broad phrases
+- Potential regex performance problems if regex rules are supported later
+- Version and compatibility information
+
+
+================================================================================
+13. SIGNALTRACE / OSINT COMMANDS
+================================================================================
+
+Commands:
+
+  verdict signaltrace status --project <id> --candidate <id>
+  verdict signaltrace consent --project <id> --candidate <id>
+  verdict signaltrace run --project <id> --candidate <id> --checks github,portfolio
+  verdict signaltrace show --project <id> --candidate <id>
+  verdict signaltrace sources --project <id> --candidate <id>
+  verdict signaltrace open-source --project <id> --candidate <id> --source github
+
+Before running:
+
+  Public-source verification can process candidate-provided identifiers.
+  Sources: GitHub, portfolio, certificates, and explicitly provided public URLs.
+  LinkedIn scraping is not permitted.
+
+  Candidate consent recorded? No
+  Type CONSENT to continue: _
+
+Output must distinguish:
+
+- Verified
+- Corroborated
+- Weak match
+- Not found
+- Not checked
+- Contradicted
+
+Every result must include source URL, check timestamp, confidence, provider, and
+careful wording. The CLI must never convert "not found" into "contradicted."
+
+
+================================================================================
+14. REPORT AND EXPORT COMMANDS
+================================================================================
+
+Commands:
+
+  verdict reports candidate --project <id> --candidate <id> --format pdf
+  verdict reports comparison --project <id> --candidates 41,44,46 --format pdf
+  verdict reports project --project <id> --format csv
+  verdict reports audit <audit-id> --format docx
+  verdict reports open <file>
+
+Options:
+
+  --out <path>
+  --overwrite
+  --include-notes
+  --include-activity
+  --include-osint
+  --redact-email
+  --redact-phone
+  --executive-summary
+  --appendix
+
+Default behavior must never overwrite an existing report. It should create a
+timestamped filename or ask for confirmation.
+
+
+================================================================================
+15. ADMIN COMMANDS
+================================================================================
+
+Admin login must use a separate credential/session namespace:
+
+  verdict admin login
+  verdict admin logout
+  verdict admin whoami
+
+Read commands:
+
+  verdict admin health
+  verdict admin health --watch
+  verdict admin version
+  verdict admin users list
+  verdict admin audits list
+  verdict admin logs list
+  verdict admin ats list
+  verdict admin settings show
+  verdict admin clear-targets
+
+Write commands:
+
+  verdict admin users create
+  verdict admin users edit <id>
+  verdict admin users delete <id>
+  verdict admin ats publish --file catalog.json --note "Add Java rules"
+  verdict admin ats rollback <version-id> --note "Bad keyword regression"
+  verdict admin settings set requireEmailVerification true
+  verdict admin clear demo-workspace
+  verdict admin clear messages
+
+Dangerous clear flow:
+
+1. Fetch live row counts.
+2. Display selected groups and exact affected rows.
+3. Generate and display a request ID.
+4. Require the exact table/group name.
+5. Never allow `--yes` to bypass the typed phrase.
+6. Record admin identity, request ID, targets, counts, and timestamp.
+7. Print a result summary after completion.
+
+Admin health table:
+
+  COMPONENT   STATUS   DETAIL
+  Database    UP       MySQL 8.x, 12 ms
+  LLM         READY    configured model / fallback available
+  RabbitMQ    DOWN     optional, publishing disabled
+  Frontend    UP       version 0.0.0 / commit abc1234
+  Audit queue UP       depth 0 / failures 0.4%
+
+
+================================================================================
+16. REALTIME EVENTS AND NOTIFICATIONS
+================================================================================
+
+Realtime commands:
+
+  verdict watch
+  verdict watch --type messages
+  verdict watch --type projects,audits
+  verdict watch --project <id>
+  verdict watch --jsonl
+  verdict notifications status
+  verdict notifications mute 15m
+  verdict notifications mute 1h
+  verdict notifications mute forever
+  verdict notifications unmute
+
+Realtime transport:
+
+- Use the existing authenticated Server-Sent Events endpoint initially.
+- Reconnect with bounded exponential backoff.
+- Show "reconnecting" only after a meaningful interruption.
+- Resume from the last event ID if the backend supports it later.
+- Deduplicate repeated events.
+- Refresh only the affected resource after an event.
+
+Desktop notification possibility:
+
+  verdict watch --desktop-notifications
+
+This could display Windows toast notifications for new messages, completed
+audits, accepted invites, and role changes.
+
+
+================================================================================
+17. TERMINAL VISUAL DESIGN
+================================================================================
+
+Visual principles:
+
+- Quiet, dense, work-focused interface matching VERDICT.
+- Black/charcoal base when the terminal supports color.
+- Red for primary actions and destructive warnings.
+- Green for verified/supported/success.
+- Amber for stretched/warning/pending.
+- White/light gray for ordinary text.
+- Never depend on color alone.
+- Avoid huge ASCII logos on every command.
+- Keep columns aligned and truncate safely with an ellipsis marker.
+
+Small startup mark for interactive mode:
+
+  VERDICT CLI
+  Confidence is not evidence.
+
+Table behavior:
+
+- Detect terminal width.
+- Hide optional columns on narrow windows.
+- Provide `--wide` to show all columns.
+- Provide `--wrap` to wrap descriptions.
+- Pipe-safe output automatically disables animation and color.
+- Long results open in an internal pager or the configured pager.
+
+Progress design:
+
+  Uploading nino.pdf       [########------] 58%  4.6 MB/s
+
+Spinner animation must stop when output is redirected to a file.
+
+Accessibility:
+
+- Respect NO_COLOR.
+- Support high-contrast palettes.
+- Offer `--no-unicode` for older CMD encodings.
+- Use text labels with every status icon.
+- Avoid rapidly updating the screen in reduced-motion mode.
+
+
+================================================================================
+18. HUMAN OUTPUT, JSON, JSONL, CSV, AND QUIET MODE
+================================================================================
+
+Human table:
+
+  verdict candidates list --project 12
+
+JSON:
+
+  verdict candidates list --project 12 --output json
+
+JSON Lines for streams:
+
+  verdict watch --output jsonl
+
+CSV:
+
+  verdict projects list --output csv > projects.csv
+
+Quiet mode:
+
+  verdict audits run ... --output quiet
+
+Quiet mode prints only the created resource ID or final file path. Errors still
+go to stderr.
+
+Stable automation rules:
+
+- Human output may improve between versions.
+- JSON field names require semantic versioning.
+- Diagnostics go to stderr.
+- Data goes to stdout.
+- Timestamps use ISO-8601 in machine output.
+- IDs remain numbers in JSON.
+- Null, not-found, and not-checked remain distinct values.
+
+
+================================================================================
+19. EXIT CODES
+================================================================================
+
+Suggested stable exit codes:
+
+  0   Success
+  1   General command failure
+  2   Invalid arguments or malformed input
+  3   Authentication required or session expired
+  4   Permission denied
+  5   Resource not found or deleted
+  6   Conflict or invalid state transition
+  7   Validation failure
+  8   Network/server unavailable
+  9   Request timed out
+  10  Audit or background job failed
+  11  Confirmation declined
+  12  Partial batch success
+  13  Unsupported server/CLI version
+  14  Local file error
+  15  Rate limited
+
+Scripts must be able to rely on these codes.
+
+
+================================================================================
+20. SAFETY AND CONFIRMATION MODEL
+================================================================================
+
+Level 0 - Read only
+
+No confirmation: list, show, search, health, export to a new file.
+
+Level 1 - Reversible ordinary change
+
+Usually no prompt when all arguments are explicit: mark read, star, archive,
+post a note, change notification preference.
+
+Level 2 - Important team/workflow change
+
+Require Yes/No unless `--yes`: send external message, invite, role change,
+candidate lifecycle transition, announcement deletion.
+
+Level 3 - Destructive or ownership change
+
+Always show impact and require typed confirmation: project deletion, candidate
+deletion, team kick, Head Admin transfer, admin user deletion, table clearing.
+`--yes` cannot bypass typed confirmation.
+
+Dry run:
+
+  verdict team kick --project 12 --user reviewer --dry-run
+
+Example:
+
+  WOULD REMOVE
+  User       reviewer@example.com
+  Project    #12 Java Backend Developer
+  Role       Reviewer
+  Effects    Access revoked; action written to project history
+
+
+================================================================================
+21. SECURITY MODEL
+================================================================================
+
+Requirements:
+
+- Store session secrets in Windows Credential Manager where possible.
+- Fall back to an encrypted user-scoped credential file, never plain text.
+- Restrict config/credential files to the current Windows user.
+- Redact Authorization, X-Admin-Token, passwords, API keys, and cookies in logs.
+- Do not accept passwords on command arguments by default.
+- Keep normal user and admin sessions separate.
+- Validate HTTPS for remote servers.
+- Warn before sending credentials to plain HTTP on a non-local address.
+- Allow `http://localhost` and `http://127.0.0.1` for local development.
+- Defend against malicious filenames and terminal escape sequences in server data.
+- Normalize and validate output paths.
+- Use backend permissions for every operation.
+- Expire cached sessions when the server returns 401/403.
+- Provide `verdict session clear` for lost/shared machines.
+
+Possible later improvement:
+
+- Device-code login in a browser, so the CLI never handles the password.
+- Scoped personal access tokens with read/write/admin capabilities.
+- Token revocation list visible in the website profile.
+
+
+================================================================================
+22. CONFIGURATION FILE
+================================================================================
+
+Suggested non-secret location:
+
+  %APPDATA%\VERDICT\config.json
+
+Suggested structure:
+
+  {
+    "activeProfile": "local",
+    "profiles": {
+      "local": {
+        "server": "http://localhost:8080",
+        "output": "table",
+        "color": "auto",
+        "editor": "notepad"
+      }
+    },
+    "timeouts": {
+      "connectSeconds": 5,
+      "readSeconds": 30,
+      "auditSeconds": 180
+    }
+  }
+
+Environment overrides for CI:
+
+  VERDICT_SERVER
+  VERDICT_PROFILE
+  VERDICT_TOKEN
+  VERDICT_ADMIN_TOKEN
+  VERDICT_OUTPUT
+  NO_COLOR
+
+`VERDICT_TOKEN` is acceptable for a temporary CI secret but must never be printed.
+
+
+================================================================================
+23. OPENING WEBSITE PAGES FROM CMD
+================================================================================
+
+Commands:
+
+  verdict open
+  verdict open dashboard
+  verdict open projects
+  verdict open project 12
+  verdict open candidate 12 44
+  verdict open audit 481
+  verdict open messages
+  verdict open admin
+
+The command should build a URL from the active profile and use the default
+browser. It should not append the session token to the URL. Website and CLI
+sessions remain independently secured.
+
+
+================================================================================
+24. DIAGNOSTICS AND SELF-REPAIR
+================================================================================
+
+Commands:
+
+  verdict doctor
+  verdict ping
+  verdict health
+  verdict version
+  verdict logs path
+  verdict logs tail
+  verdict cache clear
+  verdict update check
+
+`verdict doctor` should check:
+
+1. Config file readability.
+2. Active server URL.
+3. DNS/TCP connectivity.
+4. `/api/system/health` response.
+5. CLI/server compatibility.
+6. User token validity.
+7. Admin token validity only when requested.
+8. Realtime SSE connection.
+9. Writable report/cache directories.
+10. Terminal color/Unicode capability.
+
+Example result:
+
+  PASS  Configuration loaded
+  PASS  Server reachable in 18 ms
+  PASS  Database health UP
+  WARN  RabbitMQ disabled (optional)
+  PASS  User session valid for toko1
+  PASS  Realtime connection established
+
+
+================================================================================
+25. OFFLINE AND FAILURE BEHAVIOR
+================================================================================
+
+The first version should not offer offline writes. When the server is unavailable:
+
+- Read commands may display a clearly labeled recent cache if requested.
+- Write commands fail without pretending they succeeded.
+- A retry command can reuse the safely stored request body.
+- Passwords, CV contents, messages, and OSINT evidence are not cached by default.
+
+Options:
+
+  --no-cache
+  --cache-ttl 5m
+  --retry 3
+  --retry-delay 2s
+
+Retries:
+
+- Retry safe GET requests automatically for transient network errors.
+- Retry writes only when an idempotency key/request ID is supported.
+- Never duplicate message sends, invites, audits, notes, or candidate uploads.
+
+
+================================================================================
+26. BATCH AND SCRIPTING POSSIBILITIES
+================================================================================
+
+Examples:
+
+Upload every PDF in a folder from CMD:
+
+  for %f in (C:\CVs\*.pdf) do verdict candidates upload --project 12 --file "%f"
+
+Export projects to JSON:
+
+  verdict projects list --output json > projects.json
+
+Wait for an audit and branch on result:
+
+  verdict audits watch 481 --output quiet
+  if errorlevel 1 echo Audit failed
+
+PowerShell pipeline:
+
+  verdict candidates list --project 12 --output json |
+    ConvertFrom-Json |
+    Where-Object { $_.score -ge 80 }
+
+Future batch file:
+
+  verdict batch run workflow.json
+
+Potential workflow operations:
+
+- Create project
+- Upload a directory of CVs
+- Wait for analyses
+- Export comparison report
+- Message selected reviewers
+
+Batch mode needs validation, dry-run, per-step results, and stop/continue policy.
+
+
+================================================================================
+27. API CONNECTION MAP
+================================================================================
+
+The connector should call the existing REST APIs rather than frontend code.
+
+Main mappings:
+
+  Authentication        /api/auth/*
+  Projects              /api/projects and /api/projects/page
+  Project settings      /api/projects/{id}/settings
+  Project activity      /api/projects/{id}/activity
+  Announcements         /api/projects/{id}/announcements
+  ATS templates         /api/projects/{id}/ats-templates
+  Members/permissions   /api/projects/{id}/members/*
+  Candidates            /api/projects/{id}/candidates/*
+  Candidate workflow    /api/projects/{id}/candidates/{id}/workflow
+  Candidate votes       /api/projects/{id}/candidates/{id}/votes
+  Candidate notes       /api/projects/{id}/candidates/{id}/notes
+  SignalTrace           /api/projects/{id}/candidates/{id}/osint/run
+  Messages              /api/messages and /api/messages/page
+  Audits                /api/audit/*
+  Realtime              /api/realtime
+  Admin                 /api/admin/*
+  System health         /api/system/health
+
+If a CLI workflow is missing an API endpoint, add the endpoint to the backend.
+Do not automate clicks in the website as a substitute for a real API.
+
+
+================================================================================
+28. PROPOSED INTERNAL ARCHITECTURE
+================================================================================
+
+Logical modules:
+
+  command-parser
+      Parses arguments, aliases, options, and contextual help.
+
+  profile-config
+      Reads non-secret profiles and resolves environment overrides.
+
+  credential-store
+      Integrates with Windows Credential Manager and session expiry.
+
+  api-client
+      Handles REST requests, authentication, timeouts, request IDs, and errors.
+
+  realtime-client
+      Handles SSE connection, reconnect, filtering, and deduplication.
+
+  resource-services
+      Auth, projects, candidates, messages, audits, teams, ATS, admin.
+
+  presenters
+      Table, text, JSON, JSONL, CSV, progress, and error output.
+
+  confirmations
+      Central safety levels, impact previews, countdowns, and typed phrases.
+
+  file-service
+      Upload validation, safe paths, downloads, and non-overwrite behavior.
+
+  shell
+      Interactive context, completion, history, and prompt rendering.
+
+  diagnostics
+      Doctor, health, version compatibility, and redacted debug logs.
+
+Important rule:
+
+Commands must call service interfaces. Commands should not construct raw HTTP
+requests themselves. This keeps human mode, JSON mode, and interactive mode on
+the same tested behavior.
+
+
+================================================================================
+29. VERSIONING AND COMPATIBILITY
+================================================================================
+
+Commands:
+
+  verdict version
+  verdict version --server
+
+Output:
+
+  CLI version       1.0.0
+  Server version    0.0.1
+  Server commit     abc1234
+  API compatibility compatible
+
+The server health/version response should eventually expose an API version.
+
+Rules:
+
+- Patch CLI versions may change human formatting.
+- Minor versions may add commands and JSON fields.
+- Major versions may change command or JSON contracts.
+- The CLI must warn before using an unsupported server version.
+- Destructive commands should refuse to run on unknown incompatible versions.
+
+
+================================================================================
+30. TESTING STRATEGY
+================================================================================
+
+Unit tests:
+
+- Argument parsing and aliases
+- Config/profile precedence
+- Credential redaction
+- Output formatting at narrow/wide terminal widths
+- JSON and CSV stability
+- Exit-code mapping
+- Confirmation safety levels
+- File-size/type validation
+- URL construction
+- ANSI/no-color behavior
+
+HTTP contract tests:
+
+- Every command against mocked server responses
+- 401, 403, 404, 409, 422, 429, and 500 handling
+- Pagination and search
+- Upload/download
+- Request IDs and idempotency
+- Admin token separation
+
+Integration tests against Spring Boot:
+
+- Login/logout/whoami
+- Project create/list/show/delete
+- Candidate upload/analyze/status/note/vote
+- Invite acceptance from a second account
+- Message send/reply/forward/read/star
+- Audit queue/realtime completion/export
+- OSINT consent gate
+- Activity log creation
+- Admin health and guarded clear
+
+Terminal snapshot tests:
+
+- Plain cmd.exe
+- PowerShell
+- Windows Terminal
+- Redirected/piped output
+- NO_COLOR and --no-unicode
+- 80-column and 160-column layouts
+
+Security tests:
+
+- No token in process arguments
+- No credential in debug logs
+- Hostname/HTTPS checks
+- Malicious terminal escape sequences escaped
+- Path traversal blocked
+- Destructive `--yes` bypass blocked
+
+
+================================================================================
+31. DELIVERY PHASES
+================================================================================
+
+Phase 1 - Useful minimum connector
+
+- setup/config/profile
+- login/logout/whoami
+- health/doctor
+- projects list/show/open
+- candidates list/show/upload/open
+- audits list/show/run/watch/open
+- messages list/show/send
+- table and JSON output
+- secure token storage
+
+Phase 2 - Full hiring workflow
+
+- Candidate notes, votes, status, delete
+- Team members, invites, role changes, kick
+- Project settings and activity
+- Reply, forward, read/unread, star, archive
+- Reports and exports
+- Safe confirmation framework
+
+Phase 3 - Realtime and interactive mode
+
+- verdict shell
+- Context-aware project/candidate selection
+- SSE watch mode
+- Windows notifications
+- Completion and command history
+
+Phase 4 - ATS, SignalTrace, and admin
+
+- ATS template management and validation
+- OSINT consent and source output
+- Admin health/version/users/logs/templates
+- Guarded demo/table clearing
+
+Phase 5 - Automation polish
+
+- Stable JSON schema
+- JSONL event streams
+- Batch workflows
+- Idempotency support
+- CI authentication/scoped tokens
+- Installer, self-update, signed binaries
+
+
+================================================================================
+32. OPTIONAL FUTURE IDEAS
+================================================================================
+
+- `verdict explain <command>` with examples and permission requirements.
+- Fuzzy interactive picker for projects, candidates, users, and templates.
+- QR/device-code browser login.
+- Shell completion scripts for PowerShell.
+- Windows toast notifications.
+- Scheduled watch command running in the system tray.
+- Candidate comparison rendered as a terminal heat map.
+- `verdict ask` natural-language read-only queries with explicit command preview.
+- Plugin hooks for approved evidence providers.
+- Signed report verification command.
+- Webhook management from CMD.
+- Import/export of project configuration between servers.
+- Redacted support bundle generated by `verdict doctor --bundle`.
+- Local aliases such as `verdict p ls`, while full names remain canonical.
+- Bookmark IDs: `verdict bookmark add backend-project project:12`.
+- Open report/candidate/project directly in the browser after command success.
+
+
+================================================================================
+33. RECOMMENDED FIRST COMMAND SET
+================================================================================
+
+Build these first because they produce immediate value without exposing the most
+dangerous operations:
+
+  verdict setup
+  verdict login
+  verdict logout
+  verdict whoami
+  verdict doctor
+  verdict health
+  verdict projects list
+  verdict projects show <id>
+  verdict projects open <id>
+  verdict candidates list --project <id>
+  verdict candidates show --project <id> --candidate <id>
+  verdict candidates upload --project <id> --file <path>
+  verdict candidates open --project <id> --candidate <id>
+  verdict audits list
+  verdict audits show <id>
+  verdict audits run
+  verdict audits watch <id>
+  verdict messages list
+  verdict messages show <id>
+  verdict messages send
+  verdict watch
+
+
+================================================================================
+34. DEFINITION OF DONE
+================================================================================
+
+The connector is ready for normal use when:
+
+- Installation and PATH setup work on a clean Windows machine.
+- Login never exposes a password or token.
+- All commands respect backend permissions.
+- Human, JSON, JSONL, and CSV outputs are deterministic and documented.
+- Project/candidate/message/audit changes appear on the website immediately.
+- Website changes appear in CLI watch mode immediately.
+- Destructive actions provide impact previews and cannot be bypassed casually.
+- A disconnected or expired session produces a clear recovery command.
+- Plain CMD output remains readable without Unicode or color.
+- File uploads validate limits before sending.
+- Errors map to stable exit codes.
+- Logs redact every credential.
+- Critical workflows have integration tests with two user accounts.
+- CLI and server versions report compatibility.
+- `verdict doctor` can explain the most common setup failures.
+
+
+================================================================================
+END OF BLUEPRINT
+================================================================================

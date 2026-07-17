@@ -63,6 +63,26 @@ test.beforeEach(async ({ page }) => {
             });
             return;
         }
+        if (path === '/api/auth/me/cmd-sessions' && method === 'GET') {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify([{
+                    id: 'cmd-session-1',
+                    client_name: 'Office workstation',
+                    ip_address: '203.0.113.42',
+                    user_agent: 'VERDICT-CLI/1.0 Windows',
+                    created_at: '2026-07-17T08:00:00Z',
+                    last_used_at: '2026-07-17T08:05:00Z',
+                    active: true,
+                }]),
+            });
+            return;
+        }
+        if (path === '/api/auth/me/cmd-sessions/cmd-session-1' && method === 'DELETE') {
+            await route.fulfill({ status: 200, contentType: 'application/json', body: '' });
+            return;
+        }
         if (path === '/api/auth/users/lookup') {
             await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 2, username: 'reviewer', email: 'reviewer@example.com', fullName: 'Review User', role: 'Reviewer' }) });
             return;
@@ -268,6 +288,20 @@ test('dialogs receive focus, close with Escape, and restore the trigger focus', 
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await expect(compose).toBeFocused();
+});
+
+test('profile shows CMD access details and confirms immediate revocation', async ({ page }) => {
+    await page.addInitScript(() => sessionStorage.setItem('verdictUserToken', 'smoke-token'));
+    await page.goto('/profile');
+    await expect(page.getByRole('heading', { name: 'CMD access' })).toBeVisible();
+    await expect(page.getByText('Office workstation')).toBeVisible();
+    await expect(page.getByText('203.0.113.42')).toBeVisible();
+    await expect(page.getByText('Active', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Revoke' }).click();
+    await expect(page.getByRole('heading', { name: 'Disconnect Office workstation?' })).toBeVisible();
+    const revocation = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/auth/me/cmd-sessions/cmd-session-1' && request.method() === 'DELETE');
+    await page.getByRole('button', { name: /revoke cmd access/i }).click();
+    await revocation;
 });
 
 test('admin table clearing remains locked until the generated phrase is typed', async ({ page }) => {

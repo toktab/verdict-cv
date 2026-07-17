@@ -36,6 +36,7 @@ public class UserAuthPresenceFilter extends OncePerRequestFilter {
             return true;
         }
         return path.equals("/api/auth/login")
+                || path.equals("/api/auth/cli/login")
                 || path.equals("/api/auth/register")
                 || path.equals("/api/auth/refresh")
                 || path.startsWith("/api/admin")

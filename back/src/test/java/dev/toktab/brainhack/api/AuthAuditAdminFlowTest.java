@@ -81,6 +81,60 @@ class AuthAuditAdminFlowTest {
     }
 
     @Test
+    void cmdSessionsRecordAccessDetailsAndCanBeRevokedFromProfile() throws Exception {
+        String username = "cmd_access_user";
+        String webToken = register(username);
+        MvcResult login = mockMvc.perform(post("/api/auth/cli/login")
+                        .header("User-Agent", "VERDICT-CLI/1.0 Windows")
+                        .header("X-Forwarded-For", "203.0.113.42")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "identifier":"cmd_access_user",
+                                  "password":"password123",
+                                  "clientName":"Office workstation"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token", not(blankOrNullString())))
+                .andReturn();
+        String cliToken = token(login);
+        String refreshToken = objectMapper.readTree(login.getResponse().getContentAsString()).get("refresh_token").asText();
+
+        MvcResult refreshed = mockMvc.perform(post("/api/auth/refresh")
+                        .header("User-Agent", "VERDICT-CLI/1.0 Windows")
+                        .header("X-Forwarded-For", "203.0.113.42")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refresh_token\":\"" + refreshToken + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        cliToken = token(refreshed);
+
+        MvcResult sessions = mockMvc.perform(get("/api/auth/me/cmd-sessions")
+                        .header("X-User-Token", webToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].client_name").value("Office workstation"))
+                .andExpect(jsonPath("$[0].ip_address").value("203.0.113.42"))
+                .andExpect(jsonPath("$[0].user_agent").value("VERDICT-CLI/1.0 Windows"))
+                .andExpect(jsonPath("$[0].active").value(true))
+                .andReturn();
+        String sessionId = objectMapper.readTree(sessions.getResponse().getContentAsString()).get(0).get("id").asText();
+
+        mockMvc.perform(delete("/api/auth/me/cmd-sessions/" + sessionId)
+                        .header("X-User-Token", webToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/auth/me").header("X-User-Token", cliToken))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/auth/me/cmd-sessions").header("X-User-Token", webToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].active").value(false))
+                .andExpect(jsonPath("$[0].revocation_reason").value("revoked from profile"));
+    }
+
+    @Test
     void auditApisRequireUserTokenAndOnlyReturnOwnedAudits() throws Exception {
         String firstToken = register("ownerone");
         String secondToken = register("ownertwo");

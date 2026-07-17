@@ -7,6 +7,8 @@ import dev.toktab.brainhack.account.UserSessionService;
 import dev.toktab.brainhack.account.AuthTokenResolver;
 import dev.toktab.brainhack.api.dto.AuthResponse;
 import dev.toktab.brainhack.api.dto.LoginRequest;
+import dev.toktab.brainhack.api.dto.CliLoginRequest;
+import dev.toktab.brainhack.api.dto.CmdSessionResponse;
 import dev.toktab.brainhack.api.dto.NotificationPreferencesRequest;
 import dev.toktab.brainhack.api.dto.RefreshTokenRequest;
 import dev.toktab.brainhack.api.dto.RegisterRequest;
@@ -18,11 +20,14 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -52,6 +57,15 @@ public class AuthController {
     public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         UserSessionService.SessionResult result = sessionService.login(request, httpRequest);
         logService.record("USER_LOGIN", httpRequest, 200, 0, result.account().getUsername(), "userId=" + result.account().getId());
+        return response(result);
+    }
+
+    @PostMapping("/cli/login")
+    public AuthResponse cliLogin(@Valid @RequestBody CliLoginRequest request, HttpServletRequest httpRequest) {
+        UserSessionService.SessionResult result = sessionService.loginCli(
+                new LoginRequest(request.identifier(), request.password()), request.clientName(), httpRequest);
+        logService.record("CLI_LOGIN", httpRequest, 200, 0, result.account().getUsername(),
+                "userId=" + result.account().getId() + ", client=" + request.clientName());
         return response(result);
     }
 
@@ -90,6 +104,30 @@ public class AuthController {
         UserAccount account = accountService.updateProfile(sessionService.me(tokenResolver.userToken(authorization, legacyToken, null)), request);
         logService.record("USER_PROFILE_UPDATE", httpRequest, 200, 0, account.getUsername(), "userId=" + account.getId());
         return userMapper.toResponse(account);
+    }
+
+    @GetMapping("/me/cmd-sessions")
+    public List<CmdSessionResponse> cmdSessions(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "X-User-Token", required = false) String legacyToken) {
+        UserAccount account = sessionService.me(tokenResolver.userToken(authorization, legacyToken, null));
+        return sessionService.cliSessions(account).stream()
+                .map(session -> new CmdSessionResponse(
+                        session.id(), session.clientName(), session.ipAddress(), session.userAgent(), session.createdAt(),
+                        session.lastUsedAt(), session.accessExpiresAt(), session.refreshExpiresAt(), session.revokedAt(),
+                        session.revocationReason(), session.active()))
+                .toList();
+    }
+
+    @DeleteMapping("/me/cmd-sessions/{sessionId}")
+    public void revokeCmdSession(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+            @PathVariable String sessionId,
+            HttpServletRequest httpRequest) {
+        UserAccount account = sessionService.me(tokenResolver.userToken(authorization, legacyToken, null));
+        sessionService.revokeCliSession(account, sessionId);
+        logService.record("CLI_SESSION_REVOKE", httpRequest, 200, 0, account.getUsername(), "sessionId=" + sessionId);
     }
 
     @PatchMapping("/me/notifications")
