@@ -301,11 +301,11 @@ test('dialogs receive focus, close with Escape, and restore the trigger focus', 
 test('profile shows CMD access details and confirms immediate revocation', async ({ page }) => {
     await page.addInitScript(() => sessionStorage.setItem('verdictUserToken', 'smoke-token'));
     await page.goto('/profile');
-    await expect(page.getByRole('heading', { name: 'CMD access' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'VERDICT for CMD' })).toBeVisible();
     await expect(page.getByText('Office workstation')).toBeVisible();
     await expect(page.getByText('203.0.113.42')).toBeVisible();
     await expect(page.getByText('Active', { exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: /download installer/i })).toHaveAttribute('href', 'http://localhost:8080/api/system/cli/installer');
+    await expect(page.getByRole('link', { name: /download installer/i })).toHaveAttribute('href', /\/api\/system\/cli\/installer$/);
     await page.getByRole('button', { name: /generate pairing code/i }).click();
     await expect(page.getByText('ABCD-EFGH', { exact: true })).toBeVisible();
     await expect(page.getByText(/verdict connect ABCD-EFGH/)).toBeVisible();
