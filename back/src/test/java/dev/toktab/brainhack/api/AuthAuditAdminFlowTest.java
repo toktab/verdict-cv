@@ -179,6 +179,9 @@ class AuthAuditAdminFlowTest {
 
         mockMvc.perform(get("/api/system/cli/files/verdict.mjs"))
                 .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString("attachment")))
+                .andExpect(header().string("Content-Disposition", containsString("verdict.mjs")))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andExpect(content().string(containsString("VERDICT CLI")));
     }
 

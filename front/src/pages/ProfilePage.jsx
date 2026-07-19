@@ -215,7 +215,7 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
                 <h3>Authorize a terminal in under a minute</h3>
                 <p>The Windows setup includes the standalone connector, PATH configuration, updates, uninstall support, and permanent diagnostic logs. Node.js is not required.</p>
               </div>
-              <a className="primary cmdInstallerButton" download href={`${connectorServerUrl()}/api/system/cli/files/VERDICT-Setup-Windows-x64.exe`}><Download size={16} /> Download Windows setup</a>
+              <a className="primary cmdInstallerButton" download="VERDICT-Setup-Windows-x64.exe" href={`${connectorServerUrl()}/api/system/cli/files/VERDICT-Setup-Windows-x64.exe`}><Download size={16} /> Download Windows setup</a>
             </div>
             <div className="cmdPairingGrid">
               <div className="cmdPairingSteps">

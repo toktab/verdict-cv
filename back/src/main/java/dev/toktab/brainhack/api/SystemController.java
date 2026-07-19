@@ -131,6 +131,12 @@ public class SystemController {
         } else {
             type = MediaType.APPLICATION_OCTET_STREAM;
         }
-        return ResponseEntity.ok().contentType(type).body(resource);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(type);
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(filename, StandardCharsets.UTF_8)
+                .build());
+        headers.set("X-Content-Type-Options", "nosniff");
+        return ResponseEntity.ok().headers(headers).body(resource);
     }
 }
