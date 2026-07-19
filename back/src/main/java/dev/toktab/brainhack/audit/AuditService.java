@@ -33,13 +33,12 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class AuditService {
-    private static final String LOCAL_ANALYZER_VERSION = "local-heuristic-v2";
-    private static final String LLM_PROMPT_VERSION = "verdict-claim-audit-v1";
+    private static final String LOCAL_ANALYZER_VERSION = "local-state-policy-v2";
+    private static final String LLM_PROMPT_VERSION = "verdict-state-audit-v2";
 
     private final AuditRepository auditRepository;
     private final SentenceSplitter sentenceSplitter;
-    private final LlmAuditAnalyzer llmAuditAnalyzer;
-    private final ClaimAnalyzer localClaimAnalyzer;
+    private final StateAnalysisOrchestrator stateAnalysisOrchestrator;
     private final ScoringService scoringService;
     private final FingerprintService fingerprintService;
     private final RabbitEventPublisher rabbitEventPublisher;
@@ -60,8 +59,7 @@ public class AuditService {
     public AuditService(
             AuditRepository auditRepository,
             SentenceSplitter sentenceSplitter,
-            LlmAuditAnalyzer llmAuditAnalyzer,
-            LocalAuditAnalyzer localAuditAnalyzer,
+            StateAnalysisOrchestrator stateAnalysisOrchestrator,
             ScoringService scoringService,
             FingerprintService fingerprintService,
             RabbitEventPublisher rabbitEventPublisher,
@@ -80,8 +78,7 @@ public class AuditService {
             @Value("${verdict.audit.max-evidence-chars}") int maxEvidenceChars) {
         this.auditRepository = auditRepository;
         this.sentenceSplitter = sentenceSplitter;
-        this.llmAuditAnalyzer = llmAuditAnalyzer;
-        this.localClaimAnalyzer = localAuditAnalyzer;
+        this.stateAnalysisOrchestrator = stateAnalysisOrchestrator;
         this.scoringService = scoringService;
         this.fingerprintService = fingerprintService;
         this.rabbitEventPublisher = rabbitEventPublisher;
@@ -293,115 +290,7 @@ public class AuditService {
 
     private AuditAnalysisResult analyze(Audit audit, List<String> sentences, String evidenceText) {
         String stateId = audit.getCheckStateId() == null ? CheckStateIds.WAR : audit.getCheckStateId();
-        return switch (stateId) {
-            case CheckStateIds.PERSON -> llmOrLocal(sentences, evidenceText, "PERSON_STATE_LLM_FALLBACK");
-            case CheckStateIds.STRICT_WAR_AI -> strictWarAi(sentences, evidenceText);
-            case CheckStateIds.LIGHT -> lightLocal(sentences, evidenceText);
-            default -> localAnalyze(sentences, evidenceText);
-        };
-    }
-
-    private AuditAnalysisResult llmOrLocal(List<String> sentences, String evidenceText, String fallbackEvent) {
-        if (!llmAuditAnalyzer.configured()) {
-            return localWithEngine(sentences, evidenceText, "LOCAL_HEURISTIC_NO_LLM");
-        }
-        try {
-            return llmAuditAnalyzer.analyze(sentences, evidenceText);
-        } catch (RuntimeException exception) {
-            logService.recordSystem(fallbackEvent, exception.getMessage());
-            return localWithEngine(sentences, evidenceText, "LOCAL_HEURISTIC_LLM_FALLBACK");
-        }
-    }
-
-    private AuditAnalysisResult strictWarAi(List<String> sentences, String evidenceText) {
-        AuditAnalysisResult local = localAnalyze(sentences, evidenceText);
-        if (!llmAuditAnalyzer.configured()) {
-            return new AuditAnalysisResult("LOCAL_HEURISTIC_STRICT_NO_LLM", local.verdicts());
-        }
-        try {
-            AuditAnalysisResult llm = llmAuditAnalyzer.analyze(sentences, evidenceText);
-            return new AuditAnalysisResult(local.engine() + "+" + llm.engine(), combineStrict(local.verdicts(), llm.verdicts()), llm.usage());
-        } catch (RuntimeException exception) {
-            logService.recordSystem("STRICT_WAR_AI_LLM_FALLBACK", exception.getMessage());
-            return new AuditAnalysisResult("LOCAL_HEURISTIC_STRICT_LLM_FALLBACK", local.verdicts());
-        }
-    }
-
-    private AuditAnalysisResult lightLocal(List<String> sentences, String evidenceText) {
-        AuditAnalysisResult local = localAnalyze(sentences, evidenceText);
-        List<AnalyzedVerdict> lightVerdicts = local.verdicts().stream()
-                .map(verdict -> verdict.status() == VerdictStatus.UNSUPPORTED && verdict.confidence() != Confidence.HIGH
-                        ? new AnalyzedVerdict(
-                        verdict.sentenceIndex(),
-                        verdict.sentence(),
-                        VerdictStatus.STRETCHED,
-                        Confidence.LOW,
-                        "light review",
-                        "Light-State treats this as a weak or partially supported issue instead of a hard unsupported claim.",
-                        verdict.evidencePointer())
-                        : verdict)
-                .toList();
-        return new AuditAnalysisResult("LOCAL_HEURISTIC_LIGHT", lightVerdicts);
-    }
-
-    private AuditAnalysisResult localWithEngine(List<String> sentences, String evidenceText, String engine) {
-        return new AuditAnalysisResult(engine, localAnalyze(sentences, evidenceText).verdicts());
-    }
-
-    private AuditAnalysisResult localAnalyze(List<String> sentences, String evidenceText) {
-        return localClaimAnalyzer.analyze(sentences, evidenceText);
-    }
-
-    private List<AnalyzedVerdict> combineStrict(List<AnalyzedVerdict> local, List<AnalyzedVerdict> llm) {
-        return local.stream()
-                .map(localVerdict -> stricter(localVerdict, llm.stream()
-                        .filter(row -> row.sentenceIndex() == localVerdict.sentenceIndex())
-                        .findFirst()
-                        .orElse(localVerdict)))
-                .toList();
-    }
-
-    private AnalyzedVerdict stricter(AnalyzedVerdict local, AnalyzedVerdict llm) {
-        AnalyzedVerdict selected = severity(llm.status()) > severity(local.status()) ? llm : local;
-        if (selected == local && severity(local.status()) == severity(llm.status())) {
-            selected = confidenceSeverity(llm.confidence()) > confidenceSeverity(local.confidence()) ? llm : local;
-        }
-        if (selected == local) {
-            return new AnalyzedVerdict(
-                    local.sentenceIndex(),
-                    local.sentence(),
-                    local.status(),
-                    local.confidence(),
-                    "strict local + ai",
-                    local.explanation() + " AI cross-check: " + llm.explanation(),
-                    local.evidencePointer());
-        }
-        return new AnalyzedVerdict(
-                selected.sentenceIndex(),
-                selected.sentence(),
-                selected.status(),
-                selected.confidence(),
-                "strict local + ai",
-                "Local WAR: " + local.explanation() + " AI cross-check: " + llm.explanation(),
-                selected.evidencePointer());
-    }
-
-    private int severity(VerdictStatus status) {
-        return switch (status) {
-            case UNSUPPORTED -> 5;
-            case GAP -> 4;
-            case STRETCHED -> 3;
-            case SUPPORTED -> 2;
-            case NOT_A_CLAIM -> 1;
-        };
-    }
-
-    private int confidenceSeverity(Confidence confidence) {
-        return switch (confidence) {
-            case HIGH -> 3;
-            case MEDIUM -> 2;
-            case LOW -> 1;
-        };
+        return stateAnalysisOrchestrator.analyze(stateId, sentences, evidenceText);
     }
 
     private void applyTemplate(Audit audit, UserAccount owner, String templateId, String auditMode) {
@@ -577,13 +466,13 @@ public class AuditService {
 
     private String analyzerVersionFor(String checkStateId) {
         if (CheckStateIds.PERSON.equals(checkStateId)) {
-            return "llm-preferred-v1";
+            return "person-context-v2";
         }
         if (CheckStateIds.STRICT_WAR_AI.equals(checkStateId)) {
-            return LOCAL_ANALYZER_VERSION + "+llm-crosscheck-v1";
+            return LOCAL_ANALYZER_VERSION + "+strict-ai-crosscheck-v2";
         }
         if (CheckStateIds.LIGHT.equals(checkStateId)) {
-            return "local-light-v1";
+            return "local-light-v2";
         }
         return LOCAL_ANALYZER_VERSION;
     }

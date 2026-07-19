@@ -113,7 +113,7 @@ class AuthAuditAdminFlowTest {
         MvcResult sessions = mockMvc.perform(get("/api/auth/me/cmd-sessions")
                         .header("X-User-Token", webToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].client_name").value("Office workstation"))
                 .andExpect(jsonPath("$[0].ip_address").value("203.0.113.42"))
                 .andExpect(jsonPath("$[0].user_agent").value("VERDICT-CLI/1.0 Windows"))
@@ -204,7 +204,7 @@ class AuthAuditAdminFlowTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.failureType").value("NONE"))
-                .andExpect(jsonPath("$.analyzerVersion").value("local-heuristic-v2"))
+                .andExpect(jsonPath("$.analyzerVersion").value("local-state-policy-v2"))
                 .andExpect(jsonPath("$.promptVersion").value("none-local-deterministic"))
                 .andExpect(jsonPath("$.verdicts", hasSize(2)))
                 .andReturn();

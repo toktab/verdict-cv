@@ -17,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,8 +41,8 @@ class CheckStateAnalyzerRoutingTest {
 
         Audit audit = auditService.run(request("war"), new MockHttpServletRequest(), owner);
 
-        assertThat(audit.getEngine()).isEqualTo("LOCAL_HEURISTIC");
-        verify(llmAuditAnalyzer, never()).analyze(anyList(), anyString());
+        assertThat(audit.getEngine()).isEqualTo("LOCAL_WAR_V2");
+        verify(llmAuditAnalyzer, never()).analyzeForState(anyString(), anyList(), anyString());
     }
 
     @Test
@@ -51,14 +52,14 @@ class CheckStateAnalyzerRoutingTest {
 
         Audit audit = auditService.run(request("light"), new MockHttpServletRequest(), owner);
 
-        assertThat(audit.getEngine()).isEqualTo("LOCAL_HEURISTIC_LIGHT");
-        verify(llmAuditAnalyzer, never()).analyze(anyList(), anyString());
+        assertThat(audit.getEngine()).isEqualTo("LOCAL_LIGHT_V2");
+        verify(llmAuditAnalyzer, never()).analyzeForState(anyString(), anyList(), anyString());
     }
 
     @Test
     void personStateUsesLlmWhenConfigured() {
         when(llmAuditAnalyzer.configured()).thenReturn(true);
-        when(llmAuditAnalyzer.analyze(anyList(), anyString())).thenReturn(new AuditAnalysisResult(
+        when(llmAuditAnalyzer.analyzeForState(eq(CheckStateIds.PERSON), anyList(), anyString())).thenReturn(new AuditAnalysisResult(
                 "LLM_TEST_MODEL",
                 List.of(new AnalyzedVerdict(
                         0,
@@ -78,13 +79,13 @@ class CheckStateAnalyzerRoutingTest {
         assertThat(audit.getCompletionTokens()).isEqualTo(80);
         assertThat(audit.getTotalTokens()).isEqualTo(500);
         assertThat(audit.getEstimatedCostUsd()).isEqualByComparingTo("0.001250");
-        verify(llmAuditAnalyzer).analyze(anyList(), anyString());
+        verify(llmAuditAnalyzer).analyzeForState(eq(CheckStateIds.PERSON), anyList(), anyString());
     }
 
     @Test
     void strictWarAiRunsLocalAndLlmWhenConfigured() {
         when(llmAuditAnalyzer.configured()).thenReturn(true);
-        when(llmAuditAnalyzer.analyze(anyList(), anyString())).thenReturn(new AuditAnalysisResult(
+        when(llmAuditAnalyzer.analyzeForState(eq(CheckStateIds.STRICT_WAR_AI), anyList(), anyString())).thenReturn(new AuditAnalysisResult(
                 "LLM_TEST_MODEL",
                 List.of(new AnalyzedVerdict(
                         0,
@@ -98,12 +99,12 @@ class CheckStateAnalyzerRoutingTest {
 
         Audit audit = auditService.run(request("strict-war-ai"), new MockHttpServletRequest(), owner);
 
-        assertThat(audit.getEngine()).isEqualTo("LOCAL_HEURISTIC+LLM_TEST_MODEL");
+        assertThat(audit.getEngine()).isEqualTo("LOCAL_STRICT_V2+LLM_TEST_MODEL");
         assertThat(audit.getVerdicts()).first().satisfies(verdict -> {
             assertThat(verdict.getStatus()).isEqualTo(VerdictStatus.UNSUPPORTED);
             assertThat(verdict.getReasonCategory()).isEqualTo("strict local + ai");
         });
-        verify(llmAuditAnalyzer).analyze(anyList(), anyString());
+        verify(llmAuditAnalyzer).analyzeForState(eq(CheckStateIds.STRICT_WAR_AI), anyList(), anyString());
     }
 
     @Test

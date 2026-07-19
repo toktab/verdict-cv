@@ -4,27 +4,39 @@
     "name": "WAR-State",
     "description": "Raw deterministic audit pass for normal evidence matching. Use when you want fast, explainable checks without heavier judgment.",
     "intensity": "Standard",
-    "paid": false
+    "paid": false,
+    "strategy": "DETERMINISTIC",
+    "requiresLlm": false,
+    "capabilities": ["Exact evidence matching", "Numeric verification", "Contradiction detection"]
   },
   {
     "id": "light",
     "name": "Light-State",
-    "description": "Lenient pass that focuses on obvious unsupported claims and avoids over-penalizing weak wording.",
+    "description": "Fast lenient screening that flags only clear evidence gaps and preserves reasonable wording.",
     "intensity": "Light",
-    "paid": false
+    "paid": false,
+    "strategy": "DETERMINISTIC_LENIENT",
+    "requiresLlm": false,
+    "capabilities": ["Fast screening", "Lenient matching", "Obvious gap detection"]
   },
   {
     "id": "person",
     "name": "Person-State",
-    "description": "Person-like review style for motive, context, and wording intent. Best for CVs, profiles, and pitch material.",
+    "description": "Contextual AI review for meaning, intent, transferable experience, and reasonable paraphrases.",
     "intensity": "Contextual",
-    "paid": true
+    "paid": false,
+    "strategy": "AI_CONTEXTUAL",
+    "requiresLlm": true,
+    "capabilities": ["Context and intent", "Transferable evidence", "Human-readable rationale"]
   },
   {
     "id": "strict-war-ai",
     "name": "Strict WAR+AI-State",
-    "description": "Strict combined mode for high-stakes reviews where every strong claim needs clear support.",
+    "description": "Independent deterministic and AI passes combined conservatively for high-stakes decisions.",
     "intensity": "Strict",
-    "paid": true
+    "paid": false,
+    "strategy": "HYBRID_STRICT",
+    "requiresLlm": true,
+    "capabilities": ["Dual-engine cross-check", "Strict proof burden", "Conservative conflict resolution"]
   }
 ]

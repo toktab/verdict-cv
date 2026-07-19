@@ -46,10 +46,10 @@ export const demoTemplates = [
 ];
 
 export const demoStates = [
-    { id: 'state-light', name: 'Light State', description: 'Fast template review for obvious CV contradictions and low-effort exaggeration.' },
-    { id: 'state-war', name: 'WAR State', description: 'Strict template review that expects every serious skill or leadership claim to be backed inside the application.' },
-    { id: 'state-person', name: 'Person State', description: 'AI-assisted reviewer judgment for polish, tone, credibility, and whether the CV feels genuinely substantiated.' },
-    { id: 'state-war-ai', name: 'WAR+AI State', description: 'Highest scrutiny with AI, deterministic rules, optional OSINT escalation, and full claim-by-claim report scoring.' },
+    { id: 'light', name: 'Light-State', intensity: 'Light', strategy: 'DETERMINISTIC_LENIENT', requiresLlm: false, aiConfigured: false, availabilityMessage: 'Ready - runs locally', capabilities: ['Fast screening', 'Lenient matching', 'Obvious gap detection'], description: 'Fast lenient screening that flags only clear evidence gaps and preserves reasonable wording.' },
+    { id: 'war', name: 'WAR-State', intensity: 'Standard', strategy: 'DETERMINISTIC', requiresLlm: false, aiConfigured: false, availabilityMessage: 'Ready - runs locally', capabilities: ['Exact evidence matching', 'Numeric verification', 'Contradiction detection'], description: 'Balanced deterministic review for reproducible, explainable evidence checks.' },
+    { id: 'person', name: 'Person-State', intensity: 'Contextual', strategy: 'AI_CONTEXTUAL', requiresLlm: true, aiConfigured: false, availabilityMessage: 'AI key missing - local fallback will be used', capabilities: ['Context and intent', 'Transferable evidence', 'Human-readable rationale'], description: 'Contextual AI review for meaning, intent, transferable experience, and reasonable paraphrases.' },
+    { id: 'strict-war-ai', name: 'Strict WAR+AI-State', intensity: 'Strict', strategy: 'HYBRID_STRICT', requiresLlm: true, aiConfigured: false, availabilityMessage: 'AI key missing - local fallback will be used', capabilities: ['Dual-engine cross-check', 'Strict proof burden', 'Conservative conflict resolution'], description: 'Independent deterministic and AI passes combined conservatively for high-stakes decisions.' },
 ];
 
 export function currentAuditMode(form) {

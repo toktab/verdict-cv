@@ -1,4 +1,4 @@
-import { Save } from 'lucide-react';
+import { Brain, Cpu, Save, ShieldCheck, Sparkles, Zap } from 'lucide-react';
 
 export function AuditTemplatePanel({ mode, templates, selectedId, onSelect, templateForm, setTemplateForm, onSave }) {
     return (
@@ -29,24 +29,54 @@ export function AuditTemplatePanel({ mode, templates, selectedId, onSelect, temp
 }
 
 export function CheckStatePanel({ states, selectedId, onSelect }) {
+    const selected = states.find((state) => state.id === selectedId) || states[0];
     return (
         <section className="statePanel">
             <div className="templateHeader">
                 <div>
                     <span className="eyebrow">Check state</span>
-                    <h2>Review posture</h2>
+                    <h2>Analysis engine</h2>
+                    <p>Choose the proof burden and reasoning strategy for this run.</p>
                 </div>
+                {selected && <div className={`stateAvailability ${selected.requiresLlm && !selected.aiConfigured ? 'fallback' : 'ready'}`}><i />{selected.availabilityMessage || 'Ready'}</div>}
             </div>
             <div className="stateCards">
-                {states.map((state) => (
-                    <button type="button" key={state.id} className={selectedId === state.id ? 'active' : ''} onClick={() => onSelect(state.id)}>
+                {states.map((state) => {
+                    const StateIcon = stateIcon(state.id);
+                    return (
+                    <button type="button" key={state.id} aria-pressed={selectedId === state.id} className={selectedId === state.id ? 'active' : ''} onClick={() => onSelect(state.id)}>
+                        <span className="stateCardTop"><i><StateIcon size={16} /></i><b>{state.intensity || 'Standard'}</b></span>
                         <strong>{state.name}</strong>
                         <span>{state.description}</span>
+                        <small>{state.requiresLlm ? state.aiConfigured ? 'AI connected' : 'Local fallback available' : 'Runs locally'}</small>
                     </button>
-                ))}
+                    );
+                })}
             </div>
+            {selected && (
+                <div className="stateSelectedDetail">
+                    <div><span className="eyebrow">Selected strategy</span><strong>{strategyLabel(selected.strategy)}</strong></div>
+                    <div className="stateCapabilityList">{(selected.capabilities || []).map((capability) => <span key={capability}><ShieldCheck size={14} /> {capability}</span>)}</div>
+                </div>
+            )}
         </section>
     );
+}
+
+function stateIcon(id) {
+    if (id === 'light') return Zap;
+    if (id === 'person') return Brain;
+    if (id === 'strict-war-ai') return Sparkles;
+    return Cpu;
+}
+
+function strategyLabel(strategy) {
+    return {
+        DETERMINISTIC: 'Deterministic evidence audit',
+        DETERMINISTIC_LENIENT: 'Lenient deterministic screening',
+        AI_CONTEXTUAL: 'Contextual AI judgment',
+        HYBRID_STRICT: 'Deterministic + AI cross-check',
+    }[strategy] || 'Evidence audit';
 }
 
 function PanelInput({ label, value, onChange }) {

@@ -12,6 +12,7 @@ import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.math.BigDecimal;
 
 @Entity
 @Table(
@@ -68,6 +69,26 @@ public class HiringCandidate {
 
     @Column(nullable = false, length = 40)
     private String analysisState = "strict-war-ai";
+
+    @Column(nullable = false, length = 180)
+    private String analysisEngine = "pending";
+
+    @Column(nullable = false, length = 120)
+    private String analysisPromptVersion = "local-state-policy-v2";
+
+    private Instant analysisCompletedAt;
+
+    @Column(nullable = false)
+    private int promptTokens;
+
+    @Column(nullable = false)
+    private int completionTokens;
+
+    @Column(nullable = false)
+    private int totalTokens;
+
+    @Column(nullable = false, precision = 14, scale = 6)
+    private BigDecimal estimatedCostUsd = BigDecimal.ZERO;
 
     @Lob
     @Column(nullable = false, columnDefinition = "LONGTEXT")
@@ -133,6 +154,20 @@ public class HiringCandidate {
     public void setMemory(String memory) { this.memory = memory; }
     public String getAnalysisState() { return analysisState; }
     public void setAnalysisState(String analysisState) { this.analysisState = analysisState; }
+    public String getAnalysisEngine() { return analysisEngine; }
+    public void setAnalysisEngine(String analysisEngine) { this.analysisEngine = analysisEngine; }
+    public String getAnalysisPromptVersion() { return analysisPromptVersion; }
+    public void setAnalysisPromptVersion(String analysisPromptVersion) { this.analysisPromptVersion = analysisPromptVersion; }
+    public Instant getAnalysisCompletedAt() { return analysisCompletedAt; }
+    public void setAnalysisCompletedAt(Instant analysisCompletedAt) { this.analysisCompletedAt = analysisCompletedAt; }
+    public int getPromptTokens() { return promptTokens; }
+    public void setPromptTokens(int promptTokens) { this.promptTokens = promptTokens; }
+    public int getCompletionTokens() { return completionTokens; }
+    public void setCompletionTokens(int completionTokens) { this.completionTokens = completionTokens; }
+    public int getTotalTokens() { return totalTokens; }
+    public void setTotalTokens(int totalTokens) { this.totalTokens = totalTokens; }
+    public BigDecimal getEstimatedCostUsd() { return estimatedCostUsd; }
+    public void setEstimatedCostUsd(BigDecimal estimatedCostUsd) { this.estimatedCostUsd = estimatedCostUsd; }
     public String getInitializedAnalysisStatesJson() { return initializedAnalysisStatesJson; }
     public void setInitializedAnalysisStatesJson(String initializedAnalysisStatesJson) { this.initializedAnalysisStatesJson = initializedAnalysisStatesJson; }
     public String getMemoryHistoryJson() { return memoryHistoryJson; }

@@ -1,0 +1,8 @@
+Audit every numbered claim sentence against the evidence document.
+Status must be one of: SUPPORTED, STRETCHED, UNSUPPORTED, NOT_A_CLAIM.
+Use UNSUPPORTED when evidence is missing. Do not call it false unless contradicted.
+Confidence must describe confidence in the classification, not confidence that the claim is true.
+evidencePointer must be a short exact excerpt copied from EVIDENCE, or exactly "No evidence found."
+Return exactly one verdict for every sentenceIndex. Keep sentenceIndex unchanged.
+Return JSON exactly like:
+{"verdicts":[{"sentenceIndex":0,"sentence":"...","status":"SUPPORTED","confidence":"HIGH","reasonCategory":"matched evidence","explanation":"one sentence","evidencePointer":"short exact excerpt or No evidence found"}]}

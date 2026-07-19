@@ -2,15 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, BriefcaseBusiness, CodeXml, ExternalLink, Radar, RefreshCcw, Search, Users } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { apiRunCandidateOsint, apiUpdateCandidateAnalysisState } from '../../api';
+import { analysisStates as signalStates } from '../../data/analysisStates';
 import { findCandidateFromPath } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
-
-const signalStates = [
-    { id: 'light', name: 'Light State', shortName: 'Light', description: 'Fast first pass with obvious contradiction checks.' },
-    { id: 'war', name: 'WAR State', shortName: 'WAR', description: 'Strict template pressure against serious claims.' },
-    { id: 'person', name: 'Person_AI State', shortName: 'Person_AI', description: 'Reviewer-style AI judgment for credibility and polish.' },
-    { id: 'strict-war-ai', name: 'WAR_AI State', shortName: 'WAR_AI', description: 'Deep AI-assisted verification with OSINT-ready evidence.' },
-];
 
 const signalGroupsEn = [
     {

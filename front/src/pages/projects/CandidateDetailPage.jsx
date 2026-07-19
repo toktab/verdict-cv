@@ -3,19 +3,13 @@ import { Activity, AlertTriangle, ArrowRight, Award, BriefcaseBusiness, CheckCir
 import { useLanguage } from '../../i18n';
 import { apiCreateCandidateNote, apiDeleteCandidate, apiGetCandidateWorkflow, apiListCandidateNotes, apiReanalyzeCandidate, apiUpdateCandidateAnalysisState, apiUpdateCandidateStatus, apiVoteCandidate } from '../../api';
 import defaultAts from '../../data/default-ats.json';
+import { analysisStates } from '../../data/analysisStates';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
 import { buildAtsReport, candidateSourceText as atsCandidateSourceText, projectDescriptionText, splitTextByTerms } from './atsReportUtils';
 import { recordProjectActivityOnServer } from './projectActivity';
 import { findCandidateFromPath, scorePercent, scoreTone } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
 import '../../styles/candidateInsights.css';
-
-const analysisStates = [
-    { id: 'light', name: 'Light State', shortName: 'Light', description: 'Fast first pass with obvious contradiction checks.' },
-    { id: 'war', name: 'WAR State', shortName: 'WAR', description: 'Strict template pressure against serious claims.' },
-    { id: 'person', name: 'Person_AI State', shortName: 'Person_AI', description: 'Reviewer-style AI judgment for credibility and polish.' },
-    { id: 'strict-war-ai', name: 'WAR_AI State', shortName: 'WAR_AI', description: 'Deep AI-assisted verification with OSINT-ready evidence.' },
-];
 
 const pipelineSteps = ['Unreviewed', 'OnCheck', 'OnInterview', 'Hired', 'Closed'];
 
@@ -491,6 +485,18 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                             );
                         })}
                     </div>
+                    {selectedStateInitialized && (
+                        <div className="analysisProvenance" role="status">
+                            <span><b>Engine</b> {activeCandidate.analysisEngine || 'Legacy analysis'}</span>
+                            <span><b>Prompt</b> {activeCandidate.analysisPromptVersion || 'Local policy'}</span>
+                            <span><b>Tokens</b> {activeCandidate.totalTokens || 0}</span>
+                            <span><b>Cost</b> ${Number(activeCandidate.estimatedCostUsd || 0).toFixed(6)}</span>
+                            {['person', 'strict-war-ai'].includes(activeStateId)
+                                && !activeCandidate.analysisEngine?.includes('LLM_') && (
+                                <strong>AI was unavailable; a local fallback produced this result.</strong>
+                            )}
+                        </div>
+                    )}
                     {analysisStateMessage && <p className="formMessage">{analysisStateMessage}</p>}
                 </section>
                 {!selectedStateInitialized ? (

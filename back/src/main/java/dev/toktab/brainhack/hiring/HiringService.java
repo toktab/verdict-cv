@@ -6,7 +6,12 @@ import dev.toktab.brainhack.api.dto.AuditRunRequest;
 import dev.toktab.brainhack.api.dto.UserAdminRequest;
 import dev.toktab.brainhack.ats.AtsKeywordCatalog;
 import dev.toktab.brainhack.audit.AuditService;
+import dev.toktab.brainhack.audit.AnalyzedVerdict;
+import dev.toktab.brainhack.audit.AuditAnalysisResult;
+import dev.toktab.brainhack.audit.AuditPromptCatalog;
 import dev.toktab.brainhack.audit.CheckStateIds;
+import dev.toktab.brainhack.audit.StateAnalysisOrchestrator;
+import dev.toktab.brainhack.audit.VerdictStatus;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidatePageResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
@@ -68,6 +73,7 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class HiringService {
     private static final long MAX_RESUME_BYTES = 8L * 1024L * 1024L;
+    private static final int MAX_CANDIDATE_AI_EVIDENCE_CHARS = 120_000;
     private static final Set<String> STOP_WORDS = Set.of(
             "with", "from", "into", "that", "this", "they", "them", "have", "will", "your", "and", "the", "for", "are",
             "using", "use", "basic", "basics", "knowledge", "understanding", "experience", "familiarity", "ability",
@@ -97,6 +103,7 @@ public class HiringService {
     private final ProjectPermissionService permissionService;
     private final ProjectActivityLogRepository activityRepository;
     private final AuditService auditService;
+    private final StateAnalysisOrchestrator stateAnalysisOrchestrator;
     private final String githubToken;
     private final SecureRandom secureRandom = new SecureRandom();
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -119,6 +126,7 @@ public class HiringService {
             ProjectPermissionService permissionService,
             ProjectActivityLogRepository activityRepository,
             AuditService auditService,
+            StateAnalysisOrchestrator stateAnalysisOrchestrator,
             @Value("${verdict.github.token:}") String githubToken) {
         this.projectRepository = projectRepository;
         this.candidateRepository = candidateRepository;
@@ -135,6 +143,7 @@ public class HiringService {
         this.permissionService = permissionService;
         this.activityRepository = activityRepository;
         this.auditService = auditService;
+        this.stateAnalysisOrchestrator = stateAnalysisOrchestrator;
         this.githubToken = githubToken == null ? "" : githubToken.trim();
     }
 
@@ -764,7 +773,16 @@ public class HiringService {
         if (requirements.isEmpty()) {
             requirements = extractRequirements(project.getDescription());
         }
-        List<List<String>> claims = claims(cvText, requirements);
+        if (requirements.isEmpty()) {
+            requirements = List.of(project.getTitle() + " role requirements");
+        }
+        List<List<String>> baselineClaims = claims(cvText, requirements);
+        AuditAnalysisResult stateAnalysis =
+                stateAnalysisOrchestrator.analyze(
+                        policy.stateId(),
+                        baselineClaims.stream().map(row -> row.get(0)).toList(),
+                        trimCandidateEvidence(cvText));
+        List<List<String>> claims = candidateClaims(baselineClaims, stateAnalysis);
         int supported = (int) claims.stream().filter(row -> "Supported".equals(row.get(1))).count();
         int stretched = (int) claims.stream().filter(row -> "Stretched".equals(row.get(1))).count();
         int unsupported = (int) claims.stream().filter(row -> "Unsupported".equals(row.get(1))).count();
@@ -803,6 +821,16 @@ public class HiringService {
         candidate.setOsint("Partial");
         candidate.setMemory(memoryStatus(priorApplications, unsupported));
         candidate.setAnalysisState(policy.stateId());
+        candidate.setAnalysisEngine(stateAnalysis.engine());
+        candidate.setAnalysisPromptVersion(
+                stateAnalysis.engine().contains("LLM_")
+                        ? AuditPromptCatalog.VERSION
+                        : "local-state-policy-v2");
+        candidate.setAnalysisCompletedAt(Instant.now());
+        candidate.setPromptTokens(stateAnalysis.usage().promptTokens());
+        candidate.setCompletionTokens(stateAnalysis.usage().completionTokens());
+        candidate.setTotalTokens(stateAnalysis.usage().totalTokens());
+        candidate.setEstimatedCostUsd(stateAnalysis.usage().estimatedCostUsd());
         candidate.setInitializedAnalysisStatesJson(mapper.json(List.of(policy.stateId())));
         candidate.setMemoryHistoryJson(mapper.json(priorApplications.stream().map(prior -> Map.<String, Object>of(
                 "candidateId", prior.getId(),
@@ -834,6 +862,58 @@ public class HiringService {
         candidate.setSummary(refreshed.getSummary());
         candidate.setClaimsJson(refreshed.getClaimsJson());
         candidate.setAuditPhraseMatchesJson(refreshed.getAuditPhraseMatchesJson());
+        candidate.setAnalysisEngine(refreshed.getAnalysisEngine());
+        candidate.setAnalysisPromptVersion(refreshed.getAnalysisPromptVersion());
+        candidate.setAnalysisCompletedAt(refreshed.getAnalysisCompletedAt());
+        candidate.setPromptTokens(refreshed.getPromptTokens());
+        candidate.setCompletionTokens(refreshed.getCompletionTokens());
+        candidate.setTotalTokens(refreshed.getTotalTokens());
+        candidate.setEstimatedCostUsd(refreshed.getEstimatedCostUsd());
+    }
+
+    private List<List<String>> candidateClaims(
+            List<List<String>> baselineClaims,
+            AuditAnalysisResult analysis) {
+        boolean aiCompleted = analysis.engine().contains("LLM_");
+        Map<Integer, AnalyzedVerdict> verdicts = analysis.verdicts().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        AnalyzedVerdict::sentenceIndex,
+                        verdict -> verdict,
+                        (first, ignored) -> first));
+        List<List<String>> rows = new ArrayList<>();
+        for (int index = 0; index < baselineClaims.size(); index++) {
+            List<String> baseline = baselineClaims.get(index);
+            AnalyzedVerdict verdict = verdicts.get(index);
+            if (!aiCompleted || verdict == null || verdict.status() == VerdictStatus.NOT_A_CLAIM) {
+                rows.add(baseline);
+                continue;
+            }
+            rows.add(List.of(
+                    baseline.get(0),
+                    candidateStatus(verdict.status()),
+                    verdict.explanation()
+                            + ("No evidence found.".equals(verdict.evidencePointer())
+                            ? ""
+                            : " Evidence: " + verdict.evidencePointer())));
+        }
+        return rows.stream().limit(120).toList();
+    }
+
+    private String trimCandidateEvidence(String cvText) {
+        String evidence = defaulted(cvText, "");
+        return evidence.length() <= MAX_CANDIDATE_AI_EVIDENCE_CHARS
+                ? evidence
+                : evidence.substring(0, MAX_CANDIDATE_AI_EVIDENCE_CHARS);
+    }
+
+    private String candidateStatus(VerdictStatus status) {
+        return switch (status) {
+            case SUPPORTED -> "Supported";
+            case STRETCHED -> "Stretched";
+            case UNSUPPORTED -> "Unsupported";
+            case GAP -> "Gap";
+            case NOT_A_CLAIM -> "Gap";
+        };
     }
 
     private String normalizeAnalysisState(String state) {

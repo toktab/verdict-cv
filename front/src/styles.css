@@ -7031,13 +7031,13 @@ mark {
 }
 
 .stateCards button {
-    min-height: 70px;
+    min-height: 164px;
     border: 1px solid var(--line);
     border-radius: 8px;
     display: grid;
-    gap: 4px;
+    gap: 7px;
     justify-items: start;
-    padding: 10px;
+    padding: 13px;
     text-align: left;
 }
 
@@ -8555,6 +8555,138 @@ select {
 .paginationControls button:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+}
+
+.stateCards button > strong {
+    font-size: 14px;
+}
+
+.stateCards button > small {
+    margin-top: auto;
+    color: var(--soft);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.stateCardTop {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.stateCardTop i {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--soft);
+    background: rgba(255, 255, 255, .04);
+}
+
+.stateCardTop b {
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+.stateCards button.active .stateCardTop i {
+    border-color: rgba(255, 99, 99, .45);
+    color: #ff9d9d;
+    background: rgba(255, 59, 59, .12);
+}
+
+.stateAvailability {
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.stateAvailability i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #67d794;
+}
+
+.stateAvailability.fallback {
+    border-color: rgba(247, 184, 71, .3);
+    color: #f4d99f;
+    background: rgba(247, 184, 71, .07);
+}
+
+.stateAvailability.fallback i {
+    background: #f7b847;
+}
+
+.stateSelectedDetail {
+    display: grid;
+    grid-template-columns: minmax(180px, .7fr) minmax(0, 1.3fr);
+    gap: 16px;
+    align-items: center;
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: rgba(0, 0, 0, .17);
+}
+
+.stateSelectedDetail > div:first-child {
+    display: grid;
+    gap: 4px;
+}
+
+.analysisProvenance {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.analysisProvenance b {
+    color: var(--text);
+    margin-right: 5px;
+}
+
+.analysisProvenance > strong {
+    width: 100%;
+    color: #ffb4b4;
+}
+
+.stateCapabilityList {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.stateCapabilityList span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.stateCapabilityList svg {
+    color: #67d794;
 }
 
 .messageSearchField {

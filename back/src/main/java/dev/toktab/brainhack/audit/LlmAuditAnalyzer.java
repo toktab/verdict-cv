@@ -29,6 +29,7 @@ public class LlmAuditAnalyzer implements ClaimAnalyzer {
     private final BigDecimal inputCostPerMillion;
     private final BigDecimal outputCostPerMillion;
     private final ObjectMapper objectMapper;
+    private final AuditPromptCatalog promptCatalog;
     private final RestClient restClient;
     private final AuditLogService logService;
 
@@ -43,6 +44,7 @@ public class LlmAuditAnalyzer implements ClaimAnalyzer {
             @Value("${verdict.llm.input-cost-per-million}") BigDecimal inputCostPerMillion,
             @Value("${verdict.llm.output-cost-per-million}") BigDecimal outputCostPerMillion,
             ObjectMapper objectMapper,
+            AuditPromptCatalog promptCatalog,
             RestClient.Builder restClientBuilder,
             AuditLogService logService) {
         this.apiKey = apiKey;
@@ -55,6 +57,7 @@ public class LlmAuditAnalyzer implements ClaimAnalyzer {
         this.inputCostPerMillion = inputCostPerMillion == null ? BigDecimal.ZERO : inputCostPerMillion;
         this.outputCostPerMillion = outputCostPerMillion == null ? BigDecimal.ZERO : outputCostPerMillion;
         this.objectMapper = objectMapper;
+        this.promptCatalog = promptCatalog;
         this.logService = logService;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(java.time.Duration.ofSeconds(this.timeoutSeconds));
@@ -67,21 +70,30 @@ public class LlmAuditAnalyzer implements ClaimAnalyzer {
     }
 
     public AuditAnalysisResult analyze(List<String> sentences, String evidenceText) {
+        return analyzeForState(CheckStateIds.STRICT_WAR_AI, sentences, evidenceText);
+    }
+
+    public AuditAnalysisResult analyzeForState(String stateId, List<String> sentences, String evidenceText) {
         if (!configured()) {
             throw new IllegalStateException("LLM API key is not configured");
         }
-        String prompt = buildPrompt(sentences, evidenceText);
+        String normalizedState = CheckStateIds.PERSON.equals(stateId) ? CheckStateIds.PERSON : CheckStateIds.STRICT_WAR_AI;
+        String prompt = buildPrompt(normalizedState, sentences, evidenceText);
         Map<String, Object> body = Map.of(
                 "model", model,
-                "temperature", temperature,
+                "temperature", temperatureFor(normalizedState),
                 "response_format", Map.of("type", "json_object"),
                 "messages", List.of(
-                        Map.of("role", "system", "content", "You are VERDICT, a strict claim-audit engine. Return only valid JSON."),
+                        Map.of("role", "system", "content", systemPrompt(normalizedState)),
                         Map.of("role", "user", "content", prompt)
                 )
         );
         String response = requestWithRetry(body);
-        return new AuditAnalysisResult("LLM_" + model, parse(response, sentences), usage(response));
+        List<AnalyzedVerdict> verdicts = validateEvidencePointers(parse(response, sentences), evidenceText);
+        return new AuditAnalysisResult(
+                "LLM_" + model + "_" + normalizedState.toUpperCase().replace('-', '_'),
+                verdicts,
+                usage(response));
     }
 
     private String requestWithRetry(Map<String, Object> body) {
@@ -155,22 +167,27 @@ public class LlmAuditAnalyzer implements ClaimAnalyzer {
         }
     }
 
-    private String buildPrompt(List<String> sentences, String evidenceText) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("""
-                Audit each sentence against the evidence document.
-                Status must be one of: SUPPORTED, STRETCHED, UNSUPPORTED, NOT_A_CLAIM.
-                Use UNSUPPORTED when evidence is missing. Do not call it false unless contradicted.
-                Return JSON exactly like:
-                {"verdicts":[{"sentenceIndex":0,"sentence":"...","status":"SUPPORTED","confidence":"HIGH","reasonCategory":"matched evidence","explanation":"one sentence","evidencePointer":"short exact excerpt or No evidence found"}]}
+    String systemPrompt(String stateId) {
+        return promptCatalog.systemPrompt(stateId);
+    }
 
-                CLAIM SENTENCES:
-                """);
+    String buildPrompt(String stateId, List<String> sentences, String evidenceText) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(promptCatalog.stateInstructions(stateId));
+        builder.append("\n\n").append(promptCatalog.outputContract());
+        builder.append("\n\nCLAIM SENTENCES:\n");
         for (int i = 0; i < sentences.size(); i++) {
             builder.append(i).append(". ").append(sentences.get(i)).append("\n");
         }
         builder.append("\nEVIDENCE DOCUMENT:\n").append(evidenceText);
         return builder.toString();
+    }
+
+    private double temperatureFor(String stateId) {
+        if (CheckStateIds.STRICT_WAR_AI.equals(stateId)) {
+            return Math.min(temperature, 0.1);
+        }
+        return Math.min(Math.max(temperature, 0.1), 0.3);
     }
 
     List<AnalyzedVerdict> parse(String response, List<String> originalSentences) {
@@ -206,6 +223,29 @@ public class LlmAuditAnalyzer implements ClaimAnalyzer {
         } catch (Exception exception) {
             throw new IllegalStateException("Could not parse LLM audit response", exception);
         }
+    }
+
+    List<AnalyzedVerdict> validateEvidencePointers(
+            List<AnalyzedVerdict> verdicts,
+            String evidenceText) {
+        String evidence = evidenceText == null ? "" : evidenceText;
+        return verdicts.stream().map(verdict -> {
+            String pointer = verdict.evidencePointer();
+            if ("No evidence found.".equals(pointer) || "No evidence found".equals(pointer)) {
+                return verdict;
+            }
+            if (pointer != null && !pointer.isBlank() && evidence.contains(pointer)) {
+                return verdict;
+            }
+            return new AnalyzedVerdict(
+                    verdict.sentenceIndex(),
+                    verdict.sentence(),
+                    VerdictStatus.UNSUPPORTED,
+                    Confidence.HIGH,
+                    "invalid evidence pointer",
+                    "The model cited text that is not present in the supplied evidence, so the claim was downgraded.",
+                    "No evidence found.");
+        }).toList();
     }
 
     LlmUsage usage(String response) {

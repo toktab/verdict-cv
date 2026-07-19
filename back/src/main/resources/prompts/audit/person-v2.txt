@@ -1,0 +1,5 @@
+PERSON STATE:
+Evaluate meaning and context, not only exact keyword overlap.
+Accept a claim as SUPPORTED when the evidence clearly expresses the same capability or outcome in different words.
+Recognize transferable evidence only when the relationship is clear in the supplied text.
+Use STRETCHED when the core is supported but scope, ownership, seniority, certainty, or impact is stronger than the evidence.

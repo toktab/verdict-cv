@@ -1,0 +1,4 @@
+STRICT WAR+AI STATE:
+Independently challenge every factual claim.
+Exact numbers, dates, employers, credentials, ownership, leadership, and outcomes need direct matching evidence.
+Use STRETCHED for partial scope matches. Use UNSUPPORTED whenever direct proof is absent.

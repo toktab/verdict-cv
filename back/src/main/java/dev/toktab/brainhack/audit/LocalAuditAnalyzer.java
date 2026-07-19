@@ -24,17 +24,22 @@ public class LocalAuditAnalyzer implements ClaimAnalyzer {
     }
 
     public AuditAnalysisResult analyze(List<String> sentences, String evidenceText) {
+        return analyzeForState(CheckStateIds.WAR, sentences, evidenceText);
+    }
+
+    public AuditAnalysisResult analyzeForState(String stateId, List<String> sentences, String evidenceText) {
+        LocalPolicy policy = LocalPolicy.forState(stateId);
         List<EvidenceChunk> evidenceChunks = chunks(evidenceText);
         String evidence = evidenceChunks.stream().map(EvidenceChunk::normalized).reduce("", (left, right) -> left + " " + right);
         List<AnalyzedVerdict> verdicts = new ArrayList<>();
         for (int i = 0; i < sentences.size(); i++) {
             String sentence = sentences.get(i);
-            verdicts.add(classify(i, sentence, evidence, evidenceChunks));
+            verdicts.add(classify(i, sentence, evidence, evidenceChunks, policy));
         }
-        return new AuditAnalysisResult("LOCAL_HEURISTIC", verdicts);
+        return new AuditAnalysisResult(policy.engine(), verdicts);
     }
 
-    private AnalyzedVerdict classify(int index, String sentence, String evidence, List<EvidenceChunk> evidenceChunks) {
+    private AnalyzedVerdict classify(int index, String sentence, String evidence, List<EvidenceChunk> evidenceChunks, LocalPolicy policy) {
         String normalized = normalize(sentence);
         if (isMetadata(normalized)) {
             return verdict(index, sentence, VerdictStatus.NOT_A_CLAIM, Confidence.HIGH, "metadata", "This line is document structure, not an auditable factual claim.", "No evidence required.");
@@ -42,12 +47,13 @@ public class LocalAuditAnalyzer implements ClaimAnalyzer {
         boolean risky = atsKeywordCatalog.localAuditRiskyWords().stream().anyMatch(normalized::contains);
         boolean numeric = NUMBER.matcher(normalized).find();
         EvidenceMatch match = bestMatch(normalized, evidenceChunks);
-        boolean exactNumber = !numeric || numbers(normalized).stream().allMatch(number -> evidence.contains(number));
+        boolean exactNumber = !numeric || !policy.requireExactNumbers()
+                || numbers(normalized).stream().allMatch(number -> evidence.contains(number));
         boolean contradiction = contradicts(normalized, match.normalized());
-        if (match.score() >= 4 && exactNumber && !risky && !contradiction) {
-            return verdict(index, sentence, VerdictStatus.SUPPORTED, Confidence.MEDIUM, "matched evidence", "The evidence contains enough matching terms to support this claim.", match.original());
+        if (match.score() >= policy.supportThreshold() && exactNumber && (!policy.riskBlocksSupport() || !risky) && !contradiction) {
+            return verdict(index, sentence, VerdictStatus.SUPPORTED, policy.supportConfidence(), "matched evidence", policy.supportExplanation(), match.original());
         }
-        if (match.score() >= 2) {
+        if (match.score() >= policy.stretchedThreshold()) {
             String reason = risky
                     ? "The wording creates a higher proof burden than the evidence fully satisfies."
                     : contradiction
@@ -55,10 +61,10 @@ public class LocalAuditAnalyzer implements ClaimAnalyzer {
                     : !exactNumber
                     ? "The evidence partially matches the claim but does not confirm the same number."
                     : "The evidence partially matches the claim but does not fully prove it as written.";
-            return verdict(index, sentence, VerdictStatus.STRETCHED, Confidence.MEDIUM, "overstated", reason, match.original());
+            return verdict(index, sentence, VerdictStatus.STRETCHED, policy.stretchedConfidence(), "overstated", reason, match.original());
         }
-        if (numeric || risky || normalized.length() > 20) {
-            return verdict(index, sentence, VerdictStatus.UNSUPPORTED, Confidence.HIGH, "missing evidence", "The evidence document does not provide clear support for this claim.", "No evidence found.");
+        if (numeric || risky || normalized.length() > policy.unsupportedLength()) {
+            return verdict(index, sentence, policy.unmatchedStatus(), policy.unmatchedConfidence(), "missing evidence", policy.unmatchedExplanation(), "No evidence found.");
         }
         return verdict(index, sentence, VerdictStatus.NOT_A_CLAIM, Confidence.LOW, "too vague", "This text is too vague to audit as a concrete factual claim.", "No evidence required.");
     }
@@ -139,5 +145,45 @@ public class LocalAuditAnalyzer implements ClaimAnalyzer {
     }
 
     private record EvidenceMatch(String original, String normalized, int score) {
+    }
+
+    private record LocalPolicy(
+            String engine,
+            int supportThreshold,
+            int stretchedThreshold,
+            int unsupportedLength,
+            boolean riskBlocksSupport,
+            boolean requireExactNumbers,
+            VerdictStatus unmatchedStatus,
+            Confidence supportConfidence,
+            Confidence stretchedConfidence,
+            Confidence unmatchedConfidence,
+            String supportExplanation,
+            String unmatchedExplanation
+    ) {
+        static LocalPolicy forState(String stateId) {
+            return switch (stateId == null ? CheckStateIds.WAR : stateId) {
+                case CheckStateIds.LIGHT -> new LocalPolicy(
+                        "LOCAL_LIGHT_V2", 2, 1, 80, false, true, VerdictStatus.STRETCHED,
+                        Confidence.MEDIUM, Confidence.LOW, Confidence.LOW,
+                        "Light-State found a reasonable evidence match for this wording.",
+                        "Light-State found an evidence gap, but treats it as a review item rather than a hard rejection.");
+                case CheckStateIds.PERSON -> new LocalPolicy(
+                        "LOCAL_PERSON_FALLBACK_V2", 3, 1, 55, false, true, VerdictStatus.STRETCHED,
+                        Confidence.MEDIUM, Confidence.LOW, Confidence.LOW,
+                        "The local contextual fallback found related evidence for the claim.",
+                        "The local contextual fallback could not establish enough context and marks this for human review.");
+                case CheckStateIds.STRICT_WAR_AI -> new LocalPolicy(
+                        "LOCAL_STRICT_V2", 5, 3, 16, true, true, VerdictStatus.UNSUPPORTED,
+                        Confidence.HIGH, Confidence.MEDIUM, Confidence.HIGH,
+                        "Strict deterministic matching found direct and sufficiently specific evidence.",
+                        "Strict-State requires direct evidence for this claim and none was found.");
+                default -> new LocalPolicy(
+                        "LOCAL_WAR_V2", 4, 2, 20, true, true, VerdictStatus.UNSUPPORTED,
+                        Confidence.MEDIUM, Confidence.MEDIUM, Confidence.HIGH,
+                        "WAR-State found enough direct matching terms to support this claim.",
+                        "WAR-State did not find clear evidence for this concrete claim.");
+            };
+        }
     }
 }
