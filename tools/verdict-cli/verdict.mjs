@@ -395,7 +395,7 @@ async function dashboard() {
     ]);
     const messageRows = messages.items || messages;
     const auditRows = audits.items || audits;
-    output({
+    const summary = {
         server,
         health: system.status || 'UNKNOWN',
         signedInAs: user.username,
@@ -403,7 +403,9 @@ async function dashboard() {
         unreadMessages: messageRows.filter((row) => !row.read && !row.read_at).length,
         recentAudits: auditRows.length,
         latestAudit: auditRows[0]?.status || 'None',
-    });
+    };
+    if (outputFormat !== 'table') return output(summary);
+    renderDashboard(summary);
 }
 
 async function interactiveShell() {
@@ -1009,19 +1011,101 @@ function output(data) {
     if (outputFormat === 'csv') return console.log(toCsv(Array.isArray(data) ? data : [data]));
     if (outputFormat === 'text') return console.log(typeof data === 'string' ? data : JSON.stringify(data, null, 2));
     if (Array.isArray(data)) return table(data);
-    if (data && typeof data === 'object') return table(Object.entries(flatten(data)).map(([field, value]) => ({ field, value })));
+    if (data && typeof data === 'object') return keyValue(data);
     console.log(data ?? 'OK');
 }
 
 function table(rows) {
     if (!rows.length) return console.log(paint('No results.', 'muted'));
-    const flat = rows.map(flatten);
+    const flat = rows.map((row) => flatten(row));
     const requested = splitList(options.fields);
-    const columns = requested.length ? requested : Object.keys(flat[0]).slice(0, process.stdout.columns && process.stdout.columns < 100 ? 5 : 8);
-    const widths = columns.map((column) => Math.min(42, Math.max(column.length, ...flat.map((row) => display(row[column]).length))));
-    console.log(columns.map((column, index) => column.toUpperCase().padEnd(widths[index])).join('  '));
-    console.log(widths.map((width) => '-'.repeat(width)).join('  '));
-    flat.forEach((row) => console.log(columns.map((column, index) => truncate(display(row[column]), widths[index]).padEnd(widths[index])).join('  ')));
+    const terminalWidth = Math.max(60, process.stdout.columns || 100);
+    const availableColumns = Object.keys(flat[0]);
+    const maxColumns = Math.max(2, Math.floor((terminalWidth + 2) / 14));
+    const columns = (requested.length ? requested : availableColumns).slice(0, maxColumns);
+    const widths = fitColumnWidths(columns, flat, terminalWidth);
+    const header = columns.map((column, index) => humanize(column).toUpperCase().padEnd(widths[index])).join('  ');
+    const divider = widths.map((width) => '-'.repeat(width)).join('  ');
+    console.log(paint(header, 'bold'));
+    console.log(paint(divider, 'muted'));
+    flat.forEach((row) => {
+        const line = columns.map((column, index) => truncate(display(row[column]), widths[index]).padEnd(widths[index])).join('  ');
+        console.log(colorizeRow(line, row));
+    });
+    if (!requested.length && availableColumns.length > columns.length) {
+        console.log(paint(`Showing ${columns.length} of ${availableColumns.length} fields. Use --fields a,b,c to choose columns.`, 'muted'));
+    }
+}
+
+function keyValue(data) {
+    const entries = Object.entries(flatten(data));
+    if (!entries.length) return console.log(paint('No details.', 'muted'));
+    const labelWidth = Math.min(24, Math.max(...entries.map(([key]) => humanize(key).length)));
+    entries.forEach(([key, value]) => {
+        const label = humanize(key).toUpperCase().padEnd(labelWidth);
+        console.log(`${paint(label, 'muted')}  ${display(value)}`);
+    });
+}
+
+function renderDashboard(summary) {
+    const width = Math.min(78, Math.max(58, process.stdout.columns || 72));
+    const rule = '-'.repeat(width);
+    const healthTone = String(summary.health).toUpperCase() === 'UP' ? 'green' : 'amber';
+    console.log('');
+    console.log(paint('VERDICT WORKSPACE', 'bold'));
+    console.log(paint('Confidence is not evidence.', 'muted'));
+    console.log(paint(rule, 'muted'));
+    console.log(`${paint(String(summary.health).toUpperCase().padEnd(8), healthTone)} ${summary.server}`);
+    console.log(`Signed in as ${paint(summary.signedInAs, 'bold')} on profile ${paint(profileName, 'cyan')}`);
+    console.log(paint(rule, 'muted'));
+    console.log([
+        dashboardMetric('PROJECTS', summary.projects),
+        dashboardMetric('UNREAD', summary.unreadMessages),
+        dashboardMetric('AUDITS', summary.recentAudits),
+    ].join('   '));
+    console.log(`Latest audit: ${display(summary.latestAudit)}`);
+    console.log(paint(rule, 'muted'));
+    console.log(`${paint('NEXT', 'red')}  verdict projects list`);
+    console.log(`      verdict messages list`);
+    console.log(`      verdict audits list`);
+    console.log('');
+}
+
+function dashboardMetric(label, value) {
+    return `${paint(label, 'muted')} ${paint(String(value), 'bold')}`;
+}
+
+function fitColumnWidths(columns, rows, terminalWidth) {
+    const gapWidth = Math.max(0, (columns.length - 1) * 2);
+    const minimum = 8;
+    const widths = columns.map((column) => Math.min(36, Math.max(
+        minimum,
+        humanize(column).length,
+        ...rows.map((row) => display(row[column]).length),
+    )));
+    let overflow = widths.reduce((sum, width) => sum + width, 0) + gapWidth - terminalWidth;
+    while (overflow > 0) {
+        const widest = widths.reduce((best, width, index) => width > widths[best] ? index : best, 0);
+        if (widths[widest] <= minimum) break;
+        widths[widest] -= 1;
+        overflow -= 1;
+    }
+    return widths;
+}
+
+function colorizeRow(line, row) {
+    const status = String(row.status || row.health || '').toUpperCase();
+    if (['UP', 'PASS', 'ACTIVE', 'COMPLETED', 'ACCEPTED'].includes(status)) return paint(line, 'green');
+    if (['FAIL', 'FAILED', 'ERROR', 'REJECTED', 'CANCELLED'].includes(status)) return paint(line, 'red');
+    if (['WARN', 'WARNING', 'PENDING', 'PROCESSING'].includes(status)) return paint(line, 'amber');
+    return line;
+}
+
+function humanize(value) {
+    return String(value)
+        .replace(/\./g, ' / ')
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/_/g, ' ');
 }
 
 function flatten(value, prefix = '', result = {}) {
@@ -1254,7 +1338,7 @@ function prefixSubject(prefix, subject = '') { return subject.toLowerCase().star
 function sleep(ms) { return new Promise((resolveSleep) => setTimeout(resolveSleep, ms)); }
 function success(message) { if (outputFormat !== 'quiet') console.log(`${paint('OK', 'green')} ${message}`); }
 function cliError(message, code = EXIT.GENERAL) { const error = new Error(message); error.code = code; return error; }
-function paint(value, tone) { if (!colorEnabled) return value; const colors = { red: 31, green: 32, amber: 33, muted: 90 }; return `\u001b[${colors[tone] || 0}m${value}\u001b[0m`; }
+function paint(value, tone) { if (!colorEnabled) return value; const colors = { bold: 1, red: 31, green: 32, amber: 33, cyan: 36, muted: 90 }; return `\u001b[${colors[tone] || 0}m${value}\u001b[0m`; }
 function fail(error) {
     console.error(`${paint('ERROR', 'red')} ${error.message || error}`);
     console.error(`${paint('LOG', 'muted')} ${LOG_FILE}`);

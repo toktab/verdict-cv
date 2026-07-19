@@ -53,6 +53,37 @@ test('health connects to the selected server and emits machine-readable JSON', a
     assert.equal(result.status, 'UP');
     assert.equal(result.database.status, 'UP');
     assert.equal(typeof result.responseMillis, 'number');
+
+    const human = await execute(process.execPath, [cli, 'health', '--server', `http://127.0.0.1:${address.port}`], { env: isolatedEnvironment() });
+    assert.match(human.stdout, /STATUS\s+UP/);
+    assert.doesNotMatch(human.stdout, /\{"field"/);
+});
+
+test('dashboard renders a concise terminal workspace instead of repeated JSON', async (context) => {
+    const server = createServer((request, response) => {
+        const path = new URL(request.url, 'http://localhost').pathname;
+        const fixtures = {
+            '/api/system/health': { status: 'UP' },
+            '/api/auth/me': { username: 'qa-user' },
+            '/api/projects/page': { items: [], total: 5 },
+            '/api/messages/page': { items: [{ read: false }, { read: true }] },
+            '/api/audit/history': [{ status: 'COMPLETED' }],
+        };
+        response.writeHead(fixtures[path] ? 200 : 404, { 'content-type': 'application/json' });
+        response.end(JSON.stringify(fixtures[path] || { message: 'Not found' }));
+    });
+    await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
+    context.after(() => server.close());
+    const address = server.address();
+    const environment = { ...isolatedEnvironment(), VERDICT_TOKEN: 'test-access-token' };
+    const { stdout } = await execute(process.execPath, [
+        cli, 'dashboard', '--server', `http://127.0.0.1:${address.port}`, '--no-color',
+    ], { env: environment });
+    assert.match(stdout, /VERDICT WORKSPACE/);
+    assert.match(stdout, /Signed in as qa-user/);
+    assert.match(stdout, /PROJECTS 5\s+UNREAD 1\s+AUDITS 1/);
+    assert.match(stdout, /Latest audit: COMPLETED/);
+    assert.doesNotMatch(stdout, /\{"field"/);
 });
 
 test('one-time pairing connects without sending a password', async (context) => {

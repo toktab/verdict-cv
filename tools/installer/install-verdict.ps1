@@ -257,6 +257,7 @@ exit /b %errorlevel%
 @echo off
 title VERDICT CLI
 color 07
+cd /d "%USERPROFILE%"
 echo ================================================================
 echo   VERDICT CLI
 echo   Confidence is not evidence.
