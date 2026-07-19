@@ -16,7 +16,7 @@ echo No Node.js installation is required.
 echo.
 
 echo [%date% %time%] Setup started from %~dp0>>"%BOOT_LOG%"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install-verdict.ps1" -PayloadDir "%~dp0" -LogFile "%LOG_DIR%\installer-latest.log" -Quiet
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install-verdict.ps1" -PayloadDir "%~dp0." -LogFile "%LOG_DIR%\installer-latest.log" -Quiet
 set "RESULT=%errorlevel%"
 
 echo.
