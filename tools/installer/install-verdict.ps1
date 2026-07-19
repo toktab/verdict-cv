@@ -306,11 +306,12 @@ public static extern IntPtr SendMessageTimeout(
 } catch {}
 if (-not $KeepAccountData) {
     Remove-Item (Join-Path $env:APPDATA "VERDICT") -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $env:LOCALAPPDATA "VERDICT") -Recurse -Force -ErrorAction SilentlyContinue
 }
 $startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\VERDICT CLI"
 Remove-Item $startMenu -Recurse -Force -ErrorAction SilentlyContinue
 Write-Host "VERDICT CLI was removed. Open terminals will keep the old PATH until restarted." -ForegroundColor Green
-Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile", "-Command", "Start-Sleep 1; Remove-Item -LiteralPath '$installDir' -Recurse -Force"
+Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile", "-Command", "Start-Sleep 1; for (`$attempt = 0; `$attempt -lt 20; `$attempt++) { try { Remove-Item -LiteralPath '$installDir' -Recurse -Force -ErrorAction Stop; break } catch { Start-Sleep -Milliseconds 500 } }"
 if (-not $Quiet) { Read-Host "Press Enter to close" | Out-Null }
 '@ | Set-Content -Path $uninstallerFile -Encoding UTF8
 

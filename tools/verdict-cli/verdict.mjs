@@ -16,6 +16,7 @@ const CREDENTIAL_FILE = join(CONFIG_DIR, 'credentials.json');
 const LOG_DIR = process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'VERDICT', 'logs') : join(CONFIG_DIR, 'logs');
 const LOG_FILE = join(LOG_DIR, `verdict-${new Date().toISOString().slice(0, 10)}.jsonl`);
 const EXIT = { GENERAL: 1, ARGUMENT: 2, AUTH: 3, FORBIDDEN: 4, NOT_FOUND: 5, CONFLICT: 6, VALIDATION: 7, NETWORK: 8, TIMEOUT: 9, JOB: 10, DECLINED: 11, PARTIAL: 12, VERSION: 13, FILE: 14, RATE_LIMIT: 15 };
+let runtimeLoggingEnabled = true;
 
 const { args, options } = parseArguments(process.argv.slice(2));
 const config = loadConfig();
@@ -38,6 +39,7 @@ async function main() {
     if (options.version || command === 'version') return versionCommand();
     if (options.help || command === 'help') return help(args[1]);
     if (command === 'setup') return setup();
+    if (command === 'uninstall') return uninstallCommand();
     if (command === 'config') return configCommand(args.slice(1));
     if (command === 'profile') return profileCommand(args.slice(1));
     if (command === 'login') return login(false);
@@ -150,6 +152,7 @@ Usage:
 
 Start:
   verdict setup
+  verdict uninstall --yes
   verdict connect ABCD-EFGH
   verdict login
   verdict whoami
@@ -187,6 +190,43 @@ async function setup() {
     config.profiles[name] = { server: trimSlash(url), output, color: 'auto', editor: 'notepad' };
     saveConfig(config);
     success(`Profile "${name}" saved. Run "verdict login".`);
+}
+
+function uninstallCommand() {
+    if (platform() !== 'win32') {
+        throw cliError('Automatic uninstall is currently supported on Windows only.', EXIT.ARGUMENT);
+    }
+    if (!options.yes) {
+        throw cliError('Uninstall deletes the CLI, local credentials, configuration, and logs. Re-run with: verdict uninstall --yes', EXIT.CONFLICT);
+    }
+
+    const defaultInstallDir = join(process.env.LOCALAPPDATA || dirname(process.execPath), 'VERDICT CLI');
+    const installDir = basename(process.execPath).toLowerCase() === 'verdict.exe'
+        ? dirname(process.execPath)
+        : defaultInstallDir;
+    const uninstaller = join(installDir, 'uninstall-verdict.ps1');
+    const removalPlan = {
+        installDir,
+        configDir: CONFIG_DIR,
+        logDir: LOG_DIR,
+        removesPathEntry: true,
+        removesStartMenuShortcuts: true,
+    };
+    if (options['dry-run']) return output(removalPlan);
+    if (!existsSync(uninstaller)) {
+        throw cliError(`Uninstaller not found at ${uninstaller}. Reinstall VERDICT CLI, then run this command again.`, EXIT.NOT_FOUND);
+    }
+
+    runtimeLoggingEnabled = false;
+    const result = spawnSync('powershell.exe', [
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', uninstaller,
+        '-Quiet',
+    ], { stdio: 'inherit', windowsHide: false });
+    if (result.error) throw cliError(`Could not start the uninstaller: ${result.error.message}`, EXIT.FILE);
+    if (result.status !== 0) throw cliError(`Uninstaller failed with exit code ${result.status}.`, result.status || EXIT.GENERAL);
+    console.log('VERDICT CLI uninstall started. Installed files, account data, PATH entry, shortcuts, and logs are being removed.');
 }
 
 function configCommand(parts) {
@@ -1223,6 +1263,7 @@ function fail(error) {
 }
 
 function logEvent(event, detail = {}) {
+    if (!runtimeLoggingEnabled) return;
     try {
         mkdirSync(LOG_DIR, { recursive: true });
         const payload = {

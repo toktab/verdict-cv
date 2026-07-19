@@ -31,6 +31,13 @@ test('version prints a readable Windows setup summary', async () => {
     assert.match(stdout, /Server:\s+http:\/\/localhost:8080/);
 });
 
+test('uninstall requires explicit confirmation', async () => {
+    await assert.rejects(
+        execute(process.execPath, [cli, 'uninstall'], { env: isolatedEnvironment() }),
+        (error) => error.code === 6 && /verdict uninstall --yes/.test(error.stderr),
+    );
+});
+
 test('health connects to the selected server and emits machine-readable JSON', async (context) => {
     const server = createServer((request, response) => {
         assert.equal(request.url, '/api/system/health');
