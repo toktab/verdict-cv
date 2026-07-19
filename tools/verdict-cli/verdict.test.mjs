@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -59,10 +59,12 @@ test('one-time pairing connects without sending a password', async (context) => 
     await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
     context.after(() => server.close());
     const address = server.address();
+    const environment = isolatedEnvironment();
+    const selectedServer = `http://127.0.0.1:${address.port}`;
     const { stdout } = await execute(process.execPath, [
         cli, 'connect', 'ABCD-EFGH', '--name', 'QA terminal',
-        '--server', `http://127.0.0.1:${address.port}`, '--no-color',
-    ], { env: isolatedEnvironment() });
+        '--server', selectedServer, '--no-color',
+    ], { env: environment });
     assert.match(stdout, /Connected QA terminal as Paired User/);
     assert.deepEqual(received, {
         url: '/api/auth/cli/pair',
@@ -70,10 +72,13 @@ test('one-time pairing connects without sending a password', async (context) => 
         body: { code: 'ABCD-EFGH', clientName: 'QA terminal' },
     });
     assert.equal(Object.hasOwn(received.body, 'password'), false);
+    const savedConfig = JSON.parse(readFileSync(join(environment.APPDATA, 'VERDICT', 'cli-config.json'), 'utf8'));
+    assert.equal(savedConfig.activeProfile, 'local');
+    assert.equal(savedConfig.profiles.local.server, selectedServer);
 });
 
 function isolatedEnvironment() {
     const directory = mkdtempSync(join(tmpdir(), 'verdict-cli-test-'));
     process.on('exit', () => rmSync(directory, { recursive: true, force: true }));
-    return { ...process.env, APPDATA: directory, NO_COLOR: '1' };
+    return { ...process.env, APPDATA: directory, LOCALAPPDATA: directory, NO_COLOR: '1' };
 }

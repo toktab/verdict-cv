@@ -213,13 +213,13 @@ export function ProfilePage({ Header, setRoute, user, userToken, setUser, setUse
               <div>
                 <span className="eyebrow">Connect this account</span>
                 <h3>Authorize a terminal in under a minute</h3>
-                <p>The installer configures Node.js, PATH, updates, and uninstall support. Your password never enters the terminal.</p>
+                <p>The Windows setup includes the standalone connector, PATH configuration, updates, uninstall support, and permanent diagnostic logs. Node.js is not required.</p>
               </div>
-              <a className="primary cmdInstallerButton" download href={`${connectorServerUrl()}/api/system/cli/installer`}><Download size={16} /> Download installer</a>
+              <a className="primary cmdInstallerButton" download href={`${connectorServerUrl()}/api/system/cli/files/VERDICT-Setup-Windows-x64.exe`}><Download size={16} /> Download Windows setup</a>
             </div>
             <div className="cmdPairingGrid">
               <div className="cmdPairingSteps">
-                <span><i>1</i><strong>Run the installer</strong><small>Open the downloaded `install-verdict.cmd` file.</small></span>
+                <span><i>1</i><strong>Run Windows setup</strong><small>Open <code>VERDICT-Setup-Windows-x64.exe</code>. The result and log location always stay visible.</small></span>
                 <span><i>2</i><strong>Create a one-time code</strong><small>Codes expire after five minutes and work once.</small></span>
                 <span><i>3</i><strong>Connect from CMD</strong><small>The terminal becomes visible below immediately.</small></span>
               </div>

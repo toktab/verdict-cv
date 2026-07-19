@@ -127,6 +127,8 @@
 				<includes>
 					<include>verdict.exe</include>
 					<include>verdict.exe.sha256</include>
+					<include>VERDICT-Setup-Windows-x64.exe</include>
+					<include>VERDICT-Setup-Windows-x64.exe.sha256</include>
 				</includes>
 			</resource>
 		</resources>

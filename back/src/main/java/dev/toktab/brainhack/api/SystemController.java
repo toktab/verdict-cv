@@ -56,16 +56,34 @@ public class SystemController {
                 @echo off
                 setlocal
                 title VERDICT CLI Installer
+                set "LOG_DIR=%%LOCALAPPDATA%%\\VERDICT\\logs"
+                if not exist "%%LOG_DIR%%" mkdir "%%LOG_DIR%%" >nul 2>&1
+                set "BOOT_LOG=%%LOG_DIR%%\\setup-bootstrap.log"
                 set "INSTALL_PS1=%%TEMP%%\\verdict-cli-install-%%RANDOM%%.ps1"
+                echo [%%date%% %%time%%] Download installer started.>>"%%BOOT_LOG%%"
                 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest '%s/api/system/cli/files/install-verdict.ps1' -UseBasicParsing -OutFile '%%INSTALL_PS1%%'"
                 if errorlevel 1 (
                   echo Could not download the VERDICT installer.
+                  echo Log: %%BOOT_LOG%%
+                  echo [%%date%% %%time%%] Could not download install-verdict.ps1.>>"%%BOOT_LOG%%"
                   pause
                   exit /b 1
                 )
-                powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%%INSTALL_PS1%%" -Server "%s" -DownloadBase "%s/api/system/cli/files"
+                powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%%INSTALL_PS1%%" -Server "%s" -DownloadBase "%s/api/system/cli/files" -LogFile "%%LOG_DIR%%\\installer-latest.log" -Quiet
                 set "RESULT=%%errorlevel%%"
                 del "%%INSTALL_PS1%%" >nul 2>&1
+                echo.
+                if not "%%RESULT%%"=="0" (
+                  echo VERDICT CLI installation failed with code %%RESULT%%.
+                  echo Installer log: %%LOG_DIR%%\\installer-latest.log
+                  echo [%%date%% %%time%%] Installation failed with code %%RESULT%%.>>"%%BOOT_LOG%%"
+                ) else (
+                  echo VERDICT CLI installed successfully.
+                  echo Installer log: %%LOG_DIR%%\\installer-latest.log
+                  echo [%%date%% %%time%%] Installation completed.>>"%%BOOT_LOG%%"
+                )
+                echo.
+                pause
                 exit /b %%RESULT%%
                 """.formatted(server, server, server);
         HttpHeaders headers = new HttpHeaders();
@@ -89,13 +107,14 @@ public class SystemController {
         return ResponseEntity.ok(Map.of(
                 "version", version,
                 "exe_sha256", sha256,
-                "download_url", "/api/system/cli/files/verdict.exe"
+                "download_url", "/api/system/cli/files/verdict.exe",
+                "installer_download_url", "/api/system/cli/files/VERDICT-Setup-Windows-x64.exe"
         ));
     }
 
     @GetMapping("/cli/files/{filename}")
     public ResponseEntity<Resource> cliFile(@org.springframework.web.bind.annotation.PathVariable String filename) {
-        if (!filename.matches("verdict\\.mjs|verdict\\.exe|verdict\\.exe\\.sha256|README\\.txt|install-verdict\\.ps1")) {
+        if (!filename.matches("verdict\\.mjs|verdict\\.exe|verdict\\.exe\\.sha256|README\\.txt|install-verdict\\.ps1|VERDICT-Setup-Windows-x64\\.exe|VERDICT-Setup-Windows-x64\\.exe\\.sha256")) {
             return ResponseEntity.notFound().build();
         }
         ClassPathResource resource = new ClassPathResource("cli/" + filename);

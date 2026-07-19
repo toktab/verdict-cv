@@ -2,7 +2,7 @@
 
 import { createInterface } from 'node:readline/promises';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, createWriteStream, renameSync, unlinkSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, createWriteStream, renameSync, unlinkSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { homedir, hostname, platform } from 'node:os';
 import { Readable } from 'node:stream';
@@ -13,6 +13,8 @@ const USER_AGENT = `VERDICT-CLI/${VERSION} ${platform()}`;
 const CONFIG_DIR = process.env.APPDATA ? join(process.env.APPDATA, 'VERDICT') : join(homedir(), '.verdict');
 const CONFIG_FILE = join(CONFIG_DIR, 'cli-config.json');
 const CREDENTIAL_FILE = join(CONFIG_DIR, 'credentials.json');
+const LOG_DIR = process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'VERDICT', 'logs') : join(CONFIG_DIR, 'logs');
+const LOG_FILE = join(LOG_DIR, `verdict-${new Date().toISOString().slice(0, 10)}.jsonl`);
 const EXIT = { GENERAL: 1, ARGUMENT: 2, AUTH: 3, FORBIDDEN: 4, NOT_FOUND: 5, CONFLICT: 6, VALIDATION: 7, NETWORK: 8, TIMEOUT: 9, JOB: 10, DECLINED: 11, PARTIAL: 12, VERSION: 13, FILE: 14, RATE_LIMIT: 15 };
 
 const { args, options } = parseArguments(process.argv.slice(2));
@@ -23,7 +25,13 @@ const server = trimSlash(String(options.server || process.env.VERDICT_SERVER || 
 const outputFormat = String(options.output || process.env.VERDICT_OUTPUT || profile.output || 'table').toLowerCase();
 const colorEnabled = !options['no-color'] && !process.env.NO_COLOR && process.stdout.isTTY && profile.color !== 'never';
 
-main().catch((error) => fail(error));
+logEvent('command.started', { args: sanitizeArguments(process.argv.slice(2)), version: VERSION, platform: platform() });
+main()
+    .then(() => logEvent('command.completed', { exitCode: process.exitCode || 0 }))
+    .catch((error) => {
+        logEvent('command.failed', { message: error.message || String(error), code: error.code || EXIT.GENERAL });
+        fail(error);
+    });
 
 async function main() {
     const command = args[0] || 'startup';
@@ -38,6 +46,7 @@ async function main() {
     if (command === 'whoami') return whoami();
     if (command === 'session') return sessionCommand(args.slice(1));
     if (command === 'doctor') return doctor();
+    if (command === 'logs') return logsCommand(args.slice(1));
     if (command === 'health' || command === 'ping') return health();
     if (command === 'dashboard') return dashboard();
     if (command === 'shell') return interactiveShell();
@@ -145,6 +154,7 @@ Start:
   verdict login
   verdict whoami
   verdict doctor
+  verdict logs path|open
 
 Resources:
 ${Object.entries(groups).map(([name, actions]) => `  ${name.padEnd(15)} ${actions}`).join('\n')}
@@ -231,6 +241,7 @@ async function login(admin = false) {
         ? { username: identifier, password }
         : { identifier, password, clientName: String(options.name || `${hostname()} CMD`) };
     const response = await rawRequest('POST', path, body, { publicRequest: true, admin });
+    persistSelectedServer();
     await storeCredentials(admin ? `admin:${profileName}` : profileName, admin
         ? { accessToken: response.token }
         : { accessToken: response.access_token || response.token, refreshToken: response.refresh_token, accessExpiresAt: response.access_expires_at, refreshExpiresAt: response.refresh_expires_at });
@@ -245,6 +256,7 @@ async function connectWithCode(value) {
     }
     const clientName = String(options.name || `${hostname()} CMD`);
     const response = await rawRequest('POST', '/api/auth/cli/pair', { code, clientName }, { publicRequest: true });
+    persistSelectedServer();
     await storeCredentials(profileName, {
         accessToken: response.access_token || response.token,
         refreshToken: response.refresh_token,
@@ -316,8 +328,21 @@ async function doctor() {
         checks.push({ check: 'User session', status: 'WARN', detail: 'Run verdict login' });
     }
     checks.push({ check: 'Credential protection', status: platform() === 'win32' ? 'PASS' : 'WARN', detail: platform() === 'win32' ? 'Windows DPAPI' : 'User-only credential file' });
+    checks.push({ check: 'Diagnostic log', status: 'PASS', detail: LOG_FILE });
     output(checks);
     if (checks.some((row) => row.status === 'FAIL')) process.exitCode = EXIT.NETWORK;
+}
+
+function logsCommand(parts) {
+    const action = parts[0] || 'path';
+    mkdirSync(LOG_DIR, { recursive: true });
+    if (action === 'path') return output({ directory: LOG_DIR, currentLog: LOG_FILE });
+    if (action === 'open') {
+        if (platform() !== 'win32') throw cliError('Log folder opening is currently supported on Windows.', EXIT.ARGUMENT);
+        spawn('explorer.exe', [LOG_DIR], { detached: true, stdio: 'ignore' }).unref();
+        return success(`Opened ${LOG_DIR}`);
+    }
+    throw cliError('Usage: verdict logs path|open', EXIT.ARGUMENT);
 }
 
 async function dashboard() {
@@ -852,19 +877,35 @@ async function adminApi(method, path, body) {
 async function rawRequest(method, path, body, requestOptions = {}) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), numberOption('timeout', 30) * 1000);
-    const headers = { Accept: 'application/json', 'User-Agent': USER_AGENT, 'X-Request-Id': String(options['request-id'] || crypto.randomUUID()) };
+    const requestId = String(options['request-id'] || crypto.randomUUID());
+    const started = Date.now();
+    const headers = { Accept: 'application/json', 'User-Agent': USER_AGENT, 'X-Request-Id': requestId };
     if (requestOptions.token) headers[requestOptions.admin ? 'X-Admin-Token' : 'Authorization'] = requestOptions.admin ? requestOptions.token : `Bearer ${requestOptions.token}`;
     let payload;
     if (body instanceof FormData) payload = body;
     else if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
     try {
         const response = await fetch(`${server}${path}`, { method, headers, body: payload, signal: controller.signal });
+        logEvent('request.completed', {
+            requestId,
+            method,
+            path: String(path).split('?')[0],
+            status: response.status,
+            durationMillis: Date.now() - started,
+        });
         if (!response.ok) throw await responseError(response);
         if (response.status === 204) return null;
         const contentType = response.headers.get('content-type') || '';
         if (contentType.includes('application/json')) return response.json();
         return response.text();
     } catch (error) {
+        logEvent('request.failed', {
+            requestId,
+            method,
+            path: String(path).split('?')[0],
+            durationMillis: Date.now() - started,
+            message: error.message || String(error),
+        });
         if (error.name === 'AbortError') throw cliError(`Request timed out: ${method} ${path}`, EXIT.TIMEOUT);
         if (error.code !== undefined) throw error;
         throw cliError(`Cannot reach ${server}: ${error.message}`, EXIT.NETWORK);
@@ -980,6 +1021,14 @@ function saveConfig(value) {
     mkdirSync(CONFIG_DIR, { recursive: true });
     writeFileSync(CONFIG_FILE, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
     try { chmodSync(CONFIG_FILE, 0o600); } catch { /* Windows ACL owns access */ }
+}
+
+function persistSelectedServer() {
+    if (!options.server) return;
+    config.activeProfile = profileName;
+    config.profiles[profileName] = { ...profile, server };
+    saveConfig(config);
+    logEvent('profile.server_saved', { profile: profileName, server });
 }
 
 async function storeCredentials(key, value) {
@@ -1162,4 +1211,42 @@ function sleep(ms) { return new Promise((resolveSleep) => setTimeout(resolveSlee
 function success(message) { if (outputFormat !== 'quiet') console.log(`${paint('OK', 'green')} ${message}`); }
 function cliError(message, code = EXIT.GENERAL) { const error = new Error(message); error.code = code; return error; }
 function paint(value, tone) { if (!colorEnabled) return value; const colors = { red: 31, green: 32, amber: 33, muted: 90 }; return `\u001b[${colors[tone] || 0}m${value}\u001b[0m`; }
-function fail(error) { console.error(`${paint('ERROR', 'red')} ${error.message || error}`); if (options.debug && error.stack) console.error(error.stack.replace(/Bearer\s+[A-Za-z0-9._-]+/g, 'Bearer [REDACTED]')); process.exitCode = Number.isInteger(error.code) ? error.code : EXIT.GENERAL; }
+function fail(error) {
+    console.error(`${paint('ERROR', 'red')} ${error.message || error}`);
+    console.error(`${paint('LOG', 'muted')} ${LOG_FILE}`);
+    if (options.debug && error.stack) console.error(redact(error.stack));
+    process.exitCode = Number.isInteger(error.code) ? error.code : EXIT.GENERAL;
+}
+
+function logEvent(event, detail = {}) {
+    try {
+        mkdirSync(LOG_DIR, { recursive: true });
+        const payload = {
+            timestamp: new Date().toISOString(),
+            event,
+            detail: JSON.parse(redact(JSON.stringify(detail))),
+        };
+        appendFileSync(LOG_FILE, `${JSON.stringify(payload)}\n`, { encoding: 'utf8', mode: 0o600 });
+    } catch {
+        // Diagnostics must never make a user command fail.
+    }
+}
+
+function redact(value) {
+    return String(value)
+        .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
+        .replace(/("(?:accessToken|refreshToken|password|token|code)"\s*:\s*")[^"]+"/gi, '$1[REDACTED]"')
+        .replace(/\b[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}\b/g, '[PAIRING-CODE-REDACTED]');
+}
+
+function sanitizeArguments(values) {
+    const sensitive = new Set(['--password', '--token', '--access-token', '--refresh-token', '--code']);
+    return values.map((value, index) => {
+        const previous = String(values[index - 1] || '').toLowerCase();
+        if (sensitive.has(previous)) return '[REDACTED]';
+        if (/^--(?:password|token|access-token|refresh-token|code)=/i.test(value)) {
+            return `${String(value).split('=')[0]}=[REDACTED]`;
+        }
+        return redact(value);
+    });
+}

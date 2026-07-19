@@ -3,6 +3,7 @@ param(
     [string]$Server = "http://localhost:8080",
     [string]$DownloadBase = "",
     [string]$SourceRoot = "",
+    [string]$PayloadDir = "",
     [string]$InstallDir = "",
     [string]$LogFile = "",
     [switch]$NoNodeInstall,
@@ -13,10 +14,20 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$installDir = if ($InstallDir) { $InstallDir } else { Join-Path $env:LOCALAPPDATA "VERDICT CLI" }
+$logDir = Join-Path $env:LOCALAPPDATA "VERDICT\logs"
+if (-not $LogFile) {
+    $LogFile = Join-Path $logDir ("installer-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
+}
+New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+
 # ── Logging ──────────────────────────────────────────────────────────
 $script:logLines = @()
 function Write-Log([string]$Message) {
-    $script:logLines += "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $Message"
+    $line = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $Message"
+    $script:logLines += $line
+    Add-Content -LiteralPath $LogFile -Value $line -Encoding UTF8
 }
 function Write-Step([string]$Message) {
     Write-Host "`n  $Message" -ForegroundColor Cyan
@@ -31,19 +42,34 @@ function Write-Error([string]$Message) {
     Write-Log "ERROR: $Message"
 }
 function Save-Log {
-    if ($LogFile) {
-        $dir = Split-Path -Parent $LogFile
-        if ($dir) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    if (-not (Test-Path -LiteralPath $LogFile)) {
         $script:logLines -join "`n" | Out-File -FilePath $LogFile -Encoding UTF8
     }
 }
 
-$installDir = if ($InstallDir) { $InstallDir } else { Join-Path $env:LOCALAPPDATA "VERDICT CLI" }
 $exeFile = Join-Path $installDir "verdict.exe"
 $mjsFile = Join-Path $installDir "verdict.mjs"
 $launcherFile = Join-Path $installDir "verdict.cmd"
 $shaFile = Join-Path $installDir "verdict.exe.sha256"
 $uninstallerFile = Join-Path $installDir "uninstall-verdict.ps1"
+
+trap {
+    $message = $_.Exception.Message
+    Write-Log "FATAL: $message"
+    Write-Log "POSITION: $($_.InvocationInfo.PositionMessage)"
+    Write-Host ""
+    Write-Host "  VERDICT CLI INSTALLATION FAILED" -ForegroundColor Red
+    Write-Host "  $message" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  A complete log was saved to:" -ForegroundColor Yellow
+    Write-Host "  $LogFile" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  You can send that log when asking for support." -ForegroundColor DarkGray
+    if (-not $Quiet) {
+        Read-Host "Press Enter to close" | Out-Null
+    }
+    exit 1
+}
 
 # ── SHA-256 verification ─────────────────────────────────────────────
 function Test-Checksum([string]$FilePath, [string]$ExpectedHash) {
@@ -131,6 +157,27 @@ if ($DownloadBase) {
     try {
         Invoke-WebRequest "$base/README.txt" -UseBasicParsing -OutFile (Join-Path $installDir "README.txt") -ErrorAction SilentlyContinue
     } catch { Write-Result "README.txt not available (non-fatal)." }
+} elseif ($PayloadDir) {
+    $exeSource = Join-Path $PayloadDir "verdict.exe"
+    $shaSource = Join-Path $PayloadDir "verdict.exe.sha256"
+    $readmeSource = Join-Path $PayloadDir "README.txt"
+    if (-not (Test-Path $exeSource)) {
+        throw "The Windows installer payload is missing verdict.exe."
+    }
+    Write-Step "Installing the packaged Windows executable..."
+    Copy-Item $exeSource $exeFile -Force
+    if (Test-Path $shaSource) {
+        Copy-Item $shaSource $shaFile -Force
+        $verifiedSha = Read-Checksum $shaFile
+        if ($verifiedSha -and -not (Test-Checksum $exeFile $verifiedSha)) {
+            throw "SHA-256 verification failed. The packaged executable may be corrupted."
+        }
+    }
+    if (Test-Path $readmeSource) {
+        Copy-Item $readmeSource (Join-Path $installDir "README.txt") -Force
+    }
+    $hasExe = $true
+    Write-Result "Packaged verdict.exe verified."
 } elseif ($SourceRoot) {
     # Source install — prefer exe over mjs
     $exeSource = Join-Path $SourceRoot "dist\verdict.exe"
@@ -161,7 +208,7 @@ if ($DownloadBase) {
         Copy-Item $readmeSource (Join-Path $installDir "README.txt") -Force
     }
 } else {
-    throw "The installer needs either DownloadBase or SourceRoot."
+    throw "The installer needs DownloadBase, PayloadDir, or SourceRoot."
 }
 
 # ── Phase 2: Ensure Node.js (only needed for MJS) ────────────────────
@@ -186,7 +233,6 @@ if (-not $hasExe) {
     Write-Step "Using $(& $nodePath --version) from $nodePath"
 }
 
-New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 Write-Step "Installing into $installDir"
 
 # ── Phase 3: Create launcher ─────────────────────────────────────────
@@ -217,12 +263,12 @@ $nextPath = (($userPath -split ";" | Where-Object { $_ -and $_.TrimEnd("\") -ine
 [Environment]::SetEnvironmentVariable("Path", $nextPath, "User")
 # Broadcast change so open terminals see the removal
 try {
-    $user32 = Add-Type -MemberDefinition @'
+    $user32 = Add-Type -MemberDefinition @"
 [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
 public static extern IntPtr SendMessageTimeout(
     IntPtr hWnd, uint Msg, IntPtr wParam, string lParam,
     uint fuFlags, uint uTimeout, out IntPtr lpdwResult);
-'@ -Name "User32Uninstall" -Namespace "Win32" -PassThru
+"@ -Name "User32Uninstall" -Namespace "Win32" -PassThru
     $HWND_BROADCAST = [IntPtr] 0xFFFF
     $WM_SETTINGCHANGE = 0x001A
     $SMTO_ABORTIFHUNG = 0x0002
@@ -301,9 +347,7 @@ Write-Host "  Next: open VERDICT Profile, generate a pairing code, then run:" -F
 Write-Host "        verdict connect ABCD-EFGH" -ForegroundColor White
 Write-Host ""
 Write-Host "  New terminals can use verdict immediately." -ForegroundColor DarkGray
-if ($LogFile) {
-    Write-Host "  Log:     $LogFile" -ForegroundColor DarkGray
-}
+Write-Host "  Log:     $LogFile" -ForegroundColor DarkGray
 if (-not $Quiet) {
     Read-Host "Press Enter to close" | Out-Null
 }
