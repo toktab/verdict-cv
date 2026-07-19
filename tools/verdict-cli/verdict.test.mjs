@@ -24,6 +24,13 @@ test('unknown commands use the stable argument exit code', async () => {
     );
 });
 
+test('version prints a readable Windows setup summary', async () => {
+    const { stdout } = await execute(process.execPath, [cli, 'version', '--no-color'], { env: isolatedEnvironment() });
+    assert.match(stdout, /VERDICT CLI 1\.1\.0/);
+    assert.match(stdout, /Profile: local/);
+    assert.match(stdout, /Server:\s+http:\/\/localhost:8080/);
+});
+
 test('health connects to the selected server and emits machine-readable JSON', async (context) => {
     const server = createServer((request, response) => {
         assert.equal(request.url, '/api/system/health');

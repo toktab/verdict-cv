@@ -44,6 +44,9 @@ if not "%RESULT%"=="0" (
     echo Installation log:
     echo   %LOG_DIR%\installer-latest.log
     echo [%date% %time%] Setup completed successfully.>>"%BOOT_LOG%"
+    echo.
+    echo Opening VERDICT CMD...
+    start "" "%LOCALAPPDATA%\VERDICT CLI\welcome-verdict.cmd"
 )
 
 echo.

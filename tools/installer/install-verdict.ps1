@@ -50,6 +50,7 @@ function Save-Log {
 $exeFile = Join-Path $installDir "verdict.exe"
 $mjsFile = Join-Path $installDir "verdict.mjs"
 $launcherFile = Join-Path $installDir "verdict.cmd"
+$welcomeFile = Join-Path $installDir "welcome-verdict.cmd"
 $shaFile = Join-Path $installDir "verdict.exe.sha256"
 $uninstallerFile = Join-Path $installDir "uninstall-verdict.ps1"
 
@@ -252,6 +253,35 @@ exit /b %errorlevel%
     Write-Result "Launcher configured to use verdict.mjs via Node.js."
 }
 
+@"
+@echo off
+title VERDICT CLI
+color 07
+echo ================================================================
+echo   VERDICT CLI
+echo   Confidence is not evidence.
+echo ================================================================
+echo.
+call "%~dp0verdict.cmd" version
+echo.
+echo Installed in:
+echo   %~dp0
+echo.
+echo Diagnostic logs:
+echo   %LOCALAPPDATA%\VERDICT\logs
+echo.
+echo Next:
+echo   1. Open Profile on the VERDICT website.
+echo   2. Generate a one-time CMD pairing code.
+echo   3. Run the displayed verdict connect command here.
+echo.
+echo Useful commands: verdict help, verdict doctor, verdict logs open
+echo ================================================================
+echo.
+cmd.exe /k
+"@ | Set-Content -Path $welcomeFile -Encoding ASCII
+Write-Result "Welcome terminal configured."
+
 # ── Phase 4: Create uninstaller ──────────────────────────────────────
 @'
 [CmdletBinding()]
@@ -322,8 +352,7 @@ if (-not $NoStartMenu) {
     New-Item -ItemType Directory -Path $startMenu -Force | Out-Null
     $shell = New-Object -ComObject WScript.Shell
     $shortcut = $shell.CreateShortcut((Join-Path $startMenu "VERDICT CLI.lnk"))
-    $shortcut.TargetPath = $env:ComSpec
-    $shortcut.Arguments = "/k `"`"$launcherFile`" help`""
+    $shortcut.TargetPath = $welcomeFile
     $shortcut.WorkingDirectory = $env:USERPROFILE
     $shortcut.Save()
     $removeShortcut = $shell.CreateShortcut((Join-Path $startMenu "Uninstall VERDICT CLI.lnk"))

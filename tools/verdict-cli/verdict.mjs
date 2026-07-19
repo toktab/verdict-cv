@@ -442,7 +442,11 @@ async function batchCommand(parts) {
 }
 
 function versionCommand() {
-    output({ cliVersion: VERSION, profile: profileName, server });
+    const details = { cliVersion: VERSION, profile: profileName, server };
+    if (['json', 'jsonl', 'csv', 'quiet'].includes(outputFormat)) return output(details);
+    console.log(`${paint('VERDICT CLI', 'red')} ${VERSION}`);
+    console.log(`Profile: ${profileName}`);
+    console.log(`Server:  ${server}`);
 }
 
 function openWebsite(parts) {
