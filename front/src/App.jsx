@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Activity, ArrowRight, ChevronDown, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, RefreshCcw, User, UserPlus, X } from 'lucide-react';
 import IntroAnimation from './IntroAnimation';
 import { LanguageContext, translate, useLanguage } from './i18n';
-import { apiMe, apiLogout, apiListMessages, apiListProjects, apiRealtimeUrl, apiUpdateNotificationPreferences, javaApi, normaliseProject, normaliseUser } from './api';
+import { apiCreateRealtimeTicket, apiMe, apiLogout, apiListMessages, apiListProjects, apiRealtimeUrl, apiUpdateNotificationPreferences, javaApi, normaliseProject, normaliseUser } from './api';
 import { messageBelongsTo, readMessages } from './messageStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { DialogKeyboardManager } from './components/DialogKeyboardManager';
@@ -36,9 +36,10 @@ const ProjectSettingsPage = lazyNamed(() => import('./pages/projects/ProjectSett
 const ProjectTeamPage = lazyNamed(() => import('./pages/projects/ProjectTeamPage'), 'ProjectTeamPage');
 const ProjectsPage = lazyNamed(() => import('./pages/projects/ProjectsPage'), 'ProjectsPage');
 const SignalTracePage = lazyNamed(() => import('./pages/projects/SignalTracePage'), 'SignalTracePage');
+const SignalTraceReportPage = lazyNamed(() => import('./pages/projects/SignalTraceReportPage'), 'SignalTraceReportPage');
 
 const MAX_DOCUMENT_UPLOAD_BYTES = 8 * 1024 * 1024;
-const PROJECT_DATA_ROUTES = new Set(['projectDetail', 'projectSettings', 'projectTeam', 'addCandidate', 'candidateDetail', 'candidateReport', 'candidateProfile', 'signalTrace']);
+const PROJECT_DATA_ROUTES = new Set(['projectDetail', 'projectSettings', 'projectTeam', 'addCandidate', 'candidateDetail', 'candidateReport', 'candidateProfile', 'signalTrace', 'signalTraceReport']);
 
 const api = {
     telemetry: async (payload) => fetch('/api/telemetry', {
@@ -229,21 +230,31 @@ function App() {
 
     useEffect(() => {
         if (!userToken || typeof EventSource === 'undefined') return undefined;
-        const source = new EventSource(apiRealtimeUrl(userToken));
-        source.addEventListener('project', () => {
-            loadersRef.current.loadProjects({ silent: true });
-            window.dispatchEvent(new Event('verdictProjectsChanged'));
-        });
-        source.addEventListener('message', () => {
-            window.dispatchEvent(new Event('verdictMessagesChanged'));
-        });
-        source.addEventListener('audit', (event) => {
-            window.dispatchEvent(new CustomEvent('verdictAuditChanged', { detail: JSON.parse(event.data || '{}') }));
-        });
-        source.onerror = () => {
-            window.dispatchEvent(new Event('verdictRealtimeDisconnected'));
+        let source;
+        let cancelled = false;
+        apiCreateRealtimeTicket(userToken)
+            .then(({ ticket }) => {
+                if (cancelled) return;
+                source = new EventSource(apiRealtimeUrl(ticket));
+                source.addEventListener('project', () => {
+                    loadersRef.current.loadProjects({ silent: true });
+                    window.dispatchEvent(new Event('verdictProjectsChanged'));
+                });
+                source.addEventListener('message', () => {
+                    window.dispatchEvent(new Event('verdictMessagesChanged'));
+                });
+                source.addEventListener('audit', (event) => {
+                    window.dispatchEvent(new CustomEvent('verdictAuditChanged', { detail: JSON.parse(event.data || '{}') }));
+                });
+                source.onerror = () => {
+                    window.dispatchEvent(new Event('verdictRealtimeDisconnected'));
+                };
+            })
+            .catch(() => window.dispatchEvent(new Event('verdictRealtimeDisconnected')));
+        return () => {
+            cancelled = true;
+            source?.close();
         };
-        return () => source.close();
     }, [userToken]);
 
     useEffect(() => {
@@ -548,6 +559,8 @@ function App() {
         content = <CandidateProfilePage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} />;
     } else if (route === 'signalTrace') {
         content = <SignalTracePage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} onProjectsChange={loadProjects} />;
+    } else if (route === 'signalTraceReport') {
+        content = <SignalTraceReportPage Header={AppHeader} Metric={Metric} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} projects={projects} projectsLoading={projectsLoading} />;
     } else if (route === 'auditDetail') {
         content = <AuditDetailPage Header={AppHeader} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} audit={detailAudit} loading={detailLoading} error={error} onRetry={() => loadAuditDetail(detailAuditId)} />;
     } else if (route === 'auditProfile') {

@@ -115,8 +115,8 @@ export async function apiGetProject(id, token) {
     return get(`/projects/${id}`, token);
 }
 
-export async function apiCreateProject({ title, department, location, description, requirements, state, status }, token) {
-    return post('/projects', { title, department, location, description, requirements, state, status }, token);
+export async function apiCreateProject({ title, department, location, description, requirements, rubric, state, status }, token) {
+    return post('/projects', { title, department, location, description, requirements, rubric, state, status }, token);
 }
 
 export async function apiImportJobPostings(token) {
@@ -215,6 +215,10 @@ export async function apiRunCandidateOsint(projectId, candidateId, { state, chec
     return post(`/projects/${projectId}/candidates/${candidateId}/osint/run`, { state, checks: checks || [], consent }, token);
 }
 
+export async function apiGetLatestCandidateOsint(projectId, candidateId, token) {
+    return get(`/projects/${projectId}/candidates/${candidateId}/osint/latest`, token);
+}
+
 export async function apiListProjectInvites(projectId, token) {
     return get(`/projects/${projectId}/invites`, token);
 }
@@ -250,8 +254,12 @@ export async function apiListMessagesPage({ page = 0, size = 25, search = '' } =
     return { ...result, items: (result.items || []).map(normaliseMessage) };
 }
 
-export function apiRealtimeUrl(token) {
-    return `${BASE}/realtime?token=${encodeURIComponent(token || '')}`;
+export async function apiCreateRealtimeTicket(token) {
+    return post('/realtime/ticket', {}, token);
+}
+
+export function apiRealtimeUrl(ticket) {
+    return `${BASE}/realtime?ticket=${encodeURIComponent(ticket || '')}`;
 }
 
 export async function apiSendMessage({ to, subject, body, replyToMessageId, forwardedFromMessageId, candidateAttachments = [] }, token) {
@@ -285,8 +293,8 @@ export async function apiVoteCandidate(projectId, candidateId, { action, score }
     return normaliseWorkflow(await post(`/projects/${projectId}/candidates/${candidateId}/votes`, { action, score }, token));
 }
 
-export async function apiUpdateCandidateStatus(projectId, candidateId, { status }, token) {
-    return normaliseWorkflow(await patch(`/projects/${projectId}/candidates/${candidateId}/status`, { status }, token));
+export async function apiUpdateCandidateStatus(projectId, candidateId, { status, reason = '' }, token) {
+    return normaliseWorkflow(await patch(`/projects/${projectId}/candidates/${candidateId}/status`, { status, reason }, token));
 }
 
 export const javaApi = {
@@ -409,11 +417,13 @@ export function normaliseProject(raw) {
         location: raw.location || '',
         description: raw.description || '',
         requirements: raw.requirements || [],
+        rubric: raw.rubric || {},
         state: raw.state || 'WAR State',
         status: raw.status || 'Screening',
         ownerId: raw.owner_id || raw.ownerId || null,
         myRole: raw.my_role || raw.myRole || '',
         myPermissions: raw.my_permissions || raw.myPermissions || [],
+        settings: raw.settings || {},
         openedAt: raw.opened_at ? raw.opened_at.slice(0, 10) : (raw.created_at ? raw.created_at.slice(0, 10) : ''),
         candidates: (raw.candidates || []).map(normaliseCandidate),
     };
@@ -427,6 +437,10 @@ export function normaliseCandidate(raw) {
         role: raw.role || '',
         score: raw.score || 0,
         match: raw.match || 0,
+        fitScore: raw.fit_score ?? raw.fitScore ?? raw.match ?? 0,
+        evidenceScore: raw.evidence_score ?? raw.evidenceScore ?? 0,
+        githubMatchScore: raw.github_match_score ?? raw.githubMatchScore ?? 0,
+        reviewerScore: raw.reviewer_score ?? raw.reviewerScore ?? 0,
         risk: raw.risk || 'Low',
         state: raw.state || 'Pending',
         osint: raw.osint || 'Not started',
@@ -454,6 +468,27 @@ export function normaliseCandidate(raw) {
         summary: raw.summary || '',
         claims: raw.claims || [],
         auditPhraseMatches: raw.audit_phrase_matches || raw.auditPhraseMatches || [],
+        analysisRuns: (raw.analysis_runs || raw.analysisRuns || []).map((run) => ({
+            id: run.id,
+            stateId: run.state_id || run.stateId || '',
+            engine: run.engine || '',
+            promptVersion: run.prompt_version || run.promptVersion || '',
+            resumeFingerprint: run.resume_fingerprint || run.resumeFingerprint || '',
+            templateFingerprint: run.template_fingerprint || run.templateFingerprint || '',
+            recommendationScore: run.recommendation_score ?? run.recommendationScore ?? 0,
+            fitScore: run.fit_score ?? run.fitScore ?? 0,
+            evidenceScore: run.evidence_score ?? run.evidenceScore ?? 0,
+            githubMatchScore: run.github_match_score ?? run.githubMatchScore ?? 0,
+            reviewerScore: run.reviewer_score ?? run.reviewerScore ?? 0,
+            supported: run.supported || 0,
+            stretched: run.stretched || 0,
+            unsupported: run.unsupported || 0,
+            promptTokens: run.prompt_tokens || run.promptTokens || 0,
+            completionTokens: run.completion_tokens || run.completionTokens || 0,
+            estimatedCostUsd: run.estimated_cost_usd || run.estimatedCostUsd || 0,
+            triggeredBy: run.triggered_by || run.triggeredBy || 'System',
+            createdAt: run.created_at || run.createdAt || '',
+        })),
     };
 }
 
