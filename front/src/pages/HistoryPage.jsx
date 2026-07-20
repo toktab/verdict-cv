@@ -161,27 +161,44 @@ function HistorySkeleton() {
 }
 
 function buildHistoryRows(audits, projects) {
-    const candidateRows = projects.flatMap((project) => (project.candidates || []).map((candidate) => ({
-        id: `candidate-${project.id}-${candidate.id}`,
-        kind: 'candidate',
-        source: 'Project check',
-        projectId: project.id,
-        candidateId: candidate.id,
-        projectTitle: project.title || 'Untitled project',
-        candidateName: candidate.name || 'Unnamed candidate',
-        role: candidate.role || project.title || 'Candidate',
-        title: `${candidate.name || 'Candidate'} checked for ${project.title || 'project'}`,
-        score: candidate.score || 0,
-        supported: candidate.supported || 0,
-        stretched: candidate.stretched || 0,
-        unsupported: candidate.unsupported || 0,
-        state: candidate.state || project.state || 'Pending',
-        status: candidate.osint || project.status || 'Saved',
-        createdAt: candidate.submittedAt || project.openedAt || '',
-    })));
+    const candidateRows = projects.flatMap((project) => (project.candidates || []).flatMap((candidate) => {
+        const runs = candidate.analysisRuns?.length ? candidate.analysisRuns : [{
+            id: `legacy-${candidate.id}`,
+            recommendationScore: candidate.score,
+            fitScore: candidate.fitScore ?? candidate.match,
+            evidenceScore: candidate.evidenceScore,
+            supported: candidate.supported,
+            stretched: candidate.stretched,
+            unsupported: candidate.unsupported,
+            stateId: candidate.analysisState || candidate.state,
+            engine: candidate.analysisEngine,
+            createdAt: candidate.submittedAt || project.openedAt,
+        }];
+        return runs.map((run) => ({
+            id: `candidate-run-${run.id}`,
+            kind: 'candidate',
+            source: 'Candidate analysis',
+            projectId: project.id,
+            candidateId: candidate.id,
+            analysisRunId: run.id,
+            projectTitle: project.title || 'Untitled project',
+            candidateName: candidate.name || 'Unnamed candidate',
+            role: candidate.role || project.title || 'Candidate',
+            title: `${candidate.name || 'Candidate'} analyzed for ${project.title || 'project'}`,
+            score: run.recommendationScore || 0,
+            fitScore: run.fitScore || 0,
+            evidenceScore: run.evidenceScore || 0,
+            supported: run.supported || 0,
+            stretched: run.stretched || 0,
+            unsupported: run.unsupported || 0,
+            state: run.stateId || 'Pending',
+            status: run.engine || 'Saved',
+            createdAt: run.createdAt || '',
+        }));
+    }));
 
     const auditRows = audits.map((audit) => {
-        const match = findAuditCandidateMatch(audit, projects);
+        const match = findAuditContext(audit, projects);
         return {
             id: `audit-${audit.id}`,
             kind: 'audit',
@@ -206,7 +223,18 @@ function buildHistoryRows(audits, projects) {
     return [...auditRows, ...candidateRows].sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt));
 }
 
-function findAuditCandidateMatch(audit, projects) {
+function findAuditContext(audit, projects) {
+    const projectId = audit.projectId ?? audit.project_id;
+    const candidateId = audit.candidateId ?? audit.candidate_id;
+    if (projectId) {
+        const project = projects.find((row) => String(row.id) === String(projectId));
+        const candidate = project?.candidates?.find((row) => String(row.id) === String(candidateId));
+        if (project) return { project, candidate };
+    }
+    return findLegacyAuditCandidateMatch(audit, projects);
+}
+
+function findLegacyAuditCandidateMatch(audit, projects) {
     const haystack = `${audit.claimTitle || ''} ${audit.evidenceTitle || ''}`.toLowerCase();
     for (const project of projects) {
         for (const candidate of project.candidates || []) {

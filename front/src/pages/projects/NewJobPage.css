@@ -1,0 +1,58 @@
+.jobIdentityGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.jobRubricPanel {
+    border-color: #34383f;
+}
+
+.jobDescriptionEditor textarea {
+    min-height: 250px;
+    max-height: 520px;
+    resize: vertical;
+}
+
+.jobRubricGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.jobRubricGrid label {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    color: #d9dde4;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.jobRubricGrid textarea {
+    width: 100%;
+    min-height: 170px;
+    resize: vertical;
+    border: 1px solid #343941;
+    background: #0b0d10;
+    color: #f4f5f7;
+}
+
+.jobRubricGrid label:first-child textarea {
+    border-top-color: #c53b42;
+}
+
+@media (max-width: 820px) {
+    .jobIdentityGrid,
+    .jobRubricGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .jobDescriptionEditor textarea {
+        min-height: 210px;
+    }
+
+    .jobRubricGrid textarea {
+        min-height: 145px;
+    }
+}

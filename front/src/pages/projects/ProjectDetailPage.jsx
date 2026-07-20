@@ -236,7 +236,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                 </section>
                 <section className="detailMeta">
                     <Metric label={t('candidates')} value={project.candidates.length} />
-                    <Metric label={t('averageScore')} value={`${totals.averageScore}%`} />
+                    <Metric label="Average recommendation" value={`${totals.averageScore}%`} />
                     <Metric label={t('interviewReady')} value={`${totals.shortlistRate}%`} />
                     <Metric label={t('highRisk')} value={totals.highRisk} />
                     <Metric label={t('state')} value={project.state} />
@@ -250,7 +250,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                             <strong>{best?.name || 'No candidate yet'}</strong>
                             <b className={best?.score >= 80 ? 'scoreGood' : best?.score >= 55 ? 'scoreWarn' : 'scoreBad'}>{best?.score || 0}%</b>
                         </div>
-                        <p>{best ? `${best.name} leads this role with ${best.supported} supported claims, ${best.match}% job match, and ${best.risk.toLowerCase()} risk.` : 'Add candidate CVs to generate a ranked shortlist.'}</p>
+                        <p>{best ? `${best.name} leads this role with a ${best.score}% recommendation, ${best.match}% ATS coverage, and ${best.risk.toLowerCase()} risk.` : 'Add candidate CVs to generate a ranked shortlist.'}</p>
                         <button className="secondary" disabled={!best} onClick={() => best && navigateTo(setRoute, 'candidateDetail', project.id, best.id)}>Open leading profile</button>
                     </article>
                     <article className="projectFunnelPanel">
@@ -305,7 +305,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                 </section>
                 <section className="projectAnalyticsGrid" aria-label="Project review analytics">
                     <article className="projectAnalyticsPanel">
-                        <div className="projectAnalyticsHead"><div><span className="eyebrow">Score distribution</span><h2>Shortlist quality bands</h2></div><strong>{project.candidates.length}</strong></div>
+                        <div className="projectAnalyticsHead"><div><span className="eyebrow">Recommendation distribution</span><h2>Shortlist quality bands</h2></div><strong>{project.candidates.length}</strong></div>
                         <div className="scoreHistogram">
                             {scoreBuckets.map((bucket) => (
                                 <div key={bucket.label}>
@@ -367,7 +367,7 @@ export function ProjectDetailPage({ Header, Metric, navigateTo, setRoute, user, 
                     {comparedCandidates.length >= 2 ? (
                         <div className="candidateCompareTable" role="table" aria-label="Candidate comparison">
                             <div className="candidateCompareRow heading" role="row">
-                                <span>Candidate</span><span>Score</span><span>Match</span><span>Risk</span><span>Supported</span><span>Stretched</span><span>Unsupported</span><span>Decision</span>
+                                <span>Candidate</span><span>Recommendation</span><span>ATS coverage</span><span>Risk</span><span>Supported</span><span>Stretched</span><span>Unsupported</span><span>Decision</span>
                             </div>
                             {comparedCandidates.map((candidate) => (
                                 <button className="candidateCompareRow" role="row" type="button" key={candidate.id} onClick={() => navigateTo(setRoute, 'candidateDetail', project.id, candidate.id)}>
@@ -524,7 +524,7 @@ function projectRiskClusters(candidates) {
         { label: 'Unsupported claims', value: unsupported, text: 'Claims with no clear evidence in uploaded CVs.', tone: unsupported > 0 ? 'bad' : 'good' },
         { label: 'Stretched claims', value: stretched, text: 'Claims that need stronger project, timeline, or source proof.', tone: stretched > 0 ? 'warn' : 'good' },
         { label: 'OSINT gaps', value: osintMissing, text: 'Candidates without completed external public-source evidence.', tone: osintMissing > 0 ? 'warn' : 'good' },
-        { label: 'Low job match', value: lowMatch, text: 'Candidates below the role-fit threshold for this project.', tone: lowMatch > 0 ? 'bad' : 'good' },
+        { label: 'Low ATS coverage', value: lowMatch, text: 'Candidates below the configured requirement-keyword threshold.', tone: lowMatch > 0 ? 'bad' : 'good' },
     ];
 }
 
@@ -606,7 +606,7 @@ function comparisonDecision(candidate) {
 
 function downloadCandidateComparison(project, candidates) {
     const rows = [
-        ['Candidate', 'Role', 'Score', 'Match', 'Risk', 'Supported', 'Stretched', 'Unsupported', 'OSINT', 'Memory', 'Decision'],
+        ['Candidate', 'Role', 'Recommendation', 'ATS Coverage', 'Risk', 'Supported', 'Stretched', 'Unsupported', 'OSINT', 'Memory', 'Decision'],
         ...candidates.map((candidate) => [candidate.name, candidate.role, candidate.score, candidate.match, candidate.risk, candidate.supported, candidate.stretched, candidate.unsupported, candidate.osint, candidate.memory, comparisonDecision(candidate)]),
     ];
     const csv = rows.map((row) => row.map(csvCell).join(',')).join('\r\n');

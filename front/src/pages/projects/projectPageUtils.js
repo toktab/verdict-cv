@@ -26,7 +26,7 @@ export function findProjectFromPath(projects) {
 }
 
 export function findCandidateFromPath(projects) {
-    const match = window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)(?:\/(?:signaltrace|profile|report))?$/);
+    const match = window.location.pathname.match(/^\/projects\/([^/]+)\/candidates\/([^/]+)(?:\/(?:signaltrace(?:\/report)?|profile|report))?$/);
     const project = (projects || []).find((item) => sameId(item.id, match?.[1]));
     const candidate = project?.candidates.find((item) => sameId(item.id, match?.[2]));
     return { project, candidate };

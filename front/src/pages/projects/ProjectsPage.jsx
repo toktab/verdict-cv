@@ -175,12 +175,13 @@ export function ProjectsPage({ Header, Metric, navigateTo, setRoute, user, userT
                 </section>
                 {!projectsLoading && <Pagination page={currentPage} totalPages={pageCount(filteredProjects)} onPage={setPage} t={t} />}
             </main>
-            {atsOpen && <AtsTemplateModal projectId={projects[0]?.id} userToken={userToken} onClose={() => setAtsOpen(false)} />}
+            {atsOpen && <AtsTemplateModal projects={projects} userToken={userToken} onClose={() => setAtsOpen(false)} />}
         </div>
     );
 }
 
-function AtsTemplateModal({ projectId, userToken, onClose }) {
+function AtsTemplateModal({ projects, userToken, onClose }) {
+    const [projectId, setProjectId] = useState(projects[0]?.id || '');
     const [templates, setTemplates] = useState(() => readAtsTemplates());
     const [activeId, setActiveId] = useState(() => readAtsTemplates()[0]?.id || defaultAtsTemplate().id);
     const [saveState, setSaveState] = useState('');
@@ -245,6 +246,13 @@ function AtsTemplateModal({ projectId, userToken, onClose }) {
                     </div>
                     <button type="button" onClick={onClose}><X size={16} /> Close</button>
                 </div>
+                <label className="atsProjectSelector">
+                    Project using this template
+                    <select value={projectId} onChange={(event) => setProjectId(event.target.value)}>
+                        <option value="">Select a project</option>
+                        {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+                    </select>
+                </label>
                 <aside className="atsTemplateRail">
                     <button className="primary" type="button" onClick={() => createTemplate()}><Plus size={16} /> New template</button>
                     {templates.map((template) => (

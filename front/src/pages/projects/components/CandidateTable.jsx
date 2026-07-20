@@ -32,8 +32,8 @@ export function CandidateTable({ project, setRoute, navigateTo }) {
             <div className="candidateTable">
                 <div className="candidateTableHead">
                     <span>{t('candidate')}</span>
-                    <span>{t('score')}</span>
-                    <span>{t('match')}</span>
+                    <span title="Strict CV and requirement analysis">Recommendation</span>
+                    <span title="Project requirement keywords mentioned in the CV">ATS coverage</span>
                     <span>{t('risk')}</span>
                     <span>{t('osint')}</span>
                     <span>{t('memory')}</span>
@@ -48,12 +48,12 @@ export function CandidateTable({ project, setRoute, navigateTo }) {
                                 <small>{candidate.role} / {t('submitted')} {formatShortDate(candidate.submittedAt)}</small>
                                 <small>Server status: {pipelineStatus}</small>
                             </span>
-                            <b className={scoreTone(candidate.score)}>{candidate.score}%</b>
-                            <span>{candidate.match}%</span>
-                            <span>{candidate.risk}</span>
-                            <span>{candidate.osint}</span>
-                            <span>{candidate.memory}</span>
-                            <span className={`auditStatusPill ${pipelineStatus.toLowerCase().replace(/\s+/g, '-')}`}>{pipelineStatus}</span>
+                            <b data-label="Recommendation" className={scoreTone(candidate.score)} title="Strict CV and requirement analysis">{candidate.score}%</b>
+                            <span data-label="ATS coverage" title="ATS keyword coverage; this is not independent proof">{candidate.match}%</span>
+                            <span data-label={t('risk')}>{candidate.risk}</span>
+                            <span data-label={t('osint')}>{candidate.osint}</span>
+                            <span data-label={t('memory')}>{candidate.memory}</span>
+                            <span data-label={t('status')} className={`auditStatusPill ${pipelineStatus.toLowerCase().replace(/\s+/g, '-')}`}>{pipelineStatus}</span>
                         </button>
                     );
                 })}
