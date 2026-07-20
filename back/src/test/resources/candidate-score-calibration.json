@@ -1,0 +1,22 @@
+[
+  {
+    "name": "strong alignment",
+    "statuses": ["SUPPORTED", "SUPPORTED", "SUPPORTED", "SUPPORTED"],
+    "expectedScore": 100
+  },
+  {
+    "name": "mixed review",
+    "statuses": ["SUPPORTED", "SUPPORTED", "STRETCHED", "STRETCHED", "UNSUPPORTED"],
+    "expectedScore": 56
+  },
+  {
+    "name": "weak alignment",
+    "statuses": ["STRETCHED", "UNSUPPORTED", "UNSUPPORTED", "UNSUPPORTED"],
+    "expectedScore": 10
+  },
+  {
+    "name": "non-claims do not inflate score",
+    "statuses": ["NOT_A_CLAIM", "GAP"],
+    "expectedScore": 0
+  }
+]

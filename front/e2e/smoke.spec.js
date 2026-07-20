@@ -10,8 +10,22 @@ function projectFixture(overrides = {}) {
         status: 'Screening',
         ownerId: 1,
         myRole: 'Head Admin',
-        myPermissions: ['canView', 'canInvite', 'canTeamManage', 'canAddNote', 'protectedAccount'],
-        candidates: [],
+        myPermissions: ['canView', 'canInvite', 'canTeamManage', 'canAddNote', 'canVote', 'canMarkOnCheck', 'canSetInterview', 'canHire', 'canClose', 'protectedAccount'],
+        candidates: [{
+            id: 71,
+            name: 'Nino Backend',
+            role: 'Backend Engineer',
+            score: 82,
+            match: 78,
+            fit_score: 78,
+            evidence_score: 0,
+            github_match_score: 0,
+            reviewer_score: 0,
+            state: 'Unreviewed',
+            summary: 'Strong resume alignment awaiting independent evidence.',
+            claims: [['Java', 'Supported', 'CV mention only.']],
+            analysis_runs: [{ id: 1, state_id: 'strict-war-ai', fit_score: 78, evidence_score: 0, created_at: '2026-07-17T08:00:00Z' }],
+        }],
         ...overrides,
     };
 }
@@ -61,6 +75,10 @@ test.beforeEach(async ({ page }) => {
                     role: 'Analyst',
                 }),
             });
+            return;
+        }
+        if (path === '/api/realtime/ticket' && method === 'POST') {
+            await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: 'realtime-smoke-ticket', expiresAt: new Date(Date.now() + 300000).toISOString() }) });
             return;
         }
         if (path === '/api/auth/me/cmd-sessions' && method === 'GET') {
@@ -253,10 +271,26 @@ test('project creation persists through the API and opens the project workspace'
     await page.addInitScript(() => sessionStorage.setItem('verdictUserToken', 'smoke-token'));
     await page.goto('/projects/new');
     await page.getByPlaceholder('Backend Java Developer').fill('Security Platform Engineer');
-    await page.locator('main textarea').fill('Own secure Java APIs and PostgreSQL services.');
+    await page.locator('main .panel').first().locator('textarea').fill('Own secure Java APIs and PostgreSQL services.');
+    await page.getByText('Must-have requirements').locator('..').getByRole('textbox').fill('Java\nSpring Boot');
     await page.getByRole('button', { name: /create job project/i }).click();
     await expect(page).toHaveURL(/\/projects\/8$/);
     await expect(page.getByRole('heading', { name: 'Security Platform Engineer' })).toBeVisible();
+});
+
+test('candidate detail separates fit, evidence, and review and requires a status reason', async ({ page }) => {
+    await page.addInitScript(() => sessionStorage.setItem('verdictUserToken', 'smoke-token'));
+    await page.goto('/projects/7/candidates/71');
+    await expect(page.getByRole('heading', { name: 'Different scores answer different hiring questions.' })).toBeVisible();
+    await expect(page.getByText('ATS keyword coverage', { exact: true })).toBeVisible();
+    await expect(page.getByText('Verified evidence', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await page.getByRole('button', { name: /oninterview/i }).click();
+    await expect(page.getByRole('heading', { name: /move nino backend to oninterview/i })).toBeVisible();
+    await page.getByPlaceholder(/state the evidence/i).fill('Reviewer confirmed the screening evidence.');
+    const statusRequest = page.waitForRequest((request) => request.url().includes('/status') && request.method() === 'PATCH');
+    await page.getByRole('button', { name: /confirm oninterview/i }).click();
+    expect((await statusRequest).postDataJSON().reason).toBe('Reviewer confirmed the screening evidence.');
 });
 
 test('candidate intake posts CV text and confirms server analysis', async ({ page }) => {
@@ -305,7 +339,7 @@ test('profile shows CMD access details and confirms immediate revocation', async
     await expect(page.getByText('Office workstation')).toBeVisible();
     await expect(page.getByText('203.0.113.42')).toBeVisible();
     await expect(page.getByText('Active', { exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: /download installer/i })).toHaveAttribute('href', /\/api\/system\/cli\/installer$/);
+    await expect(page.getByRole('link', { name: /download windows setup/i })).toHaveAttribute('href', /\/api\/system\/cli\/files\/VERDICT-Setup-Windows-x64\.exe$/);
     await page.getByRole('button', { name: /generate pairing code/i }).click();
     await expect(page.getByText('ABCD-EFGH', { exact: true })).toBeVisible();
     await expect(page.getByText(/verdict connect ABCD-EFGH/)).toBeVisible();

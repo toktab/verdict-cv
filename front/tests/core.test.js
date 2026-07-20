@@ -3,13 +3,16 @@ import assert from 'node:assert/strict';
 import { routeFromPath, pathForRoute } from '../src/navigation.js';
 import { auditScoreLevel } from '../src/utils/auditScore.js';
 import { normaliseCandidate, normaliseProject, normaliseUser } from '../src/api.js';
+import { discoverCvPublicSources } from '../src/utils/publicSourceDiscovery.js';
 import { clearAdminToken, clearUserToken, readAdminToken, readUserToken, writeAdminToken, writeUserToken } from '../src/sessionAuth.js';
 
 test('direct routes resolve to the expected application view', () => {
     assert.deepEqual(routeFromPath('/projects/12/candidates/9/report'), { route: 'candidateReport' });
+    assert.deepEqual(routeFromPath('/projects/12/candidates/9/signaltrace/report'), { route: 'signalTraceReport' });
     assert.deepEqual(routeFromPath('/audit/42/profile'), { route: 'auditProfile', auditId: 42 });
     assert.deepEqual(routeFromPath('/does-not-exist'), { route: 'notFound', pathname: '/does-not-exist' });
     assert.equal(pathForRoute('candidateDetail', 12, 9), '/projects/12/candidates/9');
+    assert.equal(pathForRoute('signalTraceReport', 12, 9), '/projects/12/candidates/9/signaltrace/report');
 });
 
 test('audit scores map to bounded ten-level explanations', () => {
@@ -168,16 +171,39 @@ test('project and audit route failures expose retry actions without clearing sav
     assert.match(auditSource, /Profiling mode failed to load\./);
 });
 
-test('SignalTrace exposes backend provenance, check time, and retry recovery', async () => {
-    const [pageSource, translations] = await Promise.all([
+test('SignalTrace runs a persisted investigation and opens a dedicated evidence report', async () => {
+    const [pageSource, reportSource, translations] = await Promise.all([
         import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/projects/SignalTracePage.jsx', import.meta.url), 'utf8')),
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/projects/SignalTraceReportPage.jsx', import.meta.url), 'utf8')),
         import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/i18n.jsx', import.meta.url), 'utf8')),
     ]);
-    assert.match(pageSource, /Open public source/);
-    assert.match(pageSource, /checked_at/);
-    assert.match(pageSource, /onClick=\{runOsintCheck\}/);
-    assert.match(pageSource, /Not checked/);
+    assert.match(pageSource, /Check information/);
+    assert.match(pageSource, /'signalTraceReport'/);
+    assert.match(pageSource, /consentAccepted/);
+    assert.match(reportSource, /apiGetLatestCandidateOsint/);
+    assert.match(reportSource, /repository_depth_score/);
+    assert.match(reportSource, /Language bytes across recent public repositories/);
+    assert.match(reportSource, /README evidence/);
+    assert.match(reportSource, /CV versus public evidence/);
+    assert.match(reportSource, /Latest public projects/);
     assert.doesNotMatch(translations, /visual only until the backend SignalTrace engine is connected/);
+});
+
+test('SignalTrace preflight detects and classifies public links in CV text', () => {
+    const sources = discoverCvPublicSources([
+        'GitHub: github.com/octocat.',
+        'LinkedIn: linkedin.com/in/example',
+        'Duplicate: https://github.com/octocat.',
+    ].join('\n'));
+
+    assert.equal(sources.length, 2);
+    assert.deepEqual(sources[0], {
+        url: 'https://github.com/octocat',
+        platform: 'GitHub',
+        username: 'octocat',
+        kind: 'github',
+    });
+    assert.equal(sources[1].platform, 'LinkedIn');
 });
 
 test('candidate match report includes requirement coverage and independent exports', async () => {
@@ -249,7 +275,7 @@ test('project and candidate pages expose decision-grade analytics', async () => 
         import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/projects/ProjectDetailPage.jsx', import.meta.url), 'utf8')),
         import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/projects/CandidateDetailPage.jsx', import.meta.url), 'utf8')),
     ]);
-    assert.match(projectSource, /Score distribution/);
+    assert.match(projectSource, /Recommendation distribution/);
     assert.match(projectSource, /Review workload/);
     assert.match(projectSource, /Requirement trends/);
     assert.match(projectSource, /function projectScoreDistribution/);
@@ -257,6 +283,49 @@ test('project and candidate pages expose decision-grade analytics', async () => 
     assert.match(candidateSource, /Technology matrix/);
     assert.match(candidateSource, /function buildTechnologyMatrix/);
     assert.match(candidateSource, /Public evidence/);
+    assert.match(candidateSource, /apiGetLatestCandidateOsint/);
+    assert.match(candidateSource, /function GithubJobMatchBand/);
+    assert.match(candidateSource, /GitHub evidence for this job/);
+    assert.match(candidateSource, /View GitHub evidence/);
+    assert.match(candidateSource, /Decision dimensions/);
+    assert.match(candidateSource, /ATS keyword coverage/);
+    assert.match(candidateSource, /Verified evidence/);
+    assert.match(candidateSource, /Recent immutable runs/);
+    assert.match(candidateSource, /Confirm workflow decision/);
+    assert.match(candidateSource, /reason: statusReason\.trim\(\)/);
+});
+
+test('candidate scoring distinguishes keyword coverage from recommendation and reuses saved SignalTrace evidence', async () => {
+    const source = await import('node:fs/promises')
+        .then((fs) => fs.readFile(new URL('../src/pages/projects/CandidateDetailPage.jsx', import.meta.url), 'utf8'));
+
+    assert.match(source, /ATS keyword coverage/);
+    assert.match(source, /keyword coverage is not a/);
+    assert.match(source, /strict analysis recommendation/);
+    assert.match(source, /report\?\.github_job_match \|\| report\?\.githubJobMatch/);
+    assert.doesNotMatch(source, /label: 'Resume fit'/);
+});
+
+test('project creation sends a structured weighted hiring rubric', async () => {
+    const [pageSource, apiSource] = await Promise.all([
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/pages/projects/NewJobPage.jsx', import.meta.url), 'utf8')),
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/api.js', import.meta.url), 'utf8')),
+    ]);
+    assert.match(pageSource, /Decision rubric/);
+    assert.match(pageSource, /mustHaveRows\.map\(\(label\) => \(\{ label, weight: 3 \}\)\)/);
+    assert.match(pageSource, /niceToHaveRows\.map\(\(label\) => \(\{ label, weight: 1 \}\)\)/);
+    assert.match(apiSource, /requirements, rubric, state, status/);
+});
+
+test('realtime uses a scoped ticket rather than the login token in the stream URL', async () => {
+    const [appSource, apiSource] = await Promise.all([
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8')),
+        import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/api.js', import.meta.url), 'utf8')),
+    ]);
+    assert.match(appSource, /apiCreateRealtimeTicket\(userToken\)/);
+    assert.match(apiSource, /post\('\/realtime\/ticket'/);
+    assert.match(apiSource, /realtime\?ticket=/);
+    assert.doesNotMatch(apiSource, /realtime\?token=/);
 });
 
 function memoryStorage(initial = {}) {

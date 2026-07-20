@@ -57,6 +57,27 @@ class LlmAuditAnalyzerSchemaTest {
     }
 
     @Test
+    void missingVerdictRowsDoNotInventUnsupportedClaims() {
+        String response = """
+                {
+                  "choices": [{
+                    "message": {
+                      "content": "{\\"verdicts\\":[{\\"sentenceIndex\\":0,\\"status\\":\\"SUPPORTED\\",\\"confidence\\":\\"HIGH\\",\\"explanation\\":\\"Evidence matches.\\",\\"evidencePointer\\":\\"Java API\\"}]}"
+                    }
+                  }]
+                }
+                """;
+
+        List<AnalyzedVerdict> verdicts = analyzer.parse(
+                response,
+                List.of("Built Java API.", "Worked with Spring Boot."));
+
+        assertEquals(VerdictStatus.SUPPORTED, verdicts.get(0).status());
+        assertEquals(VerdictStatus.NOT_A_CLAIM, verdicts.get(1).status());
+        assertEquals(Confidence.LOW, verdicts.get(1).confidence());
+    }
+
+    @Test
     void extractsTokensAndEstimatesCostFromUsageBlock() {
         String response = """
                 {

@@ -28,6 +28,9 @@ class ServiceLayerBehaviorTest {
     @Autowired
     private AuditRepository auditRepository;
 
+    @Autowired
+    private AuditMapper auditMapper;
+
     @Test
     void authSessionLoginAndMeReturnsRegisteredUser() {
         RegisterRequest request = new RegisterRequest(
@@ -122,14 +125,15 @@ class ServiceLayerBehaviorTest {
         Audit overridden = auditService.overrideVerdict(audit.getId(), target.getId(), owner,
                 new VerdictOverrideRequest(VerdictStatus.SUPPORTED, "Reviewer verified this claim from a reference call."));
 
-        assertThat(overridden.getVerdicts())
-                .filteredOn(verdict -> verdict.getId().equals(target.getId()))
+        assertThat(target.getStatus()).as("original analyzer result remains immutable").isNotEqualTo(VerdictStatus.SUPPORTED);
+        assertThat(auditMapper.toResponse(overridden).verdicts())
+                .filteredOn(verdict -> verdict.id().equals(target.getId()))
                 .singleElement()
                 .satisfies(verdict -> {
-                    assertThat(verdict.getStatus()).isEqualTo(VerdictStatus.SUPPORTED);
-                    assertThat(verdict.getManualOverrideReason()).contains("Reviewer verified");
-                    assertThat(verdict.getPromptVersion()).isNotBlank();
-                    assertThat(verdict.getAnalyzerVersion()).isNotBlank();
+                    assertThat(verdict.status()).isEqualTo(VerdictStatus.SUPPORTED);
+                    assertThat(verdict.manualOverrideReason()).contains("Reviewer verified");
+                    assertThat(verdict.promptVersion()).isNotBlank();
+                    assertThat(verdict.analyzerVersion()).isNotBlank();
                 });
         assertThat(auditService.latestSnapshot(audit.getId(), owner).payloadJson()).contains("Reviewer verified");
     }

@@ -18,6 +18,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.toktab.brainhack.hiring.HiringCandidate;
+import dev.toktab.brainhack.hiring.HiringCandidateRepository;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
@@ -40,6 +42,9 @@ class HiringFlowTest {
 
     @Autowired
     ObjectMapper objectMapper;
+
+    @Autowired
+    HiringCandidateRepository candidateRepository;
 
     @Test
     void projectAndMessagePagesAreBoundedSearchableAndReportTotals() throws Exception {
@@ -440,6 +445,11 @@ class HiringFlowTest {
         JsonNode createdCandidate = objectMapper.readTree(created.getResponse().getContentAsString());
         long candidateId = createdCandidate.get("id").asLong();
         int strictScore = createdCandidate.get("score").asInt();
+        HiringCandidate persistedCandidate = candidateRepository.findById(candidateId).orElseThrow();
+        persistedCandidate.setEvidenceScore(64);
+        persistedCandidate.setGithubMatchScore(73);
+        persistedCandidate.setReviewerScore(80);
+        candidateRepository.saveAndFlush(persistedCandidate);
 
         MvcResult lightResult = mockMvc.perform(patch("/api/projects/" + projectId + "/candidates/" + candidateId + "/analysis-state")
                         .header("X-User-Token", token)
@@ -449,6 +459,9 @@ class HiringFlowTest {
                 .andExpect(jsonPath("$.analysis_state").value("light"))
                 .andExpect(jsonPath("$.initialized_analysis_states", hasItem("strict-war-ai")))
                 .andExpect(jsonPath("$.initialized_analysis_states", hasItem("light")))
+                .andExpect(jsonPath("$.evidence_score").value(64))
+                .andExpect(jsonPath("$.github_match_score").value(73))
+                .andExpect(jsonPath("$.reviewer_score").value(80))
                 .andReturn();
         int lightScore = objectMapper.readTree(lightResult.getResponse().getContentAsString()).get("score").asInt();
         org.assertj.core.api.Assertions.assertThat(lightScore).isGreaterThan(strictScore);
@@ -459,13 +472,29 @@ class HiringFlowTest {
                         .content("{\"state\":\"war\",\"initialize\":true}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.analysis_state").value("war"))
-                .andExpect(jsonPath("$.initialized_analysis_states", hasItem("war")));
+                .andExpect(jsonPath("$.initialized_analysis_states", hasItem("war")))
+                .andExpect(jsonPath("$.evidence_score").value(64))
+                .andExpect(jsonPath("$.github_match_score").value(73))
+                .andExpect(jsonPath("$.reviewer_score").value(80));
+
+        mockMvc.perform(patch("/api/projects/" + projectId + "/candidates/" + candidateId + "/analysis-state")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"state\":\"strict-war-ai\",\"initialize\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.analysis_state").value("strict-war-ai"))
+                .andExpect(jsonPath("$.evidence_score").value(64))
+                .andExpect(jsonPath("$.github_match_score").value(73))
+                .andExpect(jsonPath("$.reviewer_score").value(80));
 
         mockMvc.perform(get("/api/projects/" + projectId + "/candidates/" + candidateId)
                         .header("X-User-Token", token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.analysis_state").value("war"))
-                .andExpect(jsonPath("$.initialized_analysis_states", hasItem("war")));
+                .andExpect(jsonPath("$.analysis_state").value("strict-war-ai"))
+                .andExpect(jsonPath("$.initialized_analysis_states", hasItem("war")))
+                .andExpect(jsonPath("$.evidence_score").value(64))
+                .andExpect(jsonPath("$.github_match_score").value(73))
+                .andExpect(jsonPath("$.reviewer_score").value(80));
 
         mockMvc.perform(patch("/api/projects/" + projectId + "/candidates/" + candidateId + "/analysis-state")
                         .header("X-User-Token", token)
@@ -667,7 +696,7 @@ class HiringFlowTest {
         mockMvc.perform(patch("/api/projects/" + projectId + "/candidates/" + candidateId + "/status")
                         .header("X-User-Token", ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":\"OnInterview\"}"))
+                        .content("{\"status\":\"OnInterview\",\"reason\":\"Owner confirmed the evidence review is complete.\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("OnInterview"))
                 .andExpect(jsonPath("$.activity[0].action").value("changed status to OnInterview"));
@@ -951,7 +980,7 @@ class HiringFlowTest {
                                 {
                                   "name":"OSINT Candidate",
                                   "role":"Engineer",
-                                  "cv_text":"Portfolio https://example.com/osint and public handle @osint_candidate."
+                                  "cv_text":"Portfolio https://example.com/osint, LinkedIn linkedin.com/in/osint_candidate, and public handle @osint_candidate."
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -982,9 +1011,108 @@ class HiringFlowTest {
                 .andExpect(jsonPath("$.checked_at").isNotEmpty())
                 .andExpect(jsonPath("$.consented_checks", hasItem("profile-search")))
                 .andExpect(jsonPath("$.consented_checks", hasItem("project-scan")))
+                .andExpect(jsonPath("$.github_job_match.score").value(0))
+                .andExpect(jsonPath("$.github_job_match.label").value("Not available"))
                 .andExpect(jsonPath("$.discoveredLinks", hasItem("https://example.com/osint")))
+                .andExpect(jsonPath("$.discoveredLinks", hasItem("https://linkedin.com/in/osint_candidate")))
                 .andExpect(jsonPath("$.discoveredUsernames", hasItem("osint_candidate")))
                 .andExpect(jsonPath("$.sources", hasSize(greaterThan(1))));
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/candidates/" + candidateId + "/osint/latest")
+                        .header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("strict-war-ai"))
+                .andExpect(jsonPath("$.checked_at").isNotEmpty())
+                .andExpect(jsonPath("$.discoveredLinks", hasItem("https://linkedin.com/in/osint_candidate")));
+    }
+
+    @Test
+    void legacySignalTraceReportIsUpgradedAndRestoresCandidateEvidenceScores() throws Exception {
+        String token = register("legacy_osint");
+        long projectId = createProject(token, "Java API Engineer", "Requirements:\n- Java\n- Spring Boot",
+                "[\"Java\", \"Spring Boot\"]");
+        MvcResult created = mockMvc.perform(post("/api/projects/" + projectId + "/candidates")
+                        .header("X-User-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name":"Legacy Evidence Candidate",
+                                  "role":"Java Engineer",
+                                  "cv_text":"Java and Spring Boot developer. https://github.com/legacy-evidence"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        long candidateId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asLong();
+
+        HiringCandidate candidate = candidateRepository.findById(candidateId).orElseThrow();
+        candidate.setEvidenceScore(0);
+        candidate.setGithubMatchScore(0);
+        candidate.setOsintReportJson("""
+                {
+                  "state":"strict-war-ai",
+                  "status":"Ready",
+                  "checked_at":"2026-07-18T10:00:00Z",
+                  "consented_checks":["profile-search","project-scan"],
+                  "identityConfidence":80,
+                  "corroboratedSources":2,
+                  "contradictions":0,
+                  "discoveredLinks":["https://github.com/legacy-evidence"],
+                  "discoveredUsernames":["legacy-evidence"],
+                  "sources":[],
+                  "github":{
+                    "username":"legacy-evidence",
+                    "name":"Legacy Evidence",
+                    "avatar_url":"",
+                    "profile_url":"https://github.com/legacy-evidence",
+                    "bio":"Java developer",
+                    "company":"",
+                    "location":"",
+                    "blog":"",
+                    "public_repos":1,
+                    "followers":1,
+                    "following":0,
+                    "created_at":"2025-01-01T00:00:00Z",
+                    "updated_at":"2026-07-18T10:00:00Z",
+                    "latest_activity_at":"2026-07-18T10:00:00Z",
+                    "repository_depth_score":80,
+                    "languages":[{"name":"Java","repositories":1,"bytes":1000,"percentage":100}],
+                    "repositories":[{
+                      "name":"spring-api",
+                      "description":"Spring Boot Java REST API",
+                      "url":"https://github.com/legacy-evidence/spring-api",
+                      "language":"Java",
+                      "stars":2,
+                      "forks":0,
+                      "open_issues":0,
+                      "size_kb":120,
+                      "fork":false,
+                      "archived":false,
+                      "default_branch":"main",
+                      "owner_login":"legacy-evidence",
+                      "language_bytes":{"Java":1000},
+                      "readme_excerpt":"Java Spring Boot REST API",
+                      "created_at":"2025-01-01T00:00:00Z",
+                      "updated_at":"2026-07-18T10:00:00Z",
+                      "pushed_at":"2026-07-18T10:00:00Z",
+                      "topics":["java","spring-boot"]
+                    }]
+                  }
+                }
+                """);
+        candidateRepository.saveAndFlush(candidate);
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/candidates/" + candidateId + "/osint/latest")
+                        .header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.github_job_match.score", greaterThan(0)))
+                .andExpect(jsonPath("$.github_job_match.label", not("GitHub match needs a fresh scan")));
+
+        mockMvc.perform(get("/api/projects/" + projectId + "/candidates/" + candidateId)
+                        .header("X-User-Token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.github_match_score", greaterThan(0)))
+                .andExpect(jsonPath("$.evidence_score", greaterThan(0)));
     }
 
     @Test
