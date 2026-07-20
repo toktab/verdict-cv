@@ -161,6 +161,12 @@ public class Audit {
     @Column(length = 500)
     private String checkStateDescription;
 
+    private Long projectId;
+
+    private Long candidateId;
+
+    private Long candidateAnalysisRunId;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -197,6 +203,13 @@ public class Audit {
     public void setClaimTitle(String claimTitle) {
         this.claimTitle = claimTitle;
     }
+
+    public Long getProjectId() { return projectId; }
+    public void setProjectId(Long projectId) { this.projectId = projectId; }
+    public Long getCandidateId() { return candidateId; }
+    public void setCandidateId(Long candidateId) { this.candidateId = candidateId; }
+    public Long getCandidateAnalysisRunId() { return candidateAnalysisRunId; }
+    public void setCandidateAnalysisRunId(Long candidateAnalysisRunId) { this.candidateAnalysisRunId = candidateAnalysisRunId; }
 
     public String getEvidenceTitle() {
         return evidenceTitle;

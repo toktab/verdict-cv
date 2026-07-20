@@ -37,6 +37,9 @@ public record AuditResponse(
         String checkStateId,
         String checkStateName,
         String checkStateDescription,
+        Long projectId,
+        Long candidateId,
+        Long candidateAnalysisRunId,
         Instant createdAt,
         List<VerdictResponse> verdicts
 ) {

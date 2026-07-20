@@ -49,6 +49,7 @@ public class AuditService {
     private final CheckStateService checkStateService;
     private final VerdictRepository verdictRepository;
     private final VerdictOverrideRepository overrideRepository;
+    private final VerdictRevisionService revisionService;
     private final AuditSnapshotRepository snapshotRepository;
     private final ObjectMapper objectMapper;
     private final RealtimeService realtimeService;
@@ -71,6 +72,7 @@ public class AuditService {
             CheckStateService checkStateService,
             VerdictRepository verdictRepository,
             VerdictOverrideRepository overrideRepository,
+            VerdictRevisionService revisionService,
             AuditSnapshotRepository snapshotRepository,
             ObjectMapper objectMapper,
             RealtimeService realtimeService,
@@ -89,6 +91,7 @@ public class AuditService {
         this.checkStateService = checkStateService;
         this.verdictRepository = verdictRepository;
         this.overrideRepository = overrideRepository;
+        this.revisionService = revisionService;
         this.snapshotRepository = snapshotRepository;
         this.objectMapper = objectMapper;
         this.realtimeService = realtimeService;
@@ -117,6 +120,7 @@ public class AuditService {
         audit.setClaimFingerprint(fingerprintService.sha256(claimText));
         audit.setEvidenceFingerprint(fingerprintService.sha256(evidenceText));
         audit.setEngine("pending");
+        applyHiringContext(audit, request);
         audit.setAnalyzerVersion(analyzerVersionFor(request.checkStateId()));
         audit.setPromptVersion(promptVersionFor(request.checkStateId()));
         audit.setStatus(AuditStatus.RUNNING);
@@ -146,6 +150,12 @@ public class AuditService {
             failAudit(audit, exception, started);
             throw exception;
         }
+    }
+
+    private void applyHiringContext(Audit audit, AuditRunRequest request) {
+        audit.setProjectId(request.projectId());
+        audit.setCandidateId(request.candidateId());
+        audit.setCandidateAnalysisRunId(request.candidateAnalysisRunId());
     }
 
     public Audit startAsync(AuditRunRequest request, UserAccount owner) {
@@ -241,14 +251,15 @@ public class AuditService {
     public Audit recalculate(Long id) {
         Audit audit = get(id);
         List<AnalyzedVerdict> analyzed = audit.getVerdicts().stream()
+                .filter(verdict -> !revisionService.effective(verdict).deleted())
                 .map(verdict -> new AnalyzedVerdict(
                         verdict.getSentenceIndex(),
                         verdict.getSentence(),
-                        verdict.getStatus(),
-                        verdict.getConfidence(),
-                        verdict.getReasonCategory(),
-                        verdict.getExplanation(),
-                        verdict.getEvidencePointer()))
+                        revisionService.effective(verdict).status(),
+                        revisionService.effective(verdict).confidence(),
+                        revisionService.effective(verdict).reasonCategory(),
+                        revisionService.effective(verdict).explanation(),
+                        revisionService.effective(verdict).evidencePointer()))
                 .toList();
         audit.setCredibilityScore(scoringService.score(analyzed));
         countStatuses(audit);
@@ -265,17 +276,11 @@ public class AuditService {
         VerdictOverride override = new VerdictOverride();
         override.setVerdict(verdict);
         override.setAuthor(owner);
-        override.setPreviousStatus(verdict.getStatus());
+        override.setPreviousStatus(revisionService.effective(verdict).status());
         override.setNewStatus(request.status());
         override.setReason(trim(request.reason(), 12000));
         overrideRepository.save(override);
-        verdict.setStatus(request.status());
-        verdict.setManualOverrideReason(trim(request.reason(), 120));
-        verdict.setReasonCategory("manual override");
-        verdict.setExplanation(verdict.getExplanation() + " Manual reviewer override: " + trim(request.reason(), 500));
-        verdictRepository.save(verdict);
-        countStatuses(audit);
-        Audit saved = auditRepository.save(audit);
+        Audit saved = recalculate(audit.getId());
         snapshot(saved);
         return saved;
     }
@@ -361,6 +366,7 @@ public class AuditService {
         audit.setClaimFingerprint(fingerprintService.sha256(claimText));
         audit.setEvidenceFingerprint(fingerprintService.sha256(evidenceText));
         audit.setEngine("queued");
+        applyHiringContext(audit, request);
         audit.setAnalyzerVersion(analyzerVersionFor(request.checkStateId()));
         audit.setPromptVersion(promptVersionFor(request.checkStateId()));
         audit.setStatus(AuditStatus.RUNNING);
@@ -701,17 +707,10 @@ public class AuditService {
             snapshotPayload.put("analyzerVersion", safe(audit.getAnalyzerVersion()));
             snapshotPayload.put("promptVersion", safe(audit.getPromptVersion()));
             snapshotPayload.put("createdAt", audit.getCreatedAt().toString());
-            snapshotPayload.put("verdicts", audit.getVerdicts().stream().map(verdict -> Map.of(
-                            "id", verdict.getId(),
-                            "sentenceIndex", verdict.getSentenceIndex(),
-                            "sentence", verdict.getSentence(),
-                            "status", verdict.getStatus().name(),
-                            "confidence", verdict.getConfidence().name(),
-                            "engine", safe(verdict.getEngine()),
-                            "analyzerVersion", safe(verdict.getAnalyzerVersion()),
-                            "promptVersion", safe(verdict.getPromptVersion()),
-                            "manualOverrideReason", safe(verdict.getManualOverrideReason())
-                    )).toList());
+            snapshotPayload.put("verdicts", audit.getVerdicts().stream()
+                    .filter(verdict -> !revisionService.effective(verdict).deleted())
+                    .map(this::snapshotVerdict)
+                    .toList());
             String payload = objectMapper.writeValueAsString(snapshotPayload);
             AuditSnapshot snapshot = new AuditSnapshot();
             snapshot.setAudit(audit);
@@ -722,6 +721,21 @@ public class AuditService {
         } catch (JsonProcessingException exception) {
             throw new IllegalArgumentException("Could not create immutable audit snapshot");
         }
+    }
+
+    private Map<String, Object> snapshotVerdict(Verdict verdict) {
+        VerdictRevisionService.EffectiveVerdict effective = revisionService.effective(verdict);
+        return Map.of(
+                "id", verdict.getId(),
+                "sentenceIndex", verdict.getSentenceIndex(),
+                "sentence", verdict.getSentence(),
+                "status", effective.status().name(),
+                "confidence", effective.confidence().name(),
+                "engine", safe(verdict.getEngine()),
+                "analyzerVersion", safe(verdict.getAnalyzerVersion()),
+                "promptVersion", safe(verdict.getPromptVersion()),
+                "manualOverrideReason", safe(effective.overrideReason())
+        );
     }
 
     private String safe(String value) {
@@ -737,7 +751,10 @@ public class AuditService {
     }
 
     private int count(Audit audit, VerdictStatus status) {
-        return (int) audit.getVerdicts().stream().filter(v -> v.getStatus() == status).count();
+        return (int) audit.getVerdicts().stream()
+                .map(revisionService::effective)
+                .filter(verdict -> !verdict.deleted() && verdict.status() == status)
+                .count();
     }
 
     private String trim(String text, int max) {

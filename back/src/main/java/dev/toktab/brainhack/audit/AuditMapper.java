@@ -11,6 +11,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class AuditMapper {
+    private final VerdictRevisionService revisionService;
+
+    public AuditMapper(VerdictRevisionService revisionService) {
+        this.revisionService = revisionService;
+    }
+
     public AuditResponse toResponse(Audit audit) {
         return new AuditResponse(
                 audit.getId(),
@@ -43,6 +49,9 @@ public class AuditMapper {
                 audit.getCheckStateId(),
                 audit.getCheckStateName(),
                 audit.getCheckStateDescription(),
+                audit.getProjectId(),
+                audit.getCandidateId(),
+                audit.getCandidateAnalysisRunId(),
                 audit.getCreatedAt(),
                 verdictResponses(audit)
         );
@@ -50,8 +59,12 @@ public class AuditMapper {
 
     public AuditSummaryResponse toSummary(Audit audit) {
         List<VerdictResponse> topProblems = Hibernate.isInitialized(audit.getVerdicts()) ? audit.getVerdicts().stream()
-                .filter(v -> v.getStatus() == VerdictStatus.UNSUPPORTED || v.getStatus() == VerdictStatus.STRETCHED || v.getStatus() == VerdictStatus.GAP)
-                .sorted(Comparator.comparing(Verdict::getStatus).reversed())
+                .filter(v -> !revisionService.effective(v).deleted())
+                .filter(v -> {
+                    VerdictStatus status = revisionService.effective(v).status();
+                    return status == VerdictStatus.UNSUPPORTED || status == VerdictStatus.STRETCHED || status == VerdictStatus.GAP;
+                })
+                .sorted(Comparator.comparing(v -> revisionService.effective(v).status(), Comparator.reverseOrder()))
                 .limit(3)
                 .map(this::toVerdictResponse)
                 .toList() : List.of();
@@ -105,19 +118,20 @@ public class AuditMapper {
     }
 
     public VerdictResponse toVerdictResponse(Verdict verdict) {
+        VerdictRevisionService.EffectiveVerdict effective = revisionService.effective(verdict);
         return new VerdictResponse(
                 verdict.getId(),
                 verdict.getSentenceIndex(),
                 verdict.getSentence(),
-                verdict.getStatus(),
-                verdict.getConfidence(),
-                verdict.getReasonCategory(),
-                verdict.getExplanation(),
-                verdict.getEvidencePointer(),
+                effective.status(),
+                effective.confidence(),
+                effective.reasonCategory(),
+                effective.explanation(),
+                effective.evidencePointer(),
                 verdict.getEngine(),
                 verdict.getAnalyzerVersion(),
                 verdict.getPromptVersion(),
-                verdict.getManualOverrideReason()
+                effective.overrideReason()
         );
     }
 
@@ -125,6 +139,9 @@ public class AuditMapper {
         if (!Hibernate.isInitialized(audit.getVerdicts())) {
             return List.of();
         }
-        return audit.getVerdicts().stream().map(this::toVerdictResponse).toList();
+        return audit.getVerdicts().stream()
+                .filter(verdict -> !revisionService.effective(verdict).deleted())
+                .map(this::toVerdictResponse)
+                .toList();
     }
 }

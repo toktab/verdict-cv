@@ -313,10 +313,10 @@ public class LlmAuditAnalyzer implements ClaimAnalyzer {
             verdicts.add(new AnalyzedVerdict(
                     i,
                     originalSentences.get(i),
-                    VerdictStatus.UNSUPPORTED,
-                    Confidence.MEDIUM,
-                    "model fallback",
-                    "The model response did not include a reliable verdict for this sentence.",
+                    VerdictStatus.NOT_A_CLAIM,
+                    Confidence.LOW,
+                    "no model judgment",
+                    "The model response did not include a verdict for this sentence, so the local analyzer remains authoritative.",
                     "No evidence found."));
         }
         return verdicts;
