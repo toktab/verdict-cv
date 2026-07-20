@@ -3178,12 +3178,34 @@ mark {
     box-shadow: 0 30px 100px rgba(0, 0, 0, 0.62);
     display: grid;
     grid-template-columns: 280px 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
     animation: modalIn 0.28s ease both;
 }
 
 .atsModal .modalHead {
     grid-column: 1 / -1;
+}
+
+.atsProjectSelector {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: auto minmax(240px, 520px);
+    align-items: center;
+    gap: 14px;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    background: #15171b;
+}
+
+.atsTemplateRail {
+    grid-column: 1;
+    grid-row: 3;
+}
+
+.atsEditor {
+    grid-column: 2;
+    grid-row: 3;
 }
 
 .atsTemplateRail {
@@ -3699,9 +3721,9 @@ mark {
 
 .candidateTableHead,
 .candidateTableRow {
-    min-width: 980px;
+    min-width: 1040px;
     display: grid;
-    grid-template-columns: minmax(240px, 1.4fr) 80px 80px 90px 120px 150px 150px;
+    grid-template-columns: minmax(240px, 1.4fr) 110px 100px 90px 120px 150px 150px;
     gap: 12px;
     align-items: center;
     padding: 12px 16px;
@@ -3710,7 +3732,7 @@ mark {
 .candidateTableHead {
     border-top: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 850;
     text-transform: uppercase;
     background: rgba(255, 255, 255, 0.045);
@@ -3718,6 +3740,7 @@ mark {
 
 .candidateTableRow {
     width: 100%;
+    min-height: 72px;
     border: 0;
     border-bottom: 1px solid var(--line);
     color: var(--text);
@@ -3728,6 +3751,16 @@ mark {
 .candidateTableRow > span:first-child {
     display: grid;
     gap: 4px;
+}
+
+.candidateTableRow > span:first-child strong {
+    font-size: 15px;
+    line-height: 1.3;
+}
+
+.candidateTableRow > span:not(:first-child) {
+    font-size: 13px;
+    line-height: 1.35;
 }
 
 .candidateTableRow b,
@@ -6590,6 +6623,577 @@ mark {
             var(--panel);
 }
 
+.cvSourceDiscovery {
+    margin-top: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.018)),
+            var(--panel);
+}
+
+.cvSourceDiscovery.hasSources {
+    border-color: rgba(102, 217, 145, 0.34);
+}
+
+.cvSourceDiscoveryHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.cvSourceDiscoveryHead h2 {
+    margin: 6px 0 0;
+    font-size: 20px;
+}
+
+.cvSourceDiscoveryHead p {
+    max-width: 760px;
+    margin: 8px 0 0;
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.cvSourceCount,
+.cvSourcePending {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 9px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.cvSourceCount.found {
+    color: #8bf0ae;
+    border-color: rgba(102, 217, 145, 0.36);
+    background: rgba(102, 217, 145, 0.08);
+}
+
+.cvSourceRows {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.cvSourceRow {
+    display: grid;
+    grid-template-columns: auto minmax(150px, 0.5fr) auto minmax(240px, 1fr);
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.cvSourceRow.github {
+    border-color: rgba(102, 217, 145, 0.25);
+}
+
+.cvSourceRow > div {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.cvSourceRow > div span {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.cvSourceRow a {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    min-width: 0;
+    color: #8bbcff;
+}
+
+.cvSourceRow a span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cvSourcePending {
+    color: #ffd38a;
+    border-color: rgba(240, 184, 90, 0.34);
+}
+
+.cvSourceEmpty {
+    margin-top: 14px;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    padding: 14px;
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.cvSourceEmpty code {
+    color: var(--text);
+}
+
+.signalReportPage {
+    width: min(1460px, calc(100% - 32px));
+    margin: 24px auto 72px;
+}
+
+.signalReportHero {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    background:
+            linear-gradient(90deg, rgba(255, 59, 59, 0.09), transparent 42%),
+            var(--panel);
+}
+
+.signalReportIdentity {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+}
+
+.signalReportIdentity > img,
+.signalReportAvatar {
+    width: 76px;
+    height: 76px;
+    flex: 0 0 76px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    object-fit: cover;
+    background: #0c0d10;
+}
+
+.signalReportAvatar {
+    display: grid;
+    place-items: center;
+    color: var(--soft);
+}
+
+.signalReportIdentity h1 {
+    margin: 5px 0 6px;
+    font-size: 34px;
+    line-height: 1.05;
+}
+
+.signalReportIdentity p {
+    max-width: 760px;
+    margin: 0;
+    color: var(--soft);
+    line-height: 1.5;
+}
+
+.signalReportActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.signalReportMetrics {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.signalReportMetrics .metric {
+    min-width: 0;
+}
+
+.signalReportBand {
+    margin-top: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    background: var(--panel);
+}
+
+.signalReportSectionHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.signalReportSectionHead h2 {
+    margin: 5px 0 0;
+    font-size: 22px;
+}
+
+.signalReportSectionHead p {
+    max-width: 820px;
+    margin: 7px 0 0;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.signalReportLinkButton {
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.signalProfileGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.signalProfileGrid article {
+    min-height: 138px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 13px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-content: start;
+    gap: 7px 9px;
+    background: rgba(255, 255, 255, 0.028);
+}
+
+.signalProfileGrid article > svg {
+    color: #ff7676;
+}
+
+.signalProfileGrid article > span {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.signalProfileGrid article > strong,
+.signalProfileGrid article > p {
+    grid-column: 1 / -1;
+}
+
+.signalProfileGrid article > strong {
+    margin-top: 4px;
+    font-size: 16px;
+}
+
+.signalProfileGrid article > p {
+    margin: 0;
+    color: var(--soft);
+    line-height: 1.45;
+}
+
+.signalLanguageGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 16px;
+    margin-top: 16px;
+}
+
+.signalLanguageGrid article {
+    display: grid;
+    gap: 8px;
+}
+
+.signalLanguageGrid article > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 12px;
+    align-items: baseline;
+}
+
+.signalLanguageGrid article span {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.signalLanguageGrid article b {
+    min-width: 42px;
+    text-align: right;
+}
+
+.signalLanguageRail {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.signalLanguageRail i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #e43d45;
+}
+
+.signalClaimRows {
+    display: grid;
+    margin-top: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.signalClaimRows article {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.2fr) 140px;
+    gap: 16px;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.signalClaimRows article:last-child {
+    border-bottom: 0;
+}
+
+.signalClaimRows article > div {
+    display: grid;
+    gap: 5px;
+}
+
+.signalClaimRows article span {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.signalClaimRows article p {
+    margin: 0;
+    color: var(--soft);
+    line-height: 1.45;
+}
+
+.signalClaimStatus {
+    justify-self: end;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 9px;
+    font-size: 10px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.signalClaimStatus.good {
+    color: #8bf0ae;
+    border-color: rgba(102, 217, 145, 0.34);
+}
+
+.signalClaimStatus.warn {
+    color: #ffd38a;
+    border-color: rgba(240, 184, 90, 0.36);
+}
+
+.signalRepositoryGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.signalRepositoryGrid > article {
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 13px;
+    background: rgba(255, 255, 255, 0.026);
+}
+
+.signalRepoTopline {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+}
+
+.signalRepoIcon {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    color: #ff7676;
+    background: rgba(255, 59, 59, 0.07);
+}
+
+.signalRepoTopline > div {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+}
+
+.signalRepoTopline a {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    width: fit-content;
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--text);
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.signalRepoTopline span,
+.signalRepoTopline time {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.signalRepositoryGrid > article > p {
+    min-height: 42px;
+    margin: 12px 0;
+    color: var(--soft);
+    line-height: 1.45;
+}
+
+.signalRepoFacts,
+.signalRepoTopics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.signalRepoFacts span,
+.signalRepoTopics span,
+.signalReportCount {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 7px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.signalRepoTopics {
+    margin-top: 8px;
+}
+
+.signalReportSplit {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: 10px;
+}
+
+.signalDeclaredLinks,
+.signalEvidenceList {
+    display: grid;
+    gap: 7px;
+    margin-top: 14px;
+}
+
+.signalDeclaredLinks a {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--soft);
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.signalDeclaredLinks a > span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.signalDeclaredLinks strong {
+    color: var(--text);
+}
+
+.signalEvidenceList > div {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 9px;
+    align-items: start;
+    border-bottom: 1px solid var(--line);
+    padding: 9px 0;
+}
+
+.signalEvidenceList > div:last-child {
+    border-bottom: 0;
+}
+
+.signalEvidenceList p {
+    margin: 0;
+    display: grid;
+    gap: 4px;
+    color: var(--soft);
+    line-height: 1.4;
+}
+
+.signalEvidenceList p strong {
+    color: var(--text);
+}
+
+.signalEvidenceTone {
+    width: 8px;
+    height: 8px;
+    margin-top: 4px;
+    border-radius: 50%;
+    background: #f0b85a;
+}
+
+.signalEvidenceTone.good {
+    background: #66d991;
+}
+
+.signalEvidenceTone.bad {
+    background: #ff6363;
+}
+
+.signalReportState,
+.signalReportEmpty {
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    color: var(--muted);
+}
+
+.signalReportState {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--panel);
+}
+
+.signalReportState > div,
+.signalReportState:not(:has(div)) {
+    line-height: 1.5;
+}
+
+.signalReportState > div {
+    display: grid;
+    gap: 4px;
+}
+
+.signalReportState.error {
+    border-color: rgba(255, 99, 99, 0.42);
+}
+
 .signalResultHead {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(340px, 0.8fr);
@@ -8361,6 +8965,202 @@ select {
     }
 }
 
+.githubJobMatchBand {
+    --github-match-accent: #ff4d57;
+    display: grid;
+    grid-template-columns: 104px minmax(280px, 1fr) minmax(190px, 0.42fr) auto;
+    gap: 18px;
+    align-items: center;
+    margin-top: 10px;
+    padding: 18px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--github-match-accent) 55%, #34343b);
+    border-radius: 8px;
+    background:
+        linear-gradient(110deg, color-mix(in srgb, var(--github-match-accent) 10%, transparent), transparent 48%),
+        #111115;
+    box-shadow: inset 4px 0 0 var(--github-match-accent), 0 18px 44px rgb(0 0 0 / 0.24);
+}
+
+.githubJobMatchBand.good {
+    --github-match-accent: #20c77a;
+}
+
+.githubJobMatchBand.warn {
+    --github-match-accent: #f2b84b;
+}
+
+.githubJobMatchBand.loading {
+    --github-match-accent: #73737d;
+    grid-template-columns: 104px minmax(0, 1fr);
+}
+
+.githubJobMatchScore {
+    display: flex;
+    width: 92px;
+    height: 92px;
+    align-items: baseline;
+    justify-content: center;
+    border: 8px solid color-mix(in srgb, var(--github-match-accent) 82%, #24242a);
+    border-radius: 50%;
+    background: #09090c;
+    color: #f8f8fa;
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--github-match-accent) 12%, transparent);
+}
+
+.githubJobMatchScore strong {
+    align-self: center;
+    font-size: 32px;
+    line-height: 1;
+}
+
+.githubJobMatchScore span {
+    align-self: center;
+    margin-left: 2px;
+    color: var(--github-match-accent);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.githubJobMatchMain {
+    min-width: 0;
+}
+
+.githubJobMatchMain .eyebrow {
+    color: var(--github-match-accent);
+}
+
+.githubJobMatchMain h2 {
+    margin: 3px 0 5px;
+    color: #f7f7f9;
+    font-size: 24px;
+    line-height: 1.15;
+}
+
+.githubJobMatchMain p {
+    margin: 0;
+    color: #b9b9c2;
+    line-height: 1.45;
+}
+
+.githubJobMatchTerms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.githubJobMatchTerms span {
+    display: inline-flex;
+    min-height: 27px;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border: 1px solid #34343b;
+    border-radius: 5px;
+    background: #19191e;
+    color: #d8d8de;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.githubJobMatchTerms .matched {
+    border-color: rgb(32 199 122 / 0.42);
+    color: #88e9b8;
+}
+
+.githubJobMatchTerms .missing {
+    border-color: rgb(255 77 87 / 0.38);
+    color: #ff9ba2;
+}
+
+.githubJobMatchFacts {
+    display: grid;
+    gap: 7px;
+}
+
+.githubJobMatchFacts > span {
+    display: grid;
+    gap: 2px;
+    padding: 8px 10px;
+    border-left: 2px solid #383840;
+    background: rgb(255 255 255 / 0.025);
+}
+
+.githubJobMatchFacts small {
+    color: #8f8f99;
+    font-size: 11px;
+}
+
+.githubJobMatchFacts strong {
+    color: #eeeeF2;
+    font-size: 13px;
+}
+
+.githubJobMatchAction {
+    min-width: 172px;
+    white-space: nowrap;
+}
+
+@media (max-width: 1080px) {
+    .githubJobMatchBand {
+        grid-template-columns: 92px minmax(0, 1fr) minmax(180px, 0.42fr);
+    }
+
+    .githubJobMatchAction {
+        grid-column: 2 / -1;
+        justify-self: start;
+    }
+}
+
+@media (max-width: 760px) {
+    .githubJobMatchBand,
+    .githubJobMatchBand.loading {
+        grid-template-columns: 76px minmax(0, 1fr);
+        gap: 14px;
+        padding: 14px;
+    }
+
+    .githubJobMatchScore {
+        width: 68px;
+        height: 68px;
+        border-width: 6px;
+    }
+
+    .githubJobMatchScore strong {
+        font-size: 25px;
+    }
+
+    .githubJobMatchMain h2 {
+        font-size: 20px;
+    }
+
+    .githubJobMatchFacts,
+    .githubJobMatchAction {
+        grid-column: 1 / -1;
+    }
+
+    .githubJobMatchFacts {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .githubJobMatchAction {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .githubJobMatchBand,
+    .githubJobMatchBand.loading {
+        grid-template-columns: 1fr;
+    }
+
+    .githubJobMatchFacts {
+        grid-template-columns: 1fr;
+    }
+}
+
 .adminDangerZone {
     border-color: rgba(255, 105, 105, 0.5);
     background:
@@ -9132,6 +9932,74 @@ select {
         text-align: left;
     }
 
+    .cvSourceDiscoveryHead,
+    .signalResultHead {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .signalReportPage {
+        width: min(100%, calc(100vw - 20px));
+        margin-top: 12px;
+    }
+
+    .signalReportHero,
+    .signalReportIdentity,
+    .signalReportSectionHead {
+        align-items: flex-start;
+    }
+
+    .signalReportHero,
+    .signalReportSectionHead {
+        display: grid;
+    }
+
+    .signalReportActions {
+        width: 100%;
+    }
+
+    .signalReportActions button {
+        flex: 1;
+    }
+
+    .signalReportMetrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .signalProfileGrid,
+    .signalLanguageGrid,
+    .signalRepositoryGrid,
+    .signalReportSplit {
+        grid-template-columns: 1fr;
+    }
+
+    .signalClaimRows article {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    .signalClaimStatus {
+        justify-self: start;
+    }
+
+    .cvSourceRow {
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: start;
+    }
+
+    .cvSourceRow .cvSourcePending,
+    .cvSourceRow > a {
+        grid-column: 2;
+        justify-self: start;
+        max-width: 100%;
+    }
+
+    .consentGateGrid,
+    .signalResultMetrics,
+    .signalResultCard {
+        grid-template-columns: 1fr;
+    }
+
     .evidencePanel {
         position: static;
         max-height: none;
@@ -9156,6 +10024,26 @@ select {
         width: min(100%, calc(100vw - 16px));
         margin-left: auto;
         margin-right: auto;
+    }
+
+    .signalReportIdentity {
+        display: grid;
+    }
+
+    .signalReportIdentity h1 {
+        font-size: 28px;
+    }
+
+    .signalReportMetrics {
+        grid-template-columns: 1fr;
+    }
+
+    .signalRepoTopline {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .signalRepoTopline time {
+        grid-column: 2;
     }
 
     .workspace,
@@ -9308,9 +10196,20 @@ select {
     }
 
     .atsTemplateRail {
+        grid-column: 1;
+        grid-row: auto;
         border-right: 0;
         border-bottom: 1px solid var(--line);
         max-height: 220px;
+    }
+
+    .atsEditor {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .atsProjectSelector {
+        grid-template-columns: 1fr;
     }
 
     .atsEditorTop,
@@ -9557,6 +10456,41 @@ select {
         padding: 12px;
     }
 
+    .candidateTableRow > span:first-child {
+        grid-column: 1 / -1;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .candidateTableRow > [data-label] {
+        min-height: 36px;
+        display: grid;
+        grid-template-columns: minmax(112px, 0.8fr) minmax(0, 1fr);
+        align-items: center;
+        justify-items: start;
+        gap: 10px;
+        width: 100%;
+        padding: 4px 0;
+    }
+
+    .candidateTableRow > [data-label]::before {
+        content: attr(data-label);
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .candidateTableRow > b[data-label] {
+        border: 0;
+        border-radius: 0;
+        font-size: 15px;
+    }
+
+    .candidateTableRow > .auditStatusPill[data-label] {
+        justify-content: start;
+    }
+
     .signalOptions {
         padding: 0 12px 12px;
     }
@@ -9607,7 +10541,8 @@ select {
     }
 
     .stepDots {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 6px;
     }
 }
 
