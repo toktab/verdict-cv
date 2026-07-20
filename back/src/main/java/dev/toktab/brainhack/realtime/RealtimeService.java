@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -14,6 +16,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class RealtimeService {
     private static final long TIMEOUT_MILLIS = 30L * 60L * 1000L;
     private final Map<Long, CopyOnWriteArrayList<SseEmitter>> emitters = new ConcurrentHashMap<>();
+    private final AtomicLong eventSequence = new AtomicLong();
 
     public SseEmitter subscribe(UserAccount user) {
         SseEmitter emitter = new SseEmitter(TIMEOUT_MILLIS);
@@ -51,10 +54,20 @@ public class RealtimeService {
         List<SseEmitter> rows = emitters.getOrDefault(userId, new CopyOnWriteArrayList<>());
         for (SseEmitter emitter : rows) {
             try {
-                emitter.send(SseEmitter.event().name(eventName).data(body));
+                emitter.send(SseEmitter.event()
+                        .id(Long.toString(eventSequence.incrementAndGet()))
+                        .name(eventName)
+                        .data(body));
             } catch (IOException | IllegalStateException exception) {
                 remove(userId, emitter);
             }
+        }
+    }
+
+    @Scheduled(fixedRate = 25_000)
+    public void heartbeat() {
+        for (Long userId : List.copyOf(emitters.keySet())) {
+            send(userId, "heartbeat", Map.of("type", "heartbeat", "at", Instant.now().toString()));
         }
     }
 
