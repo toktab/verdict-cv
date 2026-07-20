@@ -35,6 +35,9 @@ public class UserAuthPresenceFilter extends OncePerRequestFilter {
         if (!path.startsWith("/api/")) {
             return true;
         }
+        if (HttpMethod.GET.matches(request.getMethod()) && path.equals("/api/realtime")) {
+            return true;
+        }
         return path.equals("/api/auth/login")
                 || path.equals("/api/auth/cli/login")
                 || path.equals("/api/auth/cli/pair")

@@ -22,6 +22,7 @@ import dev.toktab.brainhack.audit.AuditMapper;
 import dev.toktab.brainhack.audit.AuditService;
 import dev.toktab.brainhack.audit.Verdict;
 import dev.toktab.brainhack.audit.VerdictRepository;
+import dev.toktab.brainhack.audit.VerdictRevisionService;
 import dev.toktab.brainhack.ats.AtsKeywordCatalog;
 import dev.toktab.brainhack.ats.AtsKeywordCatalog.OfficialAtsVersionResponse;
 import dev.toktab.brainhack.log.AppEventLog;
@@ -32,6 +33,8 @@ import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -60,6 +63,7 @@ public class AdminController {
     private final AdminTableMaintenanceService tableMaintenanceService;
     private final AdminHealthService adminHealthService;
     private final AtsKeywordCatalog atsKeywordCatalog;
+    private final VerdictRevisionService verdictRevisionService;
 
     public AdminController(
             AdminSessionService adminSessionService,
@@ -73,7 +77,8 @@ public class AdminController {
             AccountSettingsService accountSettingsService,
             AdminTableMaintenanceService tableMaintenanceService,
             AdminHealthService adminHealthService,
-            AtsKeywordCatalog atsKeywordCatalog) {
+            AtsKeywordCatalog atsKeywordCatalog,
+            VerdictRevisionService verdictRevisionService) {
         this.adminSessionService = adminSessionService;
         this.auditService = auditService;
         this.auditMapper = auditMapper;
@@ -86,6 +91,7 @@ public class AdminController {
         this.tableMaintenanceService = tableMaintenanceService;
         this.adminHealthService = adminHealthService;
         this.atsKeywordCatalog = atsKeywordCatalog;
+        this.verdictRevisionService = verdictRevisionService;
     }
 
     @PostMapping("/login")
@@ -185,25 +191,26 @@ public class AdminController {
     @Transactional
     public VerdictResponse updateVerdict(@PathVariable Long id, @RequestBody Verdict patch) {
         Verdict verdict = verdictRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Verdict not found: " + id));
+        Map<String, Object> changes = new LinkedHashMap<>();
         if (patch.getStatus() != null) {
-            verdict.setStatus(patch.getStatus());
+            changes.put("status", patch.getStatus().name());
         }
         if (patch.getConfidence() != null) {
-            verdict.setConfidence(patch.getConfidence());
+            changes.put("confidence", patch.getConfidence().name());
         }
         if (patch.getReasonCategory() != null) {
-            verdict.setReasonCategory(patch.getReasonCategory());
+            changes.put("reasonCategory", patch.getReasonCategory());
         }
         if (patch.getExplanation() != null) {
-            verdict.setExplanation(patch.getExplanation());
+            changes.put("explanation", patch.getExplanation());
         }
         if (patch.getEvidencePointer() != null) {
-            verdict.setEvidencePointer(patch.getEvidencePointer());
+            changes.put("evidencePointer", patch.getEvidencePointer());
         }
+        verdictRevisionService.appendAdminPatch(verdict, adminSessionService.username(), changes, "Administrative verdict correction");
         logService.recordSystem("ADMIN_UPDATE_VERDICT", "verdictId=" + id);
-        Verdict saved = verdictRepository.save(verdict);
-        auditService.recalculate(saved.getAudit().getId());
-        return auditMapper.toVerdictResponse(saved);
+        auditService.recalculate(verdict.getAudit().getId());
+        return auditMapper.toVerdictResponse(verdict);
     }
 
     @DeleteMapping("/verdicts/{id}")
@@ -211,7 +218,7 @@ public class AdminController {
     public void deleteVerdict(@PathVariable Long id) {
         Verdict verdict = verdictRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Verdict not found: " + id));
         Long auditId = verdict.getAudit().getId();
-        verdict.getAudit().getVerdicts().removeIf(item -> id.equals(item.getId()));
+        verdictRevisionService.appendAdminPatch(verdict, adminSessionService.username(), Map.of("deleted", true), "Administrative soft delete");
         auditService.recalculate(auditId);
         logService.recordSystem("ADMIN_DELETE_VERDICT", "verdictId=" + id);
     }
