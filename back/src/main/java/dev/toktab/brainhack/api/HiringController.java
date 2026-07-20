@@ -43,6 +43,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -260,6 +261,16 @@ public class HiringController {
                                      @PathVariable Long candidateId,
                                      @RequestBody(required = false) OsintRunRequest request) {
         return hiringService.runOsint(owner(authorization, legacyToken), projectId, candidateId, request);
+    }
+
+    @GetMapping("/{projectId}/candidates/{candidateId}/osint/latest")
+    public ResponseEntity<OsintRunResponse> latestOsint(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+            @PathVariable Long projectId,
+            @PathVariable Long candidateId) {
+        return ResponseEntity.ofNullable(
+                hiringService.latestOsint(owner(authorization, legacyToken), projectId, candidateId));
     }
 
     @DeleteMapping("/{projectId}/candidates/{candidateId}")

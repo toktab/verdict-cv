@@ -36,7 +36,7 @@ public class HiringSchemaGuard implements ApplicationRunner {
     private void widenColumnsIfPresent(Connection connection) throws SQLException {
         Map<String, String[]> columns = Map.of(
                 "hiring_projects", new String[] {"description", "requirements_text"},
-                "hiring_candidates", new String[] {"cv_text", "summary", "claims_json", "audit_phrase_matches_json"}
+                "hiring_candidates", new String[] {"cv_text", "summary", "claims_json", "audit_phrase_matches_json", "osint_report_json"}
         );
         for (Map.Entry<String, String[]> entry : columns.entrySet()) {
             if (!tableExists(connection, entry.getKey())) {

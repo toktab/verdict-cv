@@ -14,9 +14,20 @@ public class HiringDtos {
             @Size(max = 120) String location,
             @Size(max = 12000) String description,
             List<String> requirements,
+            Map<String, Object> rubric,
             @Size(max = 80) String state,
             @Size(max = 80) String status
     ) {
+        public ProjectRequest(
+                String title,
+                String department,
+                String location,
+                String description,
+                List<String> requirements,
+                String state,
+                String status) {
+            this(title, department, location, description, requirements, Map.of(), state, status);
+        }
     }
 
     public record CandidateRequest(
@@ -53,6 +64,66 @@ public class HiringDtos {
     ) {
     }
 
+    public record GithubLanguageResponse(
+            String name,
+            int repositories,
+            long bytes,
+            int percentage
+    ) {
+    }
+
+    public record GithubRepositoryResponse(
+            String name,
+            String description,
+            String url,
+            String language,
+            int stars,
+            int forks,
+            @JsonProperty("open_issues") int openIssues,
+            @JsonProperty("size_kb") int sizeKb,
+            boolean fork,
+            boolean archived,
+            @JsonProperty("default_branch") String defaultBranch,
+            @JsonProperty("owner_login") String ownerLogin,
+            @JsonProperty("language_bytes") Map<String, Long> languageBytes,
+            @JsonProperty("readme_excerpt") String readmeExcerpt,
+            @JsonProperty("created_at") Instant createdAt,
+            @JsonProperty("updated_at") Instant updatedAt,
+            @JsonProperty("pushed_at") Instant pushedAt,
+            List<String> topics
+    ) {
+    }
+
+    public record GithubProfileResponse(
+            String username,
+            String name,
+            @JsonProperty("avatar_url") String avatarUrl,
+            @JsonProperty("profile_url") String profileUrl,
+            String bio,
+            String company,
+            String location,
+            String blog,
+            @JsonProperty("public_repos") int publicRepos,
+            int followers,
+            int following,
+            @JsonProperty("created_at") Instant createdAt,
+            @JsonProperty("updated_at") Instant updatedAt,
+            @JsonProperty("latest_activity_at") Instant latestActivityAt,
+            @JsonProperty("repository_depth_score") int repositoryDepthScore,
+            List<GithubLanguageResponse> languages,
+            List<GithubRepositoryResponse> repositories
+    ) {
+    }
+
+    public record GithubJobMatchResponse(
+            int score,
+            String label,
+            String summary,
+            @JsonProperty("matched_terms") List<String> matchedTerms,
+            @JsonProperty("missing_terms") List<String> missingTerms
+    ) {
+    }
+
     public record OsintRunResponse(
             String state,
             String status,
@@ -63,7 +134,9 @@ public class HiringDtos {
             int contradictions,
             List<String> discoveredLinks,
             List<String> discoveredUsernames,
-            List<OsintSourceResponse> sources
+            List<OsintSourceResponse> sources,
+            GithubProfileResponse github,
+            @JsonProperty("github_job_match") GithubJobMatchResponse githubJobMatch
     ) {
     }
 
@@ -75,6 +148,7 @@ public class HiringDtos {
             String location,
             String description,
             List<String> requirements,
+            Map<String, Object> rubric,
             String state,
             String status,
             @JsonProperty("opened_at") Instant openedAt,
@@ -82,6 +156,7 @@ public class HiringDtos {
             @JsonProperty("owner_id") Long ownerId,
             @JsonProperty("my_role") String myRole,
             @JsonProperty("my_permissions") List<String> myPermissions,
+            Map<String, Object> settings,
             List<CandidateResponse> candidates
     ) {
     }
@@ -102,6 +177,10 @@ public class HiringDtos {
             String role,
             int score,
             int match,
+            @JsonProperty("fit_score") int fitScore,
+            @JsonProperty("evidence_score") int evidenceScore,
+            @JsonProperty("github_match_score") int githubMatchScore,
+            @JsonProperty("reviewer_score") int reviewerScore,
             String risk,
             String state,
             String osint,
@@ -128,7 +207,31 @@ public class HiringDtos {
             int unsupported,
             String summary,
             List<List<String>> claims,
-            @JsonProperty("audit_phrase_matches") List<Map<String, Object>> auditPhraseMatches
+            @JsonProperty("audit_phrase_matches") List<Map<String, Object>> auditPhraseMatches,
+            @JsonProperty("analysis_runs") List<CandidateAnalysisRunResponse> analysisRuns
+    ) {
+    }
+
+    public record CandidateAnalysisRunResponse(
+            Long id,
+            @JsonProperty("state_id") String stateId,
+            String engine,
+            @JsonProperty("prompt_version") String promptVersion,
+            @JsonProperty("resume_fingerprint") String resumeFingerprint,
+            @JsonProperty("template_fingerprint") String templateFingerprint,
+            @JsonProperty("recommendation_score") int recommendationScore,
+            @JsonProperty("fit_score") int fitScore,
+            @JsonProperty("evidence_score") int evidenceScore,
+            @JsonProperty("github_match_score") int githubMatchScore,
+            @JsonProperty("reviewer_score") int reviewerScore,
+            int supported,
+            int stretched,
+            int unsupported,
+            @JsonProperty("prompt_tokens") int promptTokens,
+            @JsonProperty("completion_tokens") int completionTokens,
+            @JsonProperty("estimated_cost_usd") java.math.BigDecimal estimatedCostUsd,
+            @JsonProperty("triggered_by") String triggeredBy,
+            @JsonProperty("created_at") Instant createdAt
     ) {
     }
 
@@ -196,8 +299,12 @@ public class HiringDtos {
     }
 
     public record CandidateStatusRequest(
-            @NotBlank @Size(max = 80) String status
+            @NotBlank @Size(max = 80) String status,
+            @Size(max = 2000) String reason
     ) {
+        public CandidateStatusRequest(String status) {
+            this(status, "");
+        }
     }
 
     public record VoteSummaryResponse(

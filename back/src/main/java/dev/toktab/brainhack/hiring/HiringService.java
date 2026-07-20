@@ -10,6 +10,7 @@ import dev.toktab.brainhack.audit.AnalyzedVerdict;
 import dev.toktab.brainhack.audit.AuditAnalysisResult;
 import dev.toktab.brainhack.audit.AuditPromptCatalog;
 import dev.toktab.brainhack.audit.CheckStateIds;
+import dev.toktab.brainhack.audit.FingerprintService;
 import dev.toktab.brainhack.audit.StateAnalysisOrchestrator;
 import dev.toktab.brainhack.audit.VerdictStatus;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateRequest;
@@ -25,6 +26,10 @@ import dev.toktab.brainhack.hiring.HiringDtos.MemberRoleRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.NoteRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.NoteResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ActivityResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.GithubLanguageResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.GithubJobMatchResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.GithubProfileResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.GithubRepositoryResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintRunRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintRunResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.OsintSourceResponse;
@@ -83,13 +88,16 @@ public class HiringService {
     private static final Set<String> REQUIREMENT_SECTIONS = Set.of("RESPONSIBILITIES", "REQUIRED QUALIFICATIONS", "NICE TO HAVE", "TECH STACK", "IDEAL CANDIDATE PROFILE");
     private static final Set<String> STOP_REQUIREMENT_SECTIONS = Set.of("WHAT WE OFFER", "ABOUT THE ROLE", "LOCATION", "EMPLOYMENT TYPE", "LEVEL");
     private static final Pattern SENTENCE = Pattern.compile("(?<=[.!?])\\s+|\\R+");
-    private static final Pattern URL = Pattern.compile("https?://[^\\s)>,]+", Pattern.CASE_INSENSITIVE);
+    private static final Pattern URL = Pattern.compile(
+            "(?:https?://[^\\s)>,|]+|(?<![\\w@.-])(?:www\\.)?(?:github\\.com|linkedin\\.com|stackoverflow\\.com|medium\\.com|x\\.com|twitter\\.com)/[^\\s)>,|]+)",
+            Pattern.CASE_INSENSITIVE);
     private static final Pattern HANDLE = Pattern.compile("(?<![\\w.])@([a-zA-Z0-9][a-zA-Z0-9_.-]{2,38})");
     private static final Pattern EMAIL = Pattern.compile("(?i)(?<![a-z0-9._%+-])([a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,})(?![a-z0-9._%+-])");
     private static final Pattern GITHUB_URL = Pattern.compile("https?://(?:www\\.)?github\\.com/([a-zA-Z0-9-]{1,39})(?:[/\\s?#]|$)", Pattern.CASE_INSENSITIVE);
 
     private final HiringProjectRepository projectRepository;
     private final HiringCandidateRepository candidateRepository;
+    private final CandidateAnalysisRunRepository analysisRunRepository;
     private final HiringMapper mapper;
     private final OrganizationRepository organizationRepository;
     private final TeamMembershipRepository membershipRepository;
@@ -104,6 +112,7 @@ public class HiringService {
     private final ProjectActivityLogRepository activityRepository;
     private final AuditService auditService;
     private final StateAnalysisOrchestrator stateAnalysisOrchestrator;
+    private final FingerprintService fingerprintService;
     private final String githubToken;
     private final SecureRandom secureRandom = new SecureRandom();
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -113,6 +122,7 @@ public class HiringService {
     public HiringService(
             HiringProjectRepository projectRepository,
             HiringCandidateRepository candidateRepository,
+            CandidateAnalysisRunRepository analysisRunRepository,
             HiringMapper mapper,
             OrganizationRepository organizationRepository,
             TeamMembershipRepository membershipRepository,
@@ -127,9 +137,11 @@ public class HiringService {
             ProjectActivityLogRepository activityRepository,
             AuditService auditService,
             StateAnalysisOrchestrator stateAnalysisOrchestrator,
+            FingerprintService fingerprintService,
             @Value("${verdict.github.token:}") String githubToken) {
         this.projectRepository = projectRepository;
         this.candidateRepository = candidateRepository;
+        this.analysisRunRepository = analysisRunRepository;
         this.mapper = mapper;
         this.organizationRepository = organizationRepository;
         this.membershipRepository = membershipRepository;
@@ -144,6 +156,7 @@ public class HiringService {
         this.activityRepository = activityRepository;
         this.auditService = auditService;
         this.stateAnalysisOrchestrator = stateAnalysisOrchestrator;
+        this.fingerprintService = fingerprintService;
         this.githubToken = githubToken == null ? "" : githubToken.trim();
     }
 
@@ -190,6 +203,7 @@ public class HiringService {
             requirements = extractRequirements(request.description());
         }
         project.setRequirementsText(String.join("\n", requirements));
+        project.setRubricJson(mapper.json(request.rubric() == null ? Map.of() : request.rubric()));
         project.setState(defaulted(request.state(), "WAR+AI State"));
         project.setStatus(defaulted(request.status(), "Screening"));
         HiringProject saved = projectRepository.save(project);
@@ -235,7 +249,9 @@ public class HiringService {
                             "INTERVIEW",
                             "Demo review: evidence is concrete enough for interview, with targeted follow-up on ownership and production scope."
                     ));
-                    updateCandidateStatus(owner, project.id(), lead.id(), new CandidateStatusRequest("OnInterview"));
+                    updateCandidateStatus(owner, project.id(), lead.id(), new CandidateStatusRequest(
+                            "OnInterview",
+                            "Seeded demo reviewer advanced the candidate after evidence review."));
                     vote(owner, project.id(), lead.id(), new VoteRequest("UPVOTE", 4.5));
                     for (UserAccount member : demoMembers) {
                         messageService.send(owner, new MessageRequest(
@@ -334,8 +350,11 @@ public class HiringService {
     @Transactional
     public CandidateResponse addCandidate(UserAccount owner, Long projectId, CandidateRequest request) {
         HiringProject project = projectEntity(owner, projectId);
+        requireCandidateIntake(project, false);
         HiringCandidate candidate = buildCandidate(project, defaulted(request.name(), "Unnamed candidate"), defaulted(request.role(), project.getTitle()), defaulted(request.cvText(), ""), "");
-        CandidateResponse response = mapper.candidate(saveAnalyzedCandidate(candidate));
+        HiringCandidate saved = saveAnalyzedCandidate(candidate);
+        recordAnalysisRun(saved, owner);
+        CandidateResponse response = mapper.candidate(saved);
         recordCandidateActivity(candidate, owner, "candidate_create", "Added candidate " + candidate.getName(), "good", "Candidate was added to the project.");
         publishProjectChange(project);
         return response;
@@ -344,9 +363,12 @@ public class HiringService {
     @Transactional
     public CandidateResponse uploadCandidate(UserAccount owner, Long projectId, String name, String role, MultipartFile resume) {
         HiringProject project = projectEntity(owner, projectId);
+        requireCandidateIntake(project, true);
         String cvText = extractResumeText(resume);
         HiringCandidate candidate = buildCandidate(project, defaulted(name, "Unnamed candidate"), defaulted(role, project.getTitle()), cvText, resume == null ? "" : resume.getOriginalFilename());
-        CandidateResponse response = mapper.candidate(saveAnalyzedCandidate(candidate));
+        HiringCandidate saved = saveAnalyzedCandidate(candidate);
+        recordAnalysisRun(saved, owner);
+        CandidateResponse response = mapper.candidate(saved);
         recordCandidateActivity(candidate, owner, "candidate_upload", "Uploaded candidate " + candidate.getName(), "good", "Candidate resume was uploaded and analyzed.");
         publishProjectChange(project);
         return response;
@@ -376,7 +398,9 @@ public class HiringService {
         HiringCandidate refreshed = buildCandidate(candidate.getProject(), candidate.getName(), candidate.getRole(),
                 candidate.getCvText(), candidate.getResumeFilename(), candidate.getId(), candidate.getAnalysisState());
         applyCandidateAnalysis(candidate, refreshed);
-        CandidateResponse response = mapper.candidate(saveAnalyzedCandidate(candidate));
+        HiringCandidate saved = saveAnalyzedCandidate(candidate);
+        recordAnalysisRun(saved, owner);
+        CandidateResponse response = mapper.candidate(saved);
         recordCandidateActivity(candidate, owner, "candidate_reanalyze", "Reanalyzed candidate " + candidate.getName(), "info", "Candidate scoring and phrase checks were refreshed.");
         publishProjectChange(candidate.getProject());
         return response;
@@ -391,7 +415,7 @@ public class HiringService {
         String previous = candidate.getAnalysisState();
         List<String> initialized = new ArrayList<>(mapper.strings(candidate.getInitializedAnalysisStatesJson()));
         boolean newlyInitialized = request.initialize() && !initialized.contains(state);
-        boolean analyzeForState = request.initialize() || initialized.contains(state);
+        boolean analyzeForState = request.initialize();
 
         candidate.setAnalysisState(state);
         if (newlyInitialized) {
@@ -402,8 +426,23 @@ public class HiringService {
             HiringCandidate refreshed = buildCandidate(candidate.getProject(), candidate.getName(), candidate.getRole(),
                     candidate.getCvText(), candidate.getResumeFilename(), candidate.getId(), state);
             applyCandidateAnalysis(candidate, refreshed);
+        } else if (initialized.contains(state)) {
+            CandidateAnalysisRun existing =
+                    analysisRunRepository.findFirstByCandidateIdAndStateIdOrderByCreatedAtDesc(candidate.getId(), state)
+                            .orElse(null);
+            if (existing != null) {
+                restoreAnalysisRun(candidate, existing);
+            } else {
+                HiringCandidate refreshed = buildCandidate(candidate.getProject(), candidate.getName(), candidate.getRole(),
+                        candidate.getCvText(), candidate.getResumeFilename(), candidate.getId(), state);
+                applyCandidateAnalysis(candidate, refreshed);
+                analyzeForState = true;
+            }
         }
         candidateRepository.save(candidate);
+        if (analyzeForState) {
+            recordAnalysisRun(candidate, actor);
+        }
 
         if (!state.equals(previous) || newlyInitialized) {
             String action = newlyInitialized
@@ -456,7 +495,9 @@ public class HiringService {
                     ""
             ));
         }
-        githubEvidence(links).forEach(sources::add);
+        GithubInvestigation githubInvestigation = githubInvestigation(links);
+        sources.addAll(githubInvestigation.sources());
+        GithubJobMatchResponse githubJobMatch = githubJobMatch(candidate.getProject(), githubInvestigation.profile());
         sources.add(new OsintSourceResponse(
                 "Claim cross-check",
                 candidate.getSupported() + " supported, " + candidate.getStretched() + " stretched, and " + candidate.getUnsupported() + " unsupported CV claims are ready for source attachment.",
@@ -469,11 +510,7 @@ public class HiringService {
         int corroborated = (int) sources.stream().filter(source -> source.confidence() >= 55).count();
         int identityConfidence = Math.min(96, Math.max(24, 35 + corroborated * 14 - candidate.getUnsupported() * 4));
         candidate.setOsint(corroborated >= 3 ? "Ready" : corroborated >= 1 ? "Partial" : "Escalate");
-        candidateRepository.save(candidate);
-        recordActivity(candidate.getProject(), owner, "candidate_osint", "Ran evidence scan for " + candidate.getName(), "info", "SignalTrace evidence cards were refreshed.");
-        publishProjectChange(candidate.getProject());
-
-        return new OsintRunResponse(
+        OsintRunResponse response = new OsintRunResponse(
                 state,
                 candidate.getOsint(),
                 checkedAt,
@@ -483,8 +520,61 @@ public class HiringService {
                 candidate.getUnsupported(),
                 links,
                 usernames,
-                sources
+                sources,
+                githubInvestigation.profile(),
+                githubJobMatch
         );
+        candidate.setOsintReportJson(mapper.json(response));
+        candidate.setOsintCheckedAt(checkedAt);
+        candidate.setGithubMatchScore(githubJobMatch.score());
+        candidate.setEvidenceScore(githubInvestigation.profile() == null
+                ? 0
+                : Math.min(100, Math.round(identityConfidence * 0.35f + githubJobMatch.score() * 0.65f)));
+        candidateRepository.save(candidate);
+        recordAnalysisRun(candidate, owner);
+        recordActivity(candidate.getProject(), owner, "candidate_osint", "Ran evidence scan for " + candidate.getName(), "info", "SignalTrace evidence cards were refreshed.");
+        publishProjectChange(candidate.getProject());
+
+        return response;
+    }
+
+    @Transactional
+    public OsintRunResponse latestOsint(UserAccount owner, Long projectId, Long candidateId) {
+        HiringCandidate candidate = candidateEntity(owner, projectId, candidateId);
+        OsintRunResponse report = mapper.osintReport(candidate.getOsintReportJson());
+        if (report == null || report.github() == null) {
+            return report;
+        }
+
+        // Older persisted reports predate job-specific GitHub matching. Upgrade them
+        // when read so completed evidence never appears as a missing/fresh scan.
+        GithubJobMatchResponse githubJobMatch = githubJobMatch(candidate.getProject(), report.github());
+        OsintRunResponse refreshed = new OsintRunResponse(
+                report.state(),
+                report.status(),
+                report.checkedAt(),
+                report.consentedChecks(),
+                report.identityConfidence(),
+                report.corroboratedSources(),
+                report.contradictions(),
+                report.discoveredLinks(),
+                report.discoveredUsernames(),
+                report.sources(),
+                report.github(),
+                githubJobMatch
+        );
+        int evidenceScore = Math.min(100,
+                Math.round(report.identityConfidence() * 0.35f + githubJobMatch.score() * 0.65f));
+        if (candidate.getGithubMatchScore() != githubJobMatch.score()
+                || candidate.getEvidenceScore() != evidenceScore
+                || report.githubJobMatch() == null
+                || report.githubJobMatch().score() != githubJobMatch.score()) {
+            candidate.setGithubMatchScore(githubJobMatch.score());
+            candidate.setEvidenceScore(evidenceScore);
+            candidate.setOsintReportJson(mapper.json(refreshed));
+            candidateRepository.save(candidate);
+        }
+        return refreshed;
     }
 
     @Transactional
@@ -647,7 +737,8 @@ public class HiringService {
         invite.setProject(project);
         invite.setInvitedBy(actor);
         invite.setInvitedEmail(invitedUser != null ? invitedUser.getEmail() : rawInvitee);
-        invite.setRole(defaulted(request.role(), "REVIEWER").toUpperCase(Locale.ROOT));
+        String defaultRole = projectSetting(project, "defaultRole", "Reviewer");
+        invite.setRole(defaulted(request.role(), defaultRole).toUpperCase(Locale.ROOT));
         invite.setToken(randomToken());
         ProjectInvite saved = inviteRepository.save(invite);
         messageService.createInviteMessage(actor, saved.getInvitedEmail(), project.getTitle(), project.getId(), saved.getToken());
@@ -733,6 +824,8 @@ public class HiringService {
         note.setDecision(action);
         note.setBody(action.equals("UPVOTE") ? "score=" + score : "");
         noteRepository.save(note);
+        updateReviewerScore(candidate);
+        candidateRepository.save(candidate);
         recordCandidateActivity(candidate, actor, "candidate_vote", activityLabel(note), "info", candidate.getName() + ": " + action);
         publishProjectChange(candidate.getProject());
         return workflowResponse(actor, candidate);
@@ -743,6 +836,12 @@ public class HiringService {
         HiringCandidate candidate = candidateEntity(actor, projectId, candidateId);
         String status = normalizeCandidateStatus(request.status());
         requireStatusPermission(actor, candidate.getProject(), status);
+        String currentStatus = workflowStatus(defaulted(candidate.getState(), "Unreviewed"));
+        if (status.equals(currentStatus)) {
+            return workflowResponse(actor, candidate);
+        }
+        String reason = defaulted(request.reason(), "").trim();
+        requireWorkflowGate(candidate, status, reason);
         candidate.setState(status);
         candidateRepository.save(candidate);
 
@@ -751,19 +850,44 @@ public class HiringService {
         note.setAuthor(actor);
         note.setType("STATUS");
         note.setDecision(status.toUpperCase(Locale.ROOT));
-        note.setBody("Changed candidate status to " + status);
+        note.setBody(reason.isBlank() ? "Changed candidate status to " + status : reason);
         noteRepository.save(note);
         recordCandidateActivity(candidate, actor, "candidate_status", activityLabel(note), "warn", candidate.getName() + " moved to " + status + ".");
         publishProjectChange(candidate.getProject());
         return workflowResponse(actor, candidate);
     }
 
+    private void requireWorkflowGate(HiringCandidate candidate, String targetStatus, String reason) {
+        if (Set.of("OnInterview", "Hired", "Closed").contains(targetStatus) && reason.length() < 12) {
+            throw new IllegalArgumentException("Add a decision reason of at least 12 characters");
+        }
+        if (!"Hired".equals(targetStatus)) {
+            return;
+        }
+        String currentStatus = workflowStatus(defaulted(candidate.getState(), "Unreviewed"));
+        if (!"OnInterview".equals(currentStatus)) {
+            throw new IllegalArgumentException("Move the candidate to OnInterview before marking them Hired");
+        }
+        boolean hasReviewerDecision = noteRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getId()).stream()
+                .anyMatch(note -> "VOTE".equalsIgnoreCase(note.getType())
+                        && Set.of("UPVOTE", "DOWNVOTE").contains(defaulted(note.getDecision(), "").toUpperCase(Locale.ROOT)));
+        if (!hasReviewerDecision) {
+            throw new IllegalArgumentException("At least one reviewer vote is required before hiring");
+        }
+        String evidenceRequirement = String.valueOf(projectStateService.effectiveSettings(candidate.getProject())
+                .getOrDefault("evidenceRequirement", "Require project/source evidence"));
+        if (evidenceRequirement.toLowerCase(Locale.ROOT).contains("require")
+                && candidate.getEvidenceScore() <= 0) {
+            throw new IllegalArgumentException("Run SignalTrace or attach independent evidence before hiring");
+        }
+    }
+
     private HiringCandidate buildCandidate(HiringProject project, String name, String role, String cvText, String filename) {
-        return buildCandidate(project, name, role, cvText, filename, null, analysisStateFromProject(project.getState()));
+        return buildCandidate(project, name, role, cvText, filename, null, analysisStateFromProject(project));
     }
 
     private HiringCandidate buildCandidate(HiringProject project, String name, String role, String cvText, String filename, Long excludedCandidateId) {
-        return buildCandidate(project, name, role, cvText, filename, excludedCandidateId, analysisStateFromProject(project.getState()));
+        return buildCandidate(project, name, role, cvText, filename, excludedCandidateId, analysisStateFromProject(project));
     }
 
     private HiringCandidate buildCandidate(HiringProject project, String name, String role, String cvText, String filename,
@@ -776,7 +900,9 @@ public class HiringService {
         if (requirements.isEmpty()) {
             requirements = List.of(project.getTitle() + " role requirements");
         }
-        List<List<String>> baselineClaims = claims(cvText, requirements);
+        requirements = weightedRubricRequirements(project, requirements);
+        List<String> techTerms = analysisTechTerms(project);
+        List<List<String>> baselineClaims = claims(cvText, requirements, techTerms);
         AuditAnalysisResult stateAnalysis =
                 stateAnalysisOrchestrator.analyze(
                         policy.stateId(),
@@ -787,12 +913,12 @@ public class HiringService {
         int stretched = (int) claims.stream().filter(row -> "Stretched".equals(row.get(1))).count();
         int unsupported = (int) claims.stream().filter(row -> "Unsupported".equals(row.get(1))).count();
         int total = Math.max(1, supported + stretched + unsupported);
-        int match = Math.max(requirementMatch(requirements, cvText),
+        int match = Math.max(requirementMatch(requirements, cvText, techTerms),
                 Math.round((supported * 100f + stretched * policy.stretchedMatchWeight()) / total));
         match = Math.min(98, Math.max(12, match));
         int flags = unsupported * policy.unsupportedFlagWeight()
                 + stretched * policy.stretchedFlagWeight()
-                + riskyMatches(cvText).size() * policy.riskyPhraseWeight();
+                + riskyMatches(project, cvText).size() * policy.riskyPhraseWeight();
         int positiveEvidence = Math.min(policy.positiveEvidenceCap(), supported / 2);
         int score = Math.max(8, Math.min(99,
                 match + positiveEvidence
@@ -813,6 +939,9 @@ public class HiringService {
         candidate.setStretched(stretched);
         candidate.setUnsupported(unsupported);
         candidate.setMatchScore(match);
+        candidate.setEvidenceScore(0);
+        candidate.setGithubMatchScore(0);
+        candidate.setReviewerScore(0);
         candidate.setScore(score);
         candidate.setRisk(score < policy.highRiskScore() || unsupported >= policy.highRiskUnsupported()
                 ? "High"
@@ -844,7 +973,7 @@ public class HiringService {
         candidate.setFlags(flags);
         candidate.setSummary(summary(candidate, project));
         candidate.setClaimsJson(mapper.json(claims));
-        candidate.setAuditPhraseMatchesJson(mapper.json(riskyMatches(cvText)));
+        candidate.setAuditPhraseMatchesJson(mapper.json(riskyMatches(project, cvText)));
         return candidate;
     }
 
@@ -924,7 +1053,44 @@ public class HiringService {
         return normalized;
     }
 
-    private String analysisStateFromProject(String projectState) {
+    private String analysisStateFromProject(HiringProject project) {
+        String configuredState = projectSetting(project, "defaultAuditState", project.getState());
+        return analysisStateFromProjectValue(configuredState);
+    }
+
+    private String projectSetting(HiringProject project, String key, String fallback) {
+        Object value = projectStateService.effectiveSettings(project).get(key);
+        String clean = value == null ? "" : String.valueOf(value).trim();
+        return clean.isBlank() ? fallback : clean;
+    }
+
+    private void requireCandidateIntake(HiringProject project, boolean fileUpload) {
+        String mode = projectSetting(project, "candidateIntake", "Manual + resume upload");
+        if (fileUpload && "Manual only".equalsIgnoreCase(mode)) {
+            throw new IllegalArgumentException("This project accepts manually pasted candidate text only.");
+        }
+        if (!fileUpload && "Resume upload only".equalsIgnoreCase(mode)) {
+            throw new IllegalArgumentException("This project requires a PDF, DOCX, or TXT resume upload.");
+        }
+    }
+
+    private List<String> analysisTechTerms(HiringProject project) {
+        LinkedHashMap<String, String> terms = new LinkedHashMap<>();
+        atsKeywordCatalog.techTerms().forEach(term -> terms.putIfAbsent(term.toLowerCase(Locale.ROOT), term.toLowerCase(Locale.ROOT)));
+        projectStateService.activeAnalysisTemplate(project).techTerms()
+                .forEach(term -> terms.putIfAbsent(term.toLowerCase(Locale.ROOT), term.toLowerCase(Locale.ROOT)));
+        return List.copyOf(terms.values());
+    }
+
+    private List<String> analysisRiskyWords(HiringProject project) {
+        LinkedHashMap<String, String> terms = new LinkedHashMap<>();
+        atsKeywordCatalog.riskyWords().forEach(term -> terms.putIfAbsent(term.toLowerCase(Locale.ROOT), term.toLowerCase(Locale.ROOT)));
+        projectStateService.activeAnalysisTemplate(project).riskyWords()
+                .forEach(term -> terms.putIfAbsent(term.toLowerCase(Locale.ROOT), term.toLowerCase(Locale.ROOT)));
+        return List.copyOf(terms.values());
+    }
+
+    private String analysisStateFromProjectValue(String projectState) {
         String normalized = defaulted(projectState, "").toLowerCase(Locale.ROOT);
         if (normalized.contains("light")) return CheckStateIds.LIGHT;
         if (normalized.contains("person")) return CheckStateIds.PERSON;
@@ -1012,18 +1178,79 @@ public class HiringService {
         return candidateRepository.saveAndFlush(candidate);
     }
 
-    private List<List<String>> claims(String cvText, List<String> requirements) {
+    private void recordAnalysisRun(HiringCandidate candidate, UserAccount actor) {
+        ProjectStateService.AnalysisTemplate template = projectStateService.activeAnalysisTemplate(candidate.getProject());
+        CandidateAnalysisRun run = new CandidateAnalysisRun();
+        run.setCandidate(candidate);
+        run.setProject(candidate.getProject());
+        run.setTriggeredBy(actor);
+        run.setStateId(candidate.getAnalysisState());
+        run.setEngine(candidate.getAnalysisEngine());
+        run.setPromptVersion(candidate.getAnalysisPromptVersion());
+        run.setResumeFingerprint(fingerprintService.sha256(defaulted(candidate.getCvText(), "")));
+        run.setTemplateFingerprint(fingerprintService.sha256(
+                template.name() + "\n" + defaulted(template.sourceJson(), "bundled-default")));
+        run.setRecommendationScore(candidate.getScore());
+        run.setFitScore(candidate.getMatchScore());
+        run.setEvidenceScore(candidate.getEvidenceScore());
+        run.setGithubMatchScore(candidate.getGithubMatchScore());
+        run.setReviewerScore(candidate.getReviewerScore());
+        run.setSupported(candidate.getSupported());
+        run.setStretched(candidate.getStretched());
+        run.setUnsupported(candidate.getUnsupported());
+        run.setPromptTokens(candidate.getPromptTokens());
+        run.setCompletionTokens(candidate.getCompletionTokens());
+        run.setEstimatedCostUsd(candidate.getEstimatedCostUsd());
+        run.setClaimsJson(candidate.getClaimsJson());
+        analysisRunRepository.save(run);
+    }
+
+    private void restoreAnalysisRun(HiringCandidate candidate, CandidateAnalysisRun run) {
+        candidate.setScore(run.getRecommendationScore());
+        candidate.setMatchScore(run.getFitScore());
+        candidate.setSupported(run.getSupported());
+        candidate.setStretched(run.getStretched());
+        candidate.setUnsupported(run.getUnsupported());
+        candidate.setAnalysisEngine(run.getEngine());
+        candidate.setAnalysisPromptVersion(run.getPromptVersion());
+        candidate.setAnalysisCompletedAt(run.getCreatedAt());
+        candidate.setPromptTokens(run.getPromptTokens());
+        candidate.setCompletionTokens(run.getCompletionTokens());
+        candidate.setTotalTokens(run.getPromptTokens() + run.getCompletionTokens());
+        candidate.setEstimatedCostUsd(run.getEstimatedCostUsd());
+        candidate.setClaimsJson(run.getClaimsJson());
+    }
+
+    private void updateReviewerScore(HiringCandidate candidate) {
+        Map<String, CandidateReviewNote> latest = new LinkedHashMap<>();
+        for (CandidateReviewNote note : noteRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getId())) {
+            if ("VOTE".equalsIgnoreCase(note.getType())
+                    && Set.of("UPVOTE", "DOWNVOTE").contains(note.getDecision())) {
+                latest.putIfAbsent(note.getAuthor().getEmail().toLowerCase(Locale.ROOT), note);
+            }
+        }
+        if (latest.isEmpty()) {
+            candidate.setReviewerScore(0);
+            return;
+        }
+        double total = latest.values().stream()
+                .mapToDouble(note -> "UPVOTE".equals(note.getDecision()) ? scoreFromBody(note.getBody()) : 0.0)
+                .sum();
+        candidate.setReviewerScore((int) Math.round(total / latest.size() * 20.0));
+    }
+
+    private List<List<String>> claims(String cvText, List<String> requirements, List<String> techTerms) {
         List<List<String>> rows = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         String normalizedCv = normalize(cvText);
         String normalizedRequirements = normalize(String.join(" ", requirements));
         for (String requirement : requirements) {
-            String status = requirementStatus(requirement, normalizedCv);
+            String status = requirementStatus(requirement, normalizedCv, techTerms);
             String reason = "Supported".equals(status)
-                    ? "The CV contains multiple terms aligned with this job requirement."
+                    ? "The CV mentions multiple terms aligned with this requirement. This is resume alignment, not independent verification."
                     : "Stretched".equals(status)
-                    ? "The CV partially overlaps this requirement but does not prove depth."
-                    : "The CV does not provide clear evidence for this requirement.";
+                    ? "The CV partially overlaps this requirement. Depth and ownership still need independent evidence."
+                    : "The CV does not clearly mention this requirement.";
             addClaim(rows, seen, requirement, status, reason);
         }
         for (String sentence : SENTENCE.split(defaulted(cvText, ""))) {
@@ -1037,9 +1264,9 @@ public class HiringService {
             if (risky) {
                 addClaim(rows, seen, clean, "Stretched", "The wording raises the proof burden and should be backed by concrete project, duration, team, or production evidence.");
             } else if (requirementHits >= 2) {
-                addClaim(rows, seen, clean, "Supported", "This CV sentence directly overlaps multiple job requirement terms.");
-            } else if (hasConcreteTechnicalSignal(lower)) {
-                addClaim(rows, seen, clean, "Supported", "This CV sentence contains concrete technical or measurable evidence.");
+                addClaim(rows, seen, clean, "Supported", "This self-reported CV sentence overlaps multiple job terms; it is not independently verified.");
+            } else if (hasConcreteTechnicalSignal(lower, techTerms)) {
+                addClaim(rows, seen, clean, "Supported", "This CV sentence contains a concrete technical or measurable statement that still requires independent verification.");
             } else if (requirementHits == 1) {
                 addClaim(rows, seen, clean, "Stretched", "This CV sentence has partial job overlap but needs stronger proof.");
             } else if (isNeutralCvLine(clean)) {
@@ -1055,10 +1282,18 @@ public class HiringService {
     }
 
     private List<String> discoveredLinks(String text) {
+        return discoverPublicLinks(text);
+    }
+
+    static List<String> discoverPublicLinks(String text) {
         List<String> links = new ArrayList<>();
-        var matcher = URL.matcher(defaulted(text, ""));
+        var matcher = URL.matcher(text == null ? "" : text);
         while (matcher.find()) {
             String link = matcher.group().replaceAll("[.,;:]+$", "");
+            if (!link.toLowerCase(Locale.ROOT).startsWith("http://")
+                    && !link.toLowerCase(Locale.ROOT).startsWith("https://")) {
+                link = "https://" + link;
+            }
             if (!links.contains(link)) {
                 links.add(link);
             }
@@ -1081,61 +1316,362 @@ public class HiringService {
         return usernames.stream().limit(25).toList();
     }
 
-    private List<OsintSourceResponse> githubEvidence(List<String> links) {
-        List<OsintSourceResponse> rows = new ArrayList<>();
+    private GithubInvestigation githubInvestigation(List<String> links) {
+        String githubLink = "";
+        String username = "";
         for (String link : links) {
             var matcher = GITHUB_URL.matcher(link);
             if (!matcher.find()) {
                 continue;
             }
-            String username = matcher.group(1);
-            if (Set.of("topics", "marketplace", "features", "settings", "orgs").contains(username.toLowerCase(Locale.ROOT))) {
+            String candidateUsername = matcher.group(1);
+            if (Set.of("topics", "marketplace", "features", "settings", "orgs").contains(candidateUsername.toLowerCase(Locale.ROOT))) {
                 continue;
             }
-            rows.add(githubProfile(username, link));
-            rows.add(githubRepositoryDepth(username, link));
+            githubLink = link;
+            username = candidateUsername;
             break;
         }
-        if (rows.isEmpty()) {
-            rows.add(new OsintSourceResponse(
+
+        if (username.isBlank()) {
+            return new GithubInvestigation(null, List.of(new OsintSourceResponse(
                     "GitHub",
                     "No GitHub profile URL was found in the CV, so repository language evidence could not be checked automatically.",
                     24,
                     "0",
                     "warn",
                     ""
-            ));
+            )));
         }
-        return rows;
-    }
 
-    private OsintSourceResponse githubProfile(String username, String link) {
         try {
-            HttpRequest request = githubRequest(
+            HttpResponse<String> profileResponse = httpClient.send(githubRequest(
                     URI.create("https://api.github.com/users/" + username),
-                    java.time.Duration.ofSeconds(6));
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200) {
-                Map<String, Object> payload = mapper.map(response.body());
-                int publicRepos = number(payload.get("public_repos"));
-                int followers = number(payload.get("followers"));
-                String blog = defaulted(String.valueOf(payload.getOrDefault("blog", "")), "");
-                String finding = "GitHub profile @" + username + " is public with " + publicRepos + " repos and " + followers + " followers.";
-                if (!blog.isBlank() && !"null".equals(blog)) {
-                    finding += " Portfolio/blog field is present.";
-                }
-                return new OsintSourceResponse("GitHub", finding, publicRepos > 0 ? 78 : 42, publicRepos > 0 ? "+12" : "+2", publicRepos > 0 ? "good" : "warn", link);
+                    java.time.Duration.ofSeconds(6)), HttpResponse.BodyHandlers.ofString());
+            if (profileResponse.statusCode() == 404) {
+                return new GithubInvestigation(null, List.of(new OsintSourceResponse(
+                        "GitHub", "GitHub URL was found, but the profile did not resolve through the public API.",
+                        18, "-4", "bad", githubLink)));
             }
-            if (response.statusCode() == 404) {
-                return new OsintSourceResponse("GitHub", "GitHub URL was found, but the profile did not resolve through the public API.", 18, "-4", "bad", link);
+            if (profileResponse.statusCode() != 200) {
+                return new GithubInvestigation(null, List.of(new OsintSourceResponse(
+                        "GitHub", "GitHub public API returned status " + profileResponse.statusCode() + " for @" + username + ".",
+                        30, "0", "warn", githubLink)));
             }
-            return new OsintSourceResponse("GitHub", "GitHub public API returned status " + response.statusCode() + " for @" + username + ".", 30, "0", "warn", link);
+
+            Map<String, Object> profilePayload = mapper.map(profileResponse.body());
+            HttpResponse<String> repositoriesResponse = httpClient.send(githubRequest(
+                    URI.create("https://api.github.com/users/" + username + "/repos?sort=pushed&direction=desc&per_page=30"),
+                    java.time.Duration.ofSeconds(8)), HttpResponse.BodyHandlers.ofString());
+            List<Map<String, Object>> repositoryPayloads = repositoriesResponse.statusCode() == 200
+                    ? mapper.maps(repositoriesResponse.body())
+                    : List.of();
+            List<GithubRepositoryResponse> repositories = new ArrayList<>();
+            for (int index = 0; index < repositoryPayloads.size(); index++) {
+                repositories.add(githubRepository(repositoryPayloads.get(index), username, index));
+            }
+
+            int original = (int) repositories.stream().filter(repository -> !repository.fork()).count();
+            int forked = repositories.size() - original;
+            int substantial = (int) repositories.stream()
+                    .filter(repository -> repository.sizeKb() >= 80 && !repository.fork())
+                    .count();
+            int recent = (int) repositories.stream()
+                    .filter(repository -> repository.pushedAt() != null
+                            && repository.pushedAt().isAfter(Instant.now().minus(365, java.time.temporal.ChronoUnit.DAYS)))
+                    .count();
+            int depthScore = repositories.isEmpty()
+                    ? 0
+                    : Math.min(100, 18 + original * 4 + substantial * 7 + recent * 4 - forked * 2);
+            List<GithubLanguageResponse> languages = githubLanguages(repositories);
+            Instant latestActivity = repositories.stream()
+                    .map(GithubRepositoryResponse::pushedAt)
+                    .filter(java.util.Objects::nonNull)
+                    .max(Comparator.naturalOrder())
+                    .orElse(parseInstant(profilePayload.get("updated_at")));
+            int publicRepos = number(profilePayload.get("public_repos"));
+            int followers = number(profilePayload.get("followers"));
+            GithubProfileResponse profile = new GithubProfileResponse(
+                    username,
+                    cleanApiText(profilePayload.get("name")),
+                    cleanApiText(profilePayload.get("avatar_url")),
+                    defaulted(cleanApiText(profilePayload.get("html_url")), githubLink),
+                    cleanApiText(profilePayload.get("bio")),
+                    cleanApiText(profilePayload.get("company")),
+                    cleanApiText(profilePayload.get("location")),
+                    cleanApiText(profilePayload.get("blog")),
+                    publicRepos,
+                    followers,
+                    number(profilePayload.get("following")),
+                    parseInstant(profilePayload.get("created_at")),
+                    parseInstant(profilePayload.get("updated_at")),
+                    latestActivity,
+                    depthScore,
+                    languages,
+                    repositories
+            );
+
+            String profileFinding = "GitHub profile @" + username + " is public with "
+                    + publicRepos + " repositories and " + followers + " followers.";
+            String depthFinding = repositories.isEmpty()
+                    ? "No public repositories were returned for depth analysis."
+                    : "Depth " + depthScore + "/100 across " + repositories.size() + " recent repositories: "
+                    + original + " original, " + forked + " forked, " + substantial + " substantial, and "
+                    + recent + " active in the last year.";
+            List<OsintSourceResponse> sources = List.of(
+                    new OsintSourceResponse("GitHub profile", profileFinding,
+                            publicRepos > 0 ? 78 : 42, publicRepos > 0 ? "+12" : "+2",
+                            publicRepos > 0 ? "good" : "warn", githubLink),
+                    new OsintSourceResponse("GitHub repository depth", depthFinding,
+                            repositories.isEmpty() ? 34 : Math.max(40, Math.min(92, depthScore)),
+                            depthScore >= 65 ? "+14" : depthScore >= 40 ? "+5" : "0",
+                            depthScore >= 65 ? "good" : "warn", githubLink),
+                    new OsintSourceResponse("LinkedIn",
+                            "Not checked. SignalTrace detected public profile text where present, but LinkedIn verification requires an approved provider or candidate-supplied evidence.",
+                            0, "0", "neutral", firstLinkForHost(links, "linkedin.com"))
+            );
+            return new GithubInvestigation(profile, sources);
         } catch (IOException exception) {
-            return new OsintSourceResponse("GitHub", "GitHub check failed because the public API could not be reached.", 26, "0", "warn", link);
+            return new GithubInvestigation(null, List.of(new OsintSourceResponse(
+                    "GitHub", "GitHub check failed because the public API could not be reached.",
+                    26, "0", "warn", githubLink)));
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            return new OsintSourceResponse("GitHub", "GitHub check was interrupted before completion.", 20, "0", "warn", link);
+            return new GithubInvestigation(null, List.of(new OsintSourceResponse(
+                    "GitHub", "GitHub check was interrupted before completion.",
+                    20, "0", "warn", githubLink)));
         }
+    }
+
+    private GithubRepositoryResponse githubRepository(Map<String, Object> payload, String username, int index) {
+        String name = cleanApiText(payload.get("name"));
+        Map<String, Long> languageBytes = index < 10
+                ? githubLanguageBytes(username, name)
+                : Map.of();
+        String readmeExcerpt = index < 5
+                ? githubReadmeExcerpt(username, name)
+                : "";
+        return new GithubRepositoryResponse(
+                name,
+                cleanApiText(payload.get("description")),
+                cleanApiText(payload.get("html_url")),
+                cleanApiText(payload.get("language")),
+                number(payload.get("stargazers_count")),
+                number(payload.get("forks_count")),
+                number(payload.get("open_issues_count")),
+                number(payload.get("size")),
+                Boolean.TRUE.equals(payload.get("fork")),
+                Boolean.TRUE.equals(payload.get("archived")),
+                cleanApiText(payload.get("default_branch")),
+                nestedText(payload.get("owner"), "login"),
+                languageBytes,
+                readmeExcerpt,
+                parseInstant(payload.get("created_at")),
+                parseInstant(payload.get("updated_at")),
+                parseInstant(payload.get("pushed_at")),
+                stringValues(payload.get("topics"))
+        );
+    }
+
+    private List<GithubLanguageResponse> githubLanguages(List<GithubRepositoryResponse> repositories) {
+        Map<String, Long> bytes = new LinkedHashMap<>();
+        Map<String, Integer> repositoriesByLanguage = new LinkedHashMap<>();
+        for (GithubRepositoryResponse repository : repositories) {
+            if (!repository.languageBytes().isEmpty()) {
+                repository.languageBytes().forEach((language, count) -> {
+                    bytes.merge(language, count, Long::sum);
+                    repositoriesByLanguage.merge(language, 1, Integer::sum);
+                });
+            } else if (repository.language() != null && !repository.language().isBlank()) {
+                bytes.merge(repository.language(), Math.max(1L, repository.sizeKb() * 1024L), Long::sum);
+                repositoriesByLanguage.merge(repository.language(), 1, Integer::sum);
+            }
+        }
+        long total = bytes.values().stream().mapToLong(Long::longValue).sum();
+        if (total <= 0) {
+            return List.of();
+        }
+        return bytes.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .map(entry -> new GithubLanguageResponse(
+                        entry.getKey(),
+                        repositoriesByLanguage.getOrDefault(entry.getKey(), 0),
+                        entry.getValue(),
+                        (int) Math.round(entry.getValue() * 100.0 / total)))
+                .toList();
+    }
+
+    private Map<String, Long> githubLanguageBytes(String username, String repository) {
+        if (username.isBlank() || repository.isBlank()) {
+            return Map.of();
+        }
+        try {
+            HttpResponse<String> response = httpClient.send(githubRequest(
+                    URI.create("https://api.github.com/repos/" + username + "/" + repository + "/languages"),
+                    java.time.Duration.ofSeconds(5)), HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                return Map.of();
+            }
+            Map<String, Object> payload = mapper.map(response.body());
+            Map<String, Long> result = new LinkedHashMap<>();
+            payload.forEach((language, value) -> {
+                if (value instanceof Number number) {
+                    result.put(language, Math.max(0L, number.longValue()));
+                }
+            });
+            return result;
+        } catch (IOException exception) {
+            return Map.of();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return Map.of();
+        }
+    }
+
+    private String githubReadmeExcerpt(String username, String repository) {
+        if (username.isBlank() || repository.isBlank()) {
+            return "";
+        }
+        try {
+            HttpResponse<String> response = httpClient.send(githubRequest(
+                    URI.create("https://api.github.com/repos/" + username + "/" + repository + "/readme"),
+                    java.time.Duration.ofSeconds(5)), HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                return "";
+            }
+            String encoded = cleanApiText(mapper.map(response.body()).get("content")).replaceAll("\\s+", "");
+            if (encoded.isBlank()) {
+                return "";
+            }
+            String decoded = new String(Base64.getDecoder().decode(encoded), java.nio.charset.StandardCharsets.UTF_8)
+                    .replaceAll("(?s)```.*?```", " ")
+                    .replaceAll("[#>*_`\\[\\]()!]", " ")
+                    .replaceAll("\\s+", " ")
+                    .trim();
+            return decoded.substring(0, Math.min(900, decoded.length()));
+        } catch (IllegalArgumentException | IOException exception) {
+            return "";
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return "";
+        }
+    }
+
+    private GithubJobMatchResponse githubJobMatch(HiringProject project, GithubProfileResponse profile) {
+        if (profile == null) {
+            return new GithubJobMatchResponse(
+                    0,
+                    "Not available",
+                    "No GitHub profile was verified, so public repository evidence could not be compared with this job.",
+                    List.of(),
+                    List.of()
+            );
+        }
+
+        String jobText = normalize(project.getTitle() + " " + project.getRequirementsText() + " " + project.getDescription());
+        List<String> requiredTerms = atsKeywordCatalog.techTerms().stream()
+                .filter(term -> containsNormalizedTerm(jobText, term))
+                .distinct()
+                .limit(30)
+                .toList();
+        if (requiredTerms.isEmpty()) {
+            requiredTerms = List.of(project.getTitle()).stream()
+                    .flatMap(value -> java.util.Arrays.stream(normalize(value).split(" ")))
+                    .filter(value -> value.length() >= 4 && !STOP_WORDS.contains(value))
+                    .distinct()
+                    .limit(12)
+                    .toList();
+        }
+
+        List<GithubLanguageResponse> profileLanguages = profile.languages() == null ? List.of() : profile.languages();
+        List<GithubRepositoryResponse> profileRepositories = profile.repositories() == null ? List.of() : profile.repositories();
+        String repositoryEvidence = normalize(
+                profileLanguages.stream().map(GithubLanguageResponse::name).reduce("", (left, right) -> left + " " + right)
+                        + " "
+                        + profileRepositories.stream()
+                        .map(repository -> repository.name() + " " + repository.description() + " "
+                                + String.join(" ", repository.topics() == null ? List.of() : repository.topics())
+                                + " " + repository.readmeExcerpt())
+                        .reduce("", (left, right) -> left + " " + right)
+        );
+        List<String> matched = requiredTerms.stream()
+                .filter(term -> containsNormalizedTerm(repositoryEvidence, term))
+                .toList();
+        List<String> missing = requiredTerms.stream()
+                .filter(term -> !containsNormalizedTerm(repositoryEvidence, term))
+                .toList();
+        int coverageScore = requiredTerms.isEmpty()
+                ? 0
+                : (int) Math.round(matched.size() * 100.0 / requiredTerms.size());
+        int score = requiredTerms.isEmpty()
+                ? 0
+                : Math.min(100, Math.round(coverageScore * 0.85f + Math.min(15, profile.repositoryDepthScore() * 0.15f)));
+        String label = score >= 75 ? "Strong GitHub match"
+                : score >= 50 ? "Partial GitHub match"
+                : score > 0 ? "Weak GitHub match"
+                : "No GitHub match";
+        String summary = matched.isEmpty()
+                ? "The recent public repositories do not expose the job's required technology terms."
+                : "Public repositories expose " + matched.size() + " of " + requiredTerms.size()
+                + " job-related technology signals.";
+        return new GithubJobMatchResponse(score, label, summary, matched, missing);
+    }
+
+    private boolean containsNormalizedTerm(String normalizedCorpus, String term) {
+        String normalizedTerm = normalize(term);
+        return !normalizedTerm.isBlank()
+                && (" " + normalizedCorpus + " ").contains(" " + normalizedTerm + " ");
+    }
+
+    private List<String> stringValues(Object value) {
+        if (!(value instanceof List<?> values)) {
+            return List.of();
+        }
+        return values.stream()
+                .map(this::cleanApiText)
+                .filter(item -> !item.isBlank())
+                .limit(20)
+                .toList();
+    }
+
+    private String cleanApiText(Object value) {
+        if (value == null) {
+            return "";
+        }
+        String text = String.valueOf(value).trim();
+        return "null".equalsIgnoreCase(text) ? "" : text;
+    }
+
+    private String nestedText(Object value, String key) {
+        if (!(value instanceof Map<?, ?> values)) {
+            return "";
+        }
+        return cleanApiText(values.get(key));
+    }
+
+    private String firstLinkForHost(List<String> links, String host) {
+        return links.stream()
+                .filter(link -> link.toLowerCase(Locale.ROOT).contains(host.toLowerCase(Locale.ROOT)))
+                .findFirst()
+                .orElse("");
+    }
+
+    private Instant parseInstant(Object value) {
+        String text = cleanApiText(value);
+        if (text.isBlank()) {
+            return null;
+        }
+        try {
+            return Instant.parse(text);
+        } catch (RuntimeException exception) {
+            return null;
+        }
+    }
+
+    private record GithubInvestigation(
+            GithubProfileResponse profile,
+            List<OsintSourceResponse> sources
+    ) {
     }
 
     private void addUnique(List<String> values, String value) {
@@ -1165,13 +1701,17 @@ public class HiringService {
     }
 
     private boolean hasConcreteTechnicalSignal(String normalizedText) {
+        return hasConcreteTechnicalSignal(normalizedText, atsKeywordCatalog.techTerms());
+    }
+
+    private boolean hasConcreteTechnicalSignal(String normalizedText, List<String> techTerms) {
         if (isContactOrLinkLine(normalizedText)) {
             return false;
         }
         if (normalizedText.matches(".*\\b\\d+\\b.*")) {
             return true;
         }
-        return atsKeywordCatalog.techTerms().stream().anyMatch(term -> normalizedText.matches(".*\\b" + Pattern.quote(term) + "\\b.*"));
+        return techTerms.stream().anyMatch(term -> normalizedText.matches(".*\\b" + Pattern.quote(term) + "\\b.*"));
     }
 
     private boolean isNeutralCvLine(String text) {
@@ -1204,10 +1744,10 @@ public class HiringService {
                 || normalizedText.contains("@");
     }
 
-    private List<Map<String, Object>> riskyMatches(String text) {
+    private List<Map<String, Object>> riskyMatches(HiringProject project, String text) {
         List<Map<String, Object>> matches = new ArrayList<>();
         String lower = defaulted(text, "").toLowerCase(Locale.ROOT);
-        for (String word : atsKeywordCatalog.riskyWords()) {
+        for (String word : analysisRiskyWords(project)) {
             int index = lower.indexOf(word);
             if (index >= 0) {
                 Map<String, Object> match = new LinkedHashMap<>();
@@ -1237,7 +1777,35 @@ public class HiringService {
         return hits;
     }
 
-    private int requirementMatch(List<String> requirements, String cvText) {
+    private List<String> weightedRubricRequirements(HiringProject project, List<String> fallback) {
+        if (project.getRubricJson() == null || project.getRubricJson().isBlank()) {
+            return fallback;
+        }
+        Map<String, Object> rubric = mapper.map(project.getRubricJson());
+        List<String> weighted = new ArrayList<>();
+        for (String section : List.of("mustHave", "niceToHave", "outcomes")) {
+            Object rawRows = rubric.get(section);
+            if (!(rawRows instanceof List<?> rows)) {
+                continue;
+            }
+            for (Object rawRow : rows) {
+                if (!(rawRow instanceof Map<?, ?> row)) {
+                    continue;
+                }
+                String label = cleanApiText(row.get("label"));
+                int weight = Math.max(1, Math.min(5, number(row.get("weight"))));
+                if (label.isBlank()) {
+                    continue;
+                }
+                for (int index = 0; index < weight; index++) {
+                    weighted.add(label);
+                }
+            }
+        }
+        return weighted.isEmpty() ? fallback : weighted;
+    }
+
+    private int requirementMatch(List<String> requirements, String cvText, List<String> techTerms) {
         if (requirements.isEmpty()) {
             return 12;
         }
@@ -1245,7 +1813,7 @@ public class HiringService {
         int covered = 0;
         int partial = 0;
         for (String requirement : requirements) {
-            String status = requirementStatus(requirement, normalizedCv);
+            String status = requirementStatus(requirement, normalizedCv, techTerms);
             if ("Supported".equals(status)) {
                 covered++;
             } else if ("Stretched".equals(status)) {
@@ -1255,7 +1823,7 @@ public class HiringService {
         return Math.round(((covered * 100f) + (partial * 45f)) / requirements.size());
     }
 
-    private String requirementStatus(String requirement, String normalizedCv) {
+    private String requirementStatus(String requirement, String normalizedCv, List<String> techTerms) {
         String normalizedRequirement = normalize(requirement);
         if (containsAll(normalizedRequirement, "java", "spring") || containsAll(normalizedRequirement, "java", "boot")) {
             return contains(normalizedCv, "java") && (contains(normalizedCv, "spring") || contains(normalizedCv, "boot"))
@@ -1311,13 +1879,13 @@ public class HiringService {
         }
 
         int hits = keywordHits(requirement, normalizedCv);
-        long requiredTechTerms = atsKeywordCatalog.techTerms().stream().filter(normalizedRequirement::contains).count();
-        long matchedTechTerms = atsKeywordCatalog.techTerms().stream()
+        long requiredTechTerms = techTerms.stream().filter(normalizedRequirement::contains).count();
+        long matchedTechTerms = techTerms.stream()
                 .filter(normalizedRequirement::contains)
                 .filter(term -> normalizedCv.matches(".*\\b" + Pattern.quote(term) + "\\b.*"))
                 .count();
         if (requiredTechTerms > 0) {
-            if (matchedTechTerms >= Math.min(2, requiredTechTerms) || shortTechRequirementCovered(requirement, normalizedCv)) {
+            if (matchedTechTerms >= Math.min(2, requiredTechTerms) || shortTechRequirementCovered(requirement, normalizedCv, techTerms)) {
                 return "Supported";
             }
             return matchedTechTerms == 1 || hits >= 1 ? "Stretched" : "Unsupported";
@@ -1333,12 +1901,12 @@ public class HiringService {
         return text.matches(".*\\b" + Pattern.quote(term) + "\\b.*");
     }
 
-    private boolean shortTechRequirementCovered(String requirement, String normalizedCv) {
+    private boolean shortTechRequirementCovered(String requirement, String normalizedCv, List<String> techTerms) {
         String normalizedRequirement = normalize(requirement);
         if (normalizedRequirement.length() < 4) {
             return false;
         }
-        return atsKeywordCatalog.techTerms().stream()
+        return techTerms.stream()
                 .filter(normalizedRequirement::contains)
                 .anyMatch(term -> normalizedCv.matches(".*\\b" + Pattern.quote(term) + "\\b.*"));
     }
@@ -1378,47 +1946,6 @@ public class HiringService {
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
     }
 
-    private OsintSourceResponse githubRepositoryDepth(String username, String link) {
-        try {
-            HttpRequest request = githubRequest(
-                    URI.create("https://api.github.com/users/" + username + "/repos?sort=pushed&per_page=20"),
-                    java.time.Duration.ofSeconds(7));
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() != 200) {
-                return new OsintSourceResponse("GitHub repository depth", "Repository depth was not checked because the GitHub API returned status " + response.statusCode() + ".", 28, "0", "warn", link);
-            }
-            List<Map<String, Object>> repositories = mapper.maps(response.body());
-            if (repositories.isEmpty()) {
-                return new OsintSourceResponse("GitHub repository depth", "The public profile has no visible repositories to score.", 34, "0", "warn", link);
-            }
-            int original = (int) repositories.stream().filter(repo -> !Boolean.TRUE.equals(repo.get("fork"))).count();
-            int forks = repositories.size() - original;
-            int substantial = (int) repositories.stream().filter(repo -> number(repo.get("size")) >= 80 && !Boolean.TRUE.equals(repo.get("fork"))).count();
-            int recent = (int) repositories.stream().filter(repo -> pushedWithinMonths(repo.get("pushed_at"), 12)).count();
-            Map<String, Integer> languages = new LinkedHashMap<>();
-            repositories.stream()
-                    .map(repo -> String.valueOf(repo.getOrDefault("language", "")))
-                    .filter(language -> !language.isBlank() && !"null".equals(language))
-                    .forEach(language -> languages.merge(language, 1, Integer::sum));
-            int depthScore = Math.min(100, 18 + original * 4 + substantial * 7 + recent * 4 - forks * 2);
-            String languageSummary = languages.entrySet().stream()
-                    .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                    .limit(5)
-                    .map(entry -> entry.getKey() + " (" + entry.getValue() + ")")
-                    .reduce((left, right) -> left + ", " + right)
-                    .orElse("no primary languages reported");
-            String finding = "Depth " + depthScore + "/100 across " + repositories.size() + " recent repositories: "
-                    + original + " original, " + forks + " forked, " + substantial + " substantial, and " + recent
-                    + " active in the last year. Languages: " + languageSummary + ".";
-            return new OsintSourceResponse("GitHub repository depth", finding, Math.max(40, Math.min(92, depthScore)), depthScore >= 65 ? "+14" : depthScore >= 40 ? "+5" : "0", depthScore >= 65 ? "good" : "warn", link);
-        } catch (IOException exception) {
-            return new OsintSourceResponse("GitHub repository depth", "Repository depth could not be checked because the GitHub API was unavailable.", 24, "0", "warn", link);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            return new OsintSourceResponse("GitHub repository depth", "Repository depth check was interrupted.", 20, "0", "warn", link);
-        }
-    }
-
     private HttpRequest githubRequest(URI uri, java.time.Duration timeout) {
         HttpRequest.Builder builder = HttpRequest.newBuilder(uri)
                 .timeout(timeout)
@@ -1429,14 +1956,6 @@ public class HiringService {
             builder.header("Authorization", "Bearer " + githubToken);
         }
         return builder.GET().build();
-    }
-
-    private boolean pushedWithinMonths(Object value, long months) {
-        try {
-            return Instant.parse(String.valueOf(value)).isAfter(Instant.now().minus(months * 30, java.time.temporal.ChronoUnit.DAYS));
-        } catch (Exception ignored) {
-            return false;
-        }
     }
 
     private HiringCandidate candidateEntity(UserAccount owner, Long projectId, Long candidateId) {
@@ -1803,7 +2322,9 @@ public class HiringService {
     }
 
     private String summary(HiringCandidate candidate, HiringProject project) {
-        return candidate.getName() + " scored " + candidate.getScore() + "% for " + project.getTitle()
+        return candidate.getName() + " has a strict analysis recommendation score of " + candidate.getScore()
+                + "% for " + project.getTitle()
+                + " and " + candidate.getMatchScore() + "% ATS requirement coverage"
                 + " with " + candidate.getSupported() + " supported, " + candidate.getStretched()
                 + " stretched, and " + candidate.getUnsupported() + " unsupported signals.";
     }

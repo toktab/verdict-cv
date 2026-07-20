@@ -4,12 +4,15 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.CandidateAnalysisRunResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.InviteResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.NoteResponse;
+import dev.toktab.brainhack.hiring.HiringDtos.OsintRunResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -21,9 +24,16 @@ public class HiringMapper {
     private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
     private static final TypeReference<List<Map<String, Object>>> MAPS = new TypeReference<>() {};
     private final ObjectMapper objectMapper;
+    private final CandidateAnalysisRunRepository analysisRunRepository;
+    private final ProjectStateService projectStateService;
 
-    public HiringMapper(ObjectMapper objectMapper) {
+    public HiringMapper(
+            ObjectMapper objectMapper,
+            CandidateAnalysisRunRepository analysisRunRepository,
+            ProjectStateService projectStateService) {
         this.objectMapper = objectMapper;
+        this.analysisRunRepository = analysisRunRepository;
+        this.projectStateService = projectStateService;
     }
 
     public ProjectResponse project(HiringProject project) {
@@ -39,6 +49,9 @@ public class HiringMapper {
                 project.getLocation(),
                 project.getDescription(),
                 lines(project.getRequirementsText()),
+                project.getRubricJson() == null || project.getRubricJson().isBlank()
+                        ? Map.of()
+                        : map(project.getRubricJson()),
                 project.getState(),
                 project.getStatus(),
                 project.getCreatedAt(),
@@ -46,6 +59,7 @@ public class HiringMapper {
                 project.getOwner().getId(),
                 myRole,
                 myPermissions,
+                projectStateService.effectiveSettings(project),
                 project.getCandidates().stream()
                         .filter(candidate -> candidate.getDeletedAt() == null)
                         .map(this::candidate)
@@ -87,6 +101,10 @@ public class HiringMapper {
                 candidate.getRole(),
                 candidate.getScore(),
                 candidate.getMatchScore(),
+                candidate.getMatchScore(),
+                candidate.getEvidenceScore(),
+                candidate.getGithubMatchScore(),
+                candidate.getReviewerScore(),
                 candidate.getRisk(),
                 candidate.getState(),
                 candidate.getOsint(),
@@ -113,7 +131,39 @@ public class HiringMapper {
                 candidate.getUnsupported(),
                 candidate.getSummary(),
                 read(candidate.getClaimsJson(), CLAIMS, List.of()),
-                read(candidate.getAuditPhraseMatchesJson(), MATCHES, List.of())
+                read(candidate.getAuditPhraseMatchesJson(), MATCHES, List.of()),
+                analysisRunRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getId(), PageRequest.of(0, 8)).stream()
+                        .map(this::analysisRun)
+                        .toList()
+        );
+    }
+
+    private CandidateAnalysisRunResponse analysisRun(CandidateAnalysisRun run) {
+        String actor = run.getTriggeredBy() == null
+                ? "System"
+                : run.getTriggeredBy().getFullName() == null || run.getTriggeredBy().getFullName().isBlank()
+                ? run.getTriggeredBy().getUsername()
+                : run.getTriggeredBy().getFullName();
+        return new CandidateAnalysisRunResponse(
+                run.getId(),
+                run.getStateId(),
+                run.getEngine(),
+                run.getPromptVersion(),
+                run.getResumeFingerprint(),
+                run.getTemplateFingerprint(),
+                run.getRecommendationScore(),
+                run.getFitScore(),
+                run.getEvidenceScore(),
+                run.getGithubMatchScore(),
+                run.getReviewerScore(),
+                run.getSupported(),
+                run.getStretched(),
+                run.getUnsupported(),
+                run.getPromptTokens(),
+                run.getCompletionTokens(),
+                run.getEstimatedCostUsd(),
+                actor,
+                run.getCreatedAt()
         );
     }
 
@@ -135,6 +185,17 @@ public class HiringMapper {
 
     public List<String> strings(String json) {
         return read(json, STRINGS, List.of());
+    }
+
+    public OsintRunResponse osintReport(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(json, OsintRunResponse.class);
+        } catch (JsonProcessingException exception) {
+            return null;
+        }
     }
 
     private <T> T read(String json, TypeReference<T> type, T fallback) {

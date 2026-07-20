@@ -56,6 +56,10 @@ public class HiringProject {
     @Column(nullable = false, columnDefinition = "LONGTEXT")
     private String requirementsText;
 
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String rubricJson;
+
     @Column(nullable = false, length = 80)
     private String state;
 
@@ -88,6 +92,8 @@ public class HiringProject {
     public void setDescription(String description) { this.description = description; }
     public String getRequirementsText() { return requirementsText; }
     public void setRequirementsText(String requirementsText) { this.requirementsText = requirementsText; }
+    public String getRubricJson() { return rubricJson; }
+    public void setRubricJson(String rubricJson) { this.rubricJson = rubricJson; }
     public String getState() { return state; }
     public void setState(String state) { this.state = state; }
     public String getStatus() { return status; }

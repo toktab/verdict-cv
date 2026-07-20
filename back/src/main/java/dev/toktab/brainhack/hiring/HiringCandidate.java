@@ -55,6 +55,15 @@ public class HiringCandidate {
     @Column(nullable = false)
     private int matchScore;
 
+    @Column(nullable = false)
+    private int evidenceScore;
+
+    @Column(nullable = false)
+    private int githubMatchScore;
+
+    @Column(nullable = false)
+    private int reviewerScore;
+
     @Column(nullable = false, length = 40)
     private String risk;
 
@@ -63,6 +72,12 @@ public class HiringCandidate {
 
     @Column(nullable = false, length = 80)
     private String osint;
+
+    @Lob
+    @Column(nullable = false, columnDefinition = "LONGTEXT")
+    private String osintReportJson = "";
+
+    private Instant osintCheckedAt;
 
     @Column(nullable = false, length = 120)
     private String memory;
@@ -144,12 +159,22 @@ public class HiringCandidate {
     public void setScore(int score) { this.score = score; }
     public int getMatchScore() { return matchScore; }
     public void setMatchScore(int matchScore) { this.matchScore = matchScore; }
+    public int getEvidenceScore() { return evidenceScore; }
+    public void setEvidenceScore(int evidenceScore) { this.evidenceScore = evidenceScore; }
+    public int getGithubMatchScore() { return githubMatchScore; }
+    public void setGithubMatchScore(int githubMatchScore) { this.githubMatchScore = githubMatchScore; }
+    public int getReviewerScore() { return reviewerScore; }
+    public void setReviewerScore(int reviewerScore) { this.reviewerScore = reviewerScore; }
     public String getRisk() { return risk; }
     public void setRisk(String risk) { this.risk = risk; }
     public String getState() { return state; }
     public void setState(String state) { this.state = state; }
     public String getOsint() { return osint; }
     public void setOsint(String osint) { this.osint = osint; }
+    public String getOsintReportJson() { return osintReportJson; }
+    public void setOsintReportJson(String osintReportJson) { this.osintReportJson = osintReportJson; }
+    public Instant getOsintCheckedAt() { return osintCheckedAt; }
+    public void setOsintCheckedAt(Instant osintCheckedAt) { this.osintCheckedAt = osintCheckedAt; }
     public String getMemory() { return memory; }
     public void setMemory(String memory) { this.memory = memory; }
     public String getAnalysisState() { return analysisState; }

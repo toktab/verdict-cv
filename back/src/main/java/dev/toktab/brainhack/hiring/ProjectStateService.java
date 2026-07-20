@@ -74,6 +74,49 @@ public class ProjectStateService {
     }
 
     @Transactional
+    public Map<String, Object> effectiveSettings(HiringProject project) {
+        if (project == null || project.getId() == null) {
+            return defaultSettings();
+        }
+        return settingRepository.findByProjectId(project.getId())
+                .map(setting -> merge(defaultSettings(), readMap(setting.getSettingsJson())))
+                .orElseGet(this::defaultSettings);
+    }
+
+    @Transactional
+    public AnalysisTemplate activeAnalysisTemplate(HiringProject project) {
+        Map<String, Object> settings = effectiveSettings(project);
+        String selectedName = clean(String.valueOf(settings.getOrDefault("atsTemplate", "")), "");
+        List<ProjectAtsTemplate> templates =
+                atsTemplateRepository.findByProjectIdAndDeletedAtIsNullOrderByUpdatedAtDesc(project.getId());
+        ProjectAtsTemplate selected = templates.stream()
+                .filter(template -> template.getName().equalsIgnoreCase(selectedName))
+                .findFirst()
+                .orElse(templates.isEmpty() ? null : templates.get(0));
+        if (selected == null) {
+            return new AnalysisTemplate("Verified default ATS", "", List.of(), List.of());
+        }
+        Map<String, Object> template = readMap(selected.getTemplateJson());
+        List<String> riskyWords = new java.util.ArrayList<>();
+        List<String> techTerms = new java.util.ArrayList<>();
+        Object rulesValue = template.get("rules");
+        if (rulesValue instanceof List<?> rules) {
+            for (Object value : rules) {
+                if (!(value instanceof Map<?, ?> rule)) continue;
+                String keyword = clean(rule.get("keyword") == null ? "" : String.valueOf(rule.get("keyword")), "");
+                String tone = clean(rule.get("tone") == null ? "" : String.valueOf(rule.get("tone")), "Neutral");
+                if (keyword.isBlank()) continue;
+                if ("bad".equalsIgnoreCase(tone)) riskyWords.add(keyword.toLowerCase(Locale.ROOT));
+                else techTerms.add(keyword.toLowerCase(Locale.ROOT));
+            }
+        }
+        return new AnalysisTemplate(selected.getName(), selected.getTemplateJson(), List.copyOf(riskyWords), List.copyOf(techTerms));
+    }
+
+    public record AnalysisTemplate(String name, String sourceJson, List<String> riskyWords, List<String> techTerms) {
+    }
+
+    @Transactional
     public ProjectSettingsResponse saveSettings(UserAccount actor, Long projectId, ProjectSettingsRequest request) {
         HiringProject project = manageableProject(actor, projectId);
         ProjectSetting setting = settingRepository.findByProjectId(project.getId()).orElseGet(ProjectSetting::new);
