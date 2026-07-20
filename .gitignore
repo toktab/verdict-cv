@@ -44,6 +44,9 @@ front/node_modules/
 front/dist/
 .vite/
 
+### Generated Spring-served frontend build chunks ###
+back/src/main/resources/static/assets/
+
 ### Local OSINT prototype reports ###
 osint-report.json
 osint-report.md
@@ -54,3 +57,7 @@ __pycache__/
 .env
 front/playwright-report/
 front/test-results/
+
+### Local app/runtime state ###
+.freebuff/
+last-50-commits.txt
