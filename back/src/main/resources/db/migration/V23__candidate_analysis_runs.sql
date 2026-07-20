@@ -1,0 +1,35 @@
+ALTER TABLE hiring_candidates
+    ADD COLUMN evidence_score INT NOT NULL DEFAULT 0,
+    ADD COLUMN github_match_score INT NOT NULL DEFAULT 0,
+    ADD COLUMN reviewer_score INT NOT NULL DEFAULT 0;
+
+CREATE TABLE candidate_analysis_runs (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    candidate_id BIGINT NOT NULL,
+    project_id BIGINT NOT NULL,
+    triggered_by_id BIGINT NULL,
+    state_id VARCHAR(40) NOT NULL,
+    engine VARCHAR(180) NOT NULL,
+    prompt_version VARCHAR(120) NOT NULL,
+    resume_fingerprint VARCHAR(64) NOT NULL,
+    template_fingerprint VARCHAR(64) NOT NULL,
+    recommendation_score INT NOT NULL,
+    fit_score INT NOT NULL,
+    evidence_score INT NOT NULL,
+    github_match_score INT NOT NULL,
+    reviewer_score INT NOT NULL,
+    supported INT NOT NULL,
+    stretched INT NOT NULL,
+    unsupported INT NOT NULL,
+    prompt_tokens INT NOT NULL,
+    completion_tokens INT NOT NULL,
+    estimated_cost_usd DECIMAL(14,6) NOT NULL DEFAULT 0.000000,
+    claims_json LONGTEXT NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_candidate_analysis_runs_candidate (candidate_id, created_at),
+    KEY idx_candidate_analysis_runs_project (project_id, created_at),
+    CONSTRAINT fk_candidate_analysis_runs_candidate FOREIGN KEY (candidate_id) REFERENCES hiring_candidates (id),
+    CONSTRAINT fk_candidate_analysis_runs_project FOREIGN KEY (project_id) REFERENCES hiring_projects (id),
+    CONSTRAINT fk_candidate_analysis_runs_triggered_by FOREIGN KEY (triggered_by_id) REFERENCES user_accounts (id)
+);
