@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, ArrowRight, Award, BriefcaseBusiness, CheckCircle2, CodeXml, ExternalLink, FileText, History, Link, MessageSquarePlus, Radar, RefreshCcw, ScanText, ShieldCheck, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, X, XCircle } from 'lucide-react';
 import { useLanguage } from '../../i18n';
-import { apiCreateCandidateNote, apiDeleteCandidate, apiGetCandidateWorkflow, apiListCandidateNotes, apiReanalyzeCandidate, apiUpdateCandidateAnalysisState, apiUpdateCandidateStatus, apiVoteCandidate } from '../../api';
+import { apiCreateCandidateNote, apiDeleteCandidate, apiGetCandidateWorkflow, apiGetLatestCandidateOsint, apiListCandidateNotes, apiReanalyzeCandidate, apiUpdateCandidateAnalysisState, apiUpdateCandidateStatus, apiVoteCandidate } from '../../api';
 import defaultAts from '../../data/default-ats.json';
 import { analysisStates } from '../../data/analysisStates';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
@@ -27,12 +27,18 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const [noteBusy, setNoteBusy] = useState(false);
     const [workflow, setWorkflow] = useState(null);
     const [workflowMessage, setWorkflowMessage] = useState('');
+    const [statusTarget, setStatusTarget] = useState('');
+    const [statusReason, setStatusReason] = useState('');
+    const [statusBusy, setStatusBusy] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deletePhrase, setDeletePhrase] = useState('');
     const [deleteBusy, setDeleteBusy] = useState(false);
     const [deleteMessage, setDeleteMessage] = useState('');
     const [analysisStateMessage, setAnalysisStateMessage] = useState('');
     const [analysisStateBusy, setAnalysisStateBusy] = useState(false);
+    const [signalTraceReport, setSignalTraceReport] = useState(null);
+    const [signalTraceLoading, setSignalTraceLoading] = useState(false);
+    const [activeDetailTab, setActiveDetailTab] = useState('overview');
     const { project, candidate } = findCandidateFromPath(projects);
     const activeProject = project;
     const activeCandidate = candidate;
@@ -72,6 +78,25 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     useEffect(() => {
         if (!activeProject?.id || !activeCandidate?.id || !userToken) return;
         let cancelled = false;
+        setSignalTraceLoading(true);
+        apiGetLatestCandidateOsint(activeProject.id, activeCandidate.id, userToken)
+            .then((row) => {
+                if (!cancelled) setSignalTraceReport(row);
+            })
+            .catch(() => {
+                if (!cancelled) setSignalTraceReport(null);
+            })
+            .finally(() => {
+                if (!cancelled) setSignalTraceLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [activeProject?.id, activeCandidate?.id, activeCandidate?.osint, userToken]);
+
+    useEffect(() => {
+        if (!activeProject?.id || !activeCandidate?.id || !userToken) return;
+        let cancelled = false;
         apiListCandidateNotes(activeProject.id, activeCandidate.id, userToken)
             .then((rows) => {
                 if (!cancelled) setReviewNotes(rows || []);
@@ -104,7 +129,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const activeScoreLevel = scoreLevel(activeCandidate.score);
     const memoryProfile = buildMemoryProfile(activeCandidate, t);
     const interviewQuestions = buildInterviewQuestions(activeCandidate, t);
-    const fitRows = buildFitRows(activeProject, activeCandidate, t);
+    const fitRows = buildFitRows(activeProject, activeCandidate);
     const cvText = candidateSourceText(activeCandidate);
     const cvHighlights = findCatchphraseMatches(cvText);
     const cvStats = importantWordStats(cvText, cvHighlights);
@@ -114,8 +139,13 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
     const decision = candidateDecision(activeCandidate);
     const coverage = proofCoverage(activeProject, activeCandidate);
     const verdictCounts = countVerdicts(verdictRows);
-    const strongestClaim = strongestRequirementClaim(activeProject, activeCandidate) || activeCandidate.claims.find(([, status]) => status === 'Supported')?.[0] || activeCandidate.role;
-    const weakestClaim = weakestRequirementClaim(activeProject, activeCandidate) || activeCandidate.claims.find(([claim, status]) => status === 'Unsupported' && isActionableQuestionClaim(claim))?.[0] || activeCandidate.claims.find(([claim, status]) => status === 'Stretched' && isActionableQuestionClaim(claim))?.[0] || activeCandidate.risk;
+    const strongestClaim = activeCandidate.claims.find(([claim, status]) => status === 'Supported' && candidateCvContainsClaim(activeCandidate, claim))?.[0]
+        || strongestRequirementClaim(activeProject, activeCandidate)
+        || activeCandidate.role;
+    const weakestClaim = activeCandidate.claims.find(([claim, status]) => status === 'Unsupported' && candidateCvContainsClaim(activeCandidate, claim) && isActionableQuestionClaim(claim))?.[0]
+        || activeCandidate.claims.find(([claim, status]) => status === 'Stretched' && candidateCvContainsClaim(activeCandidate, claim) && isActionableQuestionClaim(claim))?.[0]
+        || weakestRequirementClaim(activeProject, activeCandidate)
+        || activeCandidate.risk;
     const recruiterSummary = buildRecruiterSummary(activeProject, activeCandidate, decision, coverage, strongestClaim, weakestClaim);
     const voteStats = workflow?.voteSummary || voteSummary();
     const voteRow = workflow?.voteRow || workflow?.votes || workflow?.voteSummary || {};
@@ -233,20 +263,41 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         }
     }
 
-    async function changePipelineStatus(status) {
+    function requestPipelineStatus(status) {
         if (!canSetStatus(projectRole, projectPermissions, status)) return;
+        if (status === pipelineStatus) return;
+        setStatusTarget(status);
+        setStatusReason('');
+        setWorkflowMessage('');
+    }
+
+    async function changePipelineStatus() {
+        const status = statusTarget;
+        if (!status) return;
         if (!userToken) {
             setWorkflowMessage('Sign in before changing candidate workflow.');
             return;
         }
+        if (['OnInterview', 'Hired', 'Closed'].includes(status) && statusReason.trim().length < 12) {
+            setWorkflowMessage('Add a clear decision reason of at least 12 characters.');
+            return;
+        }
+        setStatusBusy(true);
         setWorkflowMessage('');
         try {
-            const next = await apiUpdateCandidateStatus(activeProject.id, activeCandidate.id, { status }, userToken);
+            const next = await apiUpdateCandidateStatus(activeProject.id, activeCandidate.id, {
+                status,
+                reason: statusReason.trim(),
+            }, userToken);
             setWorkflow(next);
             await onProjectsChange?.();
             setWorkflowMessage('Candidate status saved.');
+            setStatusTarget('');
+            setStatusReason('');
         } catch (error) {
             setWorkflowMessage(error.message || 'Could not save candidate status.');
+        } finally {
+            setStatusBusy(false);
         }
     }
 
@@ -269,7 +320,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
         <div className="shell">
             <div className="pageGlow contentFadeIn" />
             <Header setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} />
-            <main className="detailPage contentFadeIn">
+            <main className={`detailPage contentFadeIn candidateTab-${activeDetailTab}`}>
                 <section className="detailHero candidateDetailHero">
                     <div className="candidateHeroMain">
                         <button className="secondary candidateBackButton" onClick={() => navigateTo(setRoute, 'projectDetail', activeProject.id)}><ArrowRight size={16} /> {t('backToJob')}</button>
@@ -277,7 +328,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                             <h1>{activeCandidate.name}</h1>
                             <div className={`candidateScore inline ${scoreTone(activeCandidate.score)}`}>{activeCandidate.score}</div>
                         </div>
-                        <p>{activeCandidate.summary}</p>
+                        <p>{candidateScoreExplanation(activeCandidate)}</p>
                         <div className="candidateDecisionLine">
                             <span className={`decisionBadge ${decision.tone}`}>{decision.label}</span>
                             <strong>{decision.headline}</strong>
@@ -292,7 +343,30 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         <button className="destructive" onClick={() => setDeleteOpen(true)} type="button"><Trash2 size={18} /> Delete</button>
                     </div>
                 </section>
+                <nav className="candidateDetailTabs" aria-label="Candidate workspace">
+                    {[
+                        ['overview', 'Overview'],
+                        ['fit', 'Fit'],
+                        ['evidence', 'Evidence'],
+                        ['review', 'Review'],
+                    ].map(([value, label]) => (
+                        <button className={activeDetailTab === value ? 'active' : ''} key={value} onClick={() => setActiveDetailTab(value)} type="button">
+                            {label}
+                        </button>
+                    ))}
+                </nav>
                 {reanalyzeMessage && <div className="inlineNotice">{reanalyzeMessage}</div>}
+                <CandidateDecisionScoreBand candidate={activeCandidate} report={signalTraceReport} onOpenEvidence={() => setActiveDetailTab('evidence')} />
+                {(signalTraceReport || (signalTraceLoading && activeCandidate.osint !== 'Not started')) && (
+                    <GithubJobMatchBand
+                        candidate={activeCandidate}
+                        project={activeProject}
+                        report={signalTraceReport}
+                        loading={signalTraceLoading}
+                        navigateTo={navigateTo}
+                        setRoute={setRoute}
+                    />
+                )}
                 <AtsCandidateOverview
                     candidate={activeCandidate}
                     project={activeProject}
@@ -304,7 +378,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                 />
                 <section className="detailMeta">
                     <Metric label={t('role')} value={activeCandidate.role} />
-                    <Metric label={t('jobMatch')} value={`${activeCandidate.match}%`} />
+                    <Metric label="ATS coverage" value={`${activeCandidate.match}%`} />
                     <Metric label={t('risk')} value={activeCandidate.risk} />
                     <Metric label={t('osint')} value={activeCandidate.osint} />
                     <Metric label={t('memory')} value={activeCandidate.memory} />
@@ -317,14 +391,14 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         <p>{decision.headline}</p>
                     </article>
                     <article>
-                        <span className="eyebrow">Proof coverage</span>
+                        <span className="eyebrow">Strict claim coverage</span>
                         <strong>{coverage.percent}%</strong>
                         <div className="decisionRail"><span style={{ width: `${coverage.percent}%` }} /></div>
                     </article>
                     <article>
-                        <span className="eyebrow">Strongest proof</span>
+                        <span className="eyebrow">Strongest CV signal</span>
                         <strong>{strongestClaim}</strong>
-                        <p>{activeCandidate.supported} supported signals</p>
+                        <p>{activeCandidate.supported} CV-aligned signals</p>
                     </article>
                     <article>
                         <span className="eyebrow">Main risk</span>
@@ -355,7 +429,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                                     className={state}
                                     disabled={!canSetStatus(projectRole, projectPermissions, status)}
                                     key={status}
-                                    onClick={() => changePipelineStatus(status)}
+                                    onClick={() => requestPipelineStatus(status)}
                                     title={canSetStatus(projectRole, projectPermissions, status) ? `Move candidate to ${status}` : `Your role cannot set ${status}`}
                                     type="button"
                                 >
@@ -384,7 +458,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                             <strong>Status pipeline</strong>
                             <label>
                                 Candidate status
-                                <select value={pipelineStatus} onChange={(event) => changePipelineStatus(event.target.value)}>
+                                <select value={pipelineStatus} onChange={(event) => requestPipelineStatus(event.target.value)}>
                                     {pipelineSteps.map((status) => <option disabled={!canSetStatus(projectRole, projectPermissions, status)} key={status}>{status}</option>)}
                                 </select>
                             </label>
@@ -584,6 +658,44 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         ))}
                     </div>
                 </section>
+                {statusTarget && (
+                    <div className="modalOverlay" role="presentation" onMouseDown={() => !statusBusy && setStatusTarget('')}>
+                        <section className="workflowDecisionModal" role="alertdialog" aria-modal="true" aria-labelledby="workflow-decision-title" onMouseDown={(event) => event.stopPropagation()}>
+                            <button className="iconButton workflowModalClose" aria-label="Close status change" disabled={statusBusy} onClick={() => setStatusTarget('')} type="button"><X size={20} /></button>
+                            <span className="eyebrow">Confirm workflow decision</span>
+                            <h2 id="workflow-decision-title">Move {activeCandidate.name} to {statusTarget}?</h2>
+                            <p>This decision is written to the project activity log with your identity and timestamp.</p>
+                            <div className="workflowTransition">
+                                <span>{pipelineStatus}</span>
+                                <ArrowRight size={18} />
+                                <strong>{statusTarget}</strong>
+                            </div>
+                            <label>
+                                Decision reason {['OnInterview', 'Hired', 'Closed'].includes(statusTarget) ? '(required)' : '(optional)'}
+                                <textarea
+                                    autoFocus
+                                    maxLength={2000}
+                                    onChange={(event) => setStatusReason(event.target.value)}
+                                    placeholder="State the evidence and reviewer rationale for this move."
+                                    rows={5}
+                                    value={statusReason}
+                                />
+                            </label>
+                            {statusTarget === 'Hired' && (
+                                <div className="workflowGateNotice">
+                                    Hiring requires an interview-stage candidate, at least one reviewer vote, and independent evidence when the project policy requires it.
+                                </div>
+                            )}
+                            {workflowMessage && <div className="error" role="alert">{workflowMessage}</div>}
+                            <div className="workflowModalActions">
+                                <button className="secondary" disabled={statusBusy} onClick={() => setStatusTarget('')} type="button">Cancel</button>
+                                <button className="primary" disabled={statusBusy} onClick={changePipelineStatus} type="button">
+                                    {statusBusy ? 'Saving...' : `Confirm ${statusTarget}`}
+                                </button>
+                            </div>
+                        </section>
+                    </div>
+                )}
                 <section className="technologyMatrixPanel">
                     <div className="tableToolbar">
                         <div><span className="eyebrow">Technology matrix</span><h2>Claim, role demand, and evidence confidence</h2></div>
@@ -827,7 +939,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                                 <div className="detailTableRow" key={row.claim}>
                                     <span>{index + 1}</span>
                                     <strong>{row.claim}</strong>
-                                    <span className={`statusPill ${row.status.toLowerCase()}`}>{row.status}</span>
+                                    <span className={`statusPill ${row.status.toLowerCase()}`}>{claimDisplayStatus(row.status)}</span>
                                     <span>{row.confidence}</span>
                                     <small><b>{row.severity}</b> / {row.evidence}</small>
                                 </div>
@@ -905,6 +1017,169 @@ function openCandidateLogs(project, candidate, setRoute, navigateTo) {
 
 function candidateSourceText(candidate) {
     return candidate.cvText?.trim() || candidate.summary || 'No original CV text was stored for this candidate.';
+}
+
+function CandidateDecisionScoreBand({ candidate, report, onOpenEvidence }) {
+    const githubJobMatch = report?.github_job_match || report?.githubJobMatch;
+    const githubScore = candidate.githubMatchScore || Number(githubJobMatch?.score || 0);
+    const evidenceScore = candidate.evidenceScore || (
+        report?.github
+            ? Math.min(100, Math.round(Number(report.identityConfidence || 0) * 0.35 + githubScore * 0.65))
+            : 0
+    );
+    const measures = [
+        {
+            key: 'recommendation',
+            label: 'Recommendation',
+            value: candidate.score ?? 0,
+            detail: 'Strict CV and requirement analysis',
+        },
+        {
+            key: 'fit',
+            label: 'ATS keyword coverage',
+            value: candidate.fitScore ?? candidate.match ?? 0,
+            detail: 'Project requirements mentioned in the CV; not proof',
+        },
+        {
+            key: 'evidence',
+            label: 'Verified evidence',
+            value: evidenceScore,
+            detail: evidenceScore > 0 ? 'Independent public evidence coverage' : 'No independent proof completed',
+        },
+        {
+            key: 'github',
+            label: 'GitHub relevance',
+            value: githubScore,
+            detail: githubScore > 0 ? 'Repository signals relevant to this role' : 'Run SignalTrace to calculate',
+        },
+        {
+            key: 'review',
+            label: 'Reviewer consensus',
+            value: candidate.reviewerScore ?? 0,
+            detail: candidate.reviewerScore > 0 ? 'Latest reviewer votes normalized to 100' : 'No reviewer votes yet',
+        },
+    ];
+    return (
+        <section className="candidateDecisionScores">
+            <div className="candidateDecisionScoreHead">
+                <div>
+                    <span className="eyebrow">Decision dimensions</span>
+                    <h2>Different scores answer different hiring questions.</h2>
+                    <p>ATS keyword coverage measures CV wording. The recommendation also applies strict claim checks, risk penalties, verified evidence, and reviewer input.</p>
+                </div>
+                <button className="secondary" onClick={onOpenEvidence} type="button"><ShieldCheck size={16} /> Review evidence</button>
+            </div>
+            {Math.abs(Number(candidate.fitScore || 0) - Number(candidate.score || 0)) >= 25 && (
+                <div className="candidateScoreGapNotice" role="note">
+                    <AlertTriangle size={18} />
+                    <span>
+                        <strong>{candidate.fitScore}% keyword coverage is not a {candidate.fitScore}% hiring recommendation.</strong>
+                        {' '}The recommendation is {candidate.score}% because strict analysis found {candidate.unsupported} unsupported and {candidate.stretched} partial signals, with {evidenceScore}% independently verified evidence.
+                    </span>
+                </div>
+            )}
+            <div className="candidateDecisionScoreGrid">
+                {measures.map((measure) => (
+                    <article className={scoreTone(measure.value)} key={measure.key}>
+                        <span>{measure.label}</span>
+                        <strong>{measure.value}%</strong>
+                        <div className="candidateDecisionScoreRail"><i style={{ width: `${Math.max(0, Math.min(100, measure.value))}%` }} /></div>
+                        <small>{measure.detail}</small>
+                    </article>
+                ))}
+            </div>
+            {candidate.analysisRuns?.length > 0 && (
+                <div className="candidateRunLedger">
+                    <span>Recent immutable runs</span>
+                    {candidate.analysisRuns.slice(0, 4).map((run) => (
+                        <small key={run.id}>
+                            <strong>{stateLabel(run.stateId)}</strong>
+                            {run.fitScore}% fit / {run.evidenceScore}% evidence / {formatNoteDate(run.createdAt)}
+                        </small>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+}
+
+function GithubJobMatchBand({ candidate, project, report, loading, navigateTo, setRoute }) {
+    const match = report?.github_job_match || report?.githubJobMatch;
+    const github = report?.github;
+
+    if (loading && !report) {
+        return (
+            <section className="githubJobMatchBand loading" aria-busy="true">
+                <span className="githubJobMatchScore">...</span>
+                <div className="githubJobMatchMain">
+                    <span className="eyebrow">GitHub evidence for this job</span>
+                    <h2>Loading public repository evidence...</h2>
+                    <p>Comparing the latest completed SignalTrace report with {project.title}.</p>
+                </div>
+            </section>
+        );
+    }
+
+    const score = Number(match?.score || 0);
+    const tone = score >= 75 ? 'good' : score >= 50 ? 'warn' : 'bad';
+    const matchedTerms = match?.matched_terms || match?.matchedTerms || [];
+    const missingTerms = match?.missing_terms || match?.missingTerms || [];
+    const latestActivity = github?.latest_activity_at || github?.latestActivityAt;
+    const depthScore = github?.repository_depth_score ?? github?.repositoryDepthScore;
+    const publicRepos = github?.public_repos ?? github?.publicRepos;
+
+    return (
+        <section className={`githubJobMatchBand ${tone}`} aria-label="GitHub job match">
+            <div className="githubJobMatchScore" aria-label={`GitHub job match ${score} percent`}>
+                <strong>{score}</strong>
+                <span>%</span>
+            </div>
+            <div className="githubJobMatchMain">
+                <span className="eyebrow">GitHub evidence for this job</span>
+                <h2>{match?.label || 'GitHub match needs a fresh scan'}</h2>
+                <p>{match?.summary || `Run SignalTrace again to compare ${candidate.name}'s public repositories with ${project.title}.`}</p>
+                <div className="githubJobMatchTerms">
+                    {matchedTerms.slice(0, 8).map((term) => (
+                        <span className="matched" key={`matched-${term}`}><CheckCircle2 size={14} /> {term}</span>
+                    ))}
+                    {missingTerms.slice(0, 6).map((term) => (
+                        <span className="missing" key={`missing-${term}`}><XCircle size={14} /> {term}</span>
+                    ))}
+                    {matchedTerms.length === 0 && missingTerms.length === 0 && (
+                        <span className="missing">No job technology comparison is available yet</span>
+                    )}
+                </div>
+            </div>
+            <div className="githubJobMatchFacts">
+                <span>
+                    <small>Latest activity</small>
+                    <strong>{formatSignalTraceDate(latestActivity)}</strong>
+                </span>
+                <span>
+                    <small>Repository depth</small>
+                    <strong>{Number.isFinite(Number(depthScore)) ? `${depthScore}/100` : 'Not checked'}</strong>
+                </span>
+                <span>
+                    <small>Public repositories</small>
+                    <strong>{Number.isFinite(Number(publicRepos)) ? publicRepos : 'Not checked'}</strong>
+                </span>
+            </div>
+            <button
+                className="primary githubJobMatchAction"
+                onClick={() => navigateTo(setRoute, 'signalTraceReport', project.id, candidate.id)}
+                type="button"
+            >
+                <CodeXml size={17} /> View GitHub evidence <ArrowRight size={16} />
+            </button>
+        </section>
+    );
+}
+
+function formatSignalTraceDate(value) {
+    if (!value) return 'No activity found';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return String(value);
+    return parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function AtsCandidateOverview({ project, candidate, report, navigateTo, setRoute, reanalyzing, onReanalyze }) {
@@ -1116,9 +1391,9 @@ function candidateDecision(candidate) {
     if (candidate.score >= 82 && candidate.unsupported <= 1) {
         return {
             label: 'Interview priority',
-            headline: 'Strong evidence profile with low verification pressure.',
-            reason: 'The score, supported claims, and risk mix are strong enough to move quickly.',
-            nextAction: 'Schedule interview and attach proof questions for the strongest claims.',
+            headline: 'Strong evidence-adjusted recommendation with manageable verification pressure.',
+            reason: 'Strict claim results and the risk mix support moving to independent evidence review.',
+            nextAction: 'Run SignalTrace, collect reviewer input, then schedule an evidence-focused interview.',
             tone: 'good',
         };
     }
@@ -1134,19 +1409,27 @@ function candidateDecision(candidate) {
     if (candidate.score >= 45) {
         return {
             label: 'Manual review',
-            headline: 'Mixed evidence profile with meaningful uncertainty.',
-            reason: 'The candidate may fit parts of the role, but unsupported claims create review cost.',
+            headline: 'Mixed recommendation with meaningful uncertainty.',
+            reason: 'The candidate may fit parts of the role, but missing CV signals create review cost.',
             nextAction: 'Run WAR_AI and prepare targeted screening questions.',
             tone: 'caution',
         };
     }
     return {
         label: 'High-risk screen-out',
-        headline: 'Weak proof profile for this role.',
-        reason: 'The candidate has too many unsupported or stretched signals for the current job.',
+        headline: 'High verification risk despite any keyword overlap.',
+        reason: 'Strict analysis found too many unsupported or partial claims for a confident recommendation.',
         nextAction: 'Reject or request stronger evidence before spending interview time.',
         tone: 'bad',
     };
+}
+
+function candidateScoreExplanation(candidate) {
+    const recommendation = Number(candidate.score || 0);
+    const coverage = Number(candidate.fitScore ?? candidate.match ?? 0);
+    return `${recommendation}% strict analysis recommendation for ${candidate.role}. `
+        + `${coverage}% ATS keyword coverage, ${candidate.supported} supported, `
+        + `${candidate.stretched} partial, and ${candidate.unsupported} unsupported signals.`;
 }
 
 function proofCoverage(project, candidate) {
@@ -1169,7 +1452,16 @@ function countVerdicts(rows) {
 }
 
 function buildRecruiterSummary(project, candidate, decision, coverage, strongestClaim, weakestClaim) {
-    return `${candidate.name} is currently marked as ${decision.label.toLowerCase()} for ${project.title}. The profile has ${coverage.percent}% proof coverage across the role requirements, with "${strongestClaim}" as the strongest visible signal and "${weakestClaim}" as the main review risk. Recommendation: ${decision.nextAction}`;
+    return `${candidate.name} is currently marked as ${decision.label.toLowerCase()} for ${project.title}. Strict analysis confirmed ${coverage.percent}% of the role requirements as CV-aligned, with "${strongestClaim}" as the strongest self-reported signal and "${weakestClaim}" as the main review risk. Recommendation: ${decision.nextAction}`;
+}
+
+function claimDisplayStatus(status) {
+    return {
+        SUPPORTED: 'CV aligned',
+        STRETCHED: 'Partial mention',
+        UNSUPPORTED: 'Missing from CV',
+        GAP: 'Not assessed',
+    }[String(status || '').toUpperCase()] || status;
 }
 
 function stateIdFromName(name = '') {
@@ -1179,6 +1471,10 @@ function stateIdFromName(name = '') {
     if (normalized.includes('war+ai') || normalized.includes('war_ai') || normalized.includes('strict')) return 'strict-war-ai';
     if (normalized.includes('war')) return 'war';
     return 'strict-war-ai';
+}
+
+function stateLabel(stateId = '') {
+    return analysisStates.find((state) => state.id === stateId)?.name || stateId || 'Analysis';
 }
 
 function importantWordStats(text, highlights) {
@@ -1287,7 +1583,10 @@ function buildTechnologyMatrix(report, sourceCards) {
 }
 
 function buildInterviewQuestions(candidate, t) {
-    const weakClaims = candidate.claims.filter(([claim, status]) => ['Unsupported', 'Stretched'].includes(status) && isActionableQuestionClaim(claim));
+    const weakClaims = candidate.claims.filter(([claim, status]) =>
+        ['Unsupported', 'Stretched'].includes(status)
+        && candidateCvContainsClaim(candidate, claim)
+        && isActionableQuestionClaim(claim));
     const rows = weakClaims.map(([claim, status, reason]) => ({
         focus: claim,
         question: `${t('explainClaim')} ${claim}`,
@@ -1305,7 +1604,13 @@ function buildInterviewQuestions(candidate, t) {
     return rows.slice(0, 5);
 }
 
-function buildFitRows(project, candidate, t) {
+function candidateCvContainsClaim(candidate, claim) {
+    const normalizedClaim = normalizeClaim(claim);
+    const normalizedCv = normalizeClaim(candidate.cvText || candidate.summary || '');
+    return normalizedClaim.length >= 8 && normalizedCv.includes(normalizedClaim);
+}
+
+function buildFitRows(project, candidate) {
     return project.requirements.map((requirement) => {
         const claimRow = requirementClaim(candidate, requirement);
         const status = claimRow?.[1] || 'Gap';
@@ -1313,7 +1618,7 @@ function buildFitRows(project, candidate, t) {
         return {
             requirement,
             score,
-            proof: status === 'Supported' ? t('strongProof') : status === 'Stretched' ? t('partialProof') : t('weakProof'),
+            proof: status === 'Supported' ? 'CV aligned' : status === 'Stretched' ? 'Partial mention' : 'Missing from CV',
             tone: status === 'Supported' ? 'good' : status === 'Stretched' ? 'warn' : 'bad',
         };
     });

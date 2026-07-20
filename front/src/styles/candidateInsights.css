@@ -44,6 +44,282 @@
 .matrixEvidence.missing,
 .matrixConfidence.bad { color: #f87171; }
 
+.candidateDetailTabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 10px;
+    border: 1px solid #30323a;
+    background: #0f1014;
+}
+
+.candidateDetailTabs button {
+    min-height: 46px;
+    border: 0;
+    border-right: 1px solid #30323a;
+    border-radius: 0;
+    background: transparent;
+    color: #9da2ad;
+    font-weight: 800;
+}
+
+.candidateDetailTabs button:last-child { border-right: 0; }
+
+.candidateDetailTabs button.active {
+    background: #24262d;
+    color: #fff;
+    box-shadow: inset 0 -3px 0 #ef3340;
+}
+
+.candidateDecisionScores {
+    padding: 18px;
+    border: 1px solid #32353d;
+    background: #111216;
+}
+
+.candidateDecisionScoreHead {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.candidateDecisionScoreHead h2 {
+    margin: 3px 0 5px;
+    font-size: 22px;
+}
+
+.candidateDecisionScoreHead p {
+    max-width: 760px;
+    margin: 0;
+    color: #aeb4c0;
+}
+
+.candidateDecisionScoreGrid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.candidateScoreGapNotice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(245, 158, 11, 0.38);
+    background: rgba(245, 158, 11, 0.08);
+    color: #f8d58a;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.candidateScoreGapNotice svg {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: #fbbf24;
+}
+
+.candidateScoreGapNotice strong {
+    color: #fff1c7;
+}
+
+.candidateDecisionScoreGrid article {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid #30333b;
+    background: #181a20;
+}
+
+.candidateDecisionScoreGrid article > span,
+.candidateDecisionScoreGrid article > small {
+    display: block;
+    color: #9da2ad;
+}
+
+.candidateDecisionScoreGrid article > strong {
+    display: block;
+    margin: 5px 0;
+    font-size: 28px;
+}
+
+.candidateDecisionScoreRail {
+    height: 5px;
+    margin: 8px 0;
+    overflow: hidden;
+    background: #292c33;
+}
+
+.candidateDecisionScoreRail i {
+    display: block;
+    height: 100%;
+    background: #ef3340;
+}
+
+.candidateDecisionScoreGrid article.good .candidateDecisionScoreRail i { background: #20c77a; }
+.candidateDecisionScoreGrid article.warn .candidateDecisionScoreRail i { background: #f2b84b; }
+
+.candidateRunLedger {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #292c33;
+}
+
+.candidateRunLedger > span { color: #8f95a1; font-size: 12px; font-weight: 800; }
+.candidateRunLedger small { padding: 5px 7px; border: 1px solid #30333b; background: #15161b; color: #aeb4c0; }
+.candidateRunLedger strong { margin-right: 5px; color: #fff; }
+
+.candidateTab-overview > :is(
+    .atsEmbeddedPanel,
+    .candidateVotingPanel,
+    .reviewNotesPanel,
+    .signalStatePanel,
+    .analysisBlankPanel,
+    .candidateInsightGrid,
+    .fullCvPanel,
+    .jobFitPanel,
+    .technologyMatrixPanel,
+    .candidateReportPanel,
+    .scoreExplanationPanel,
+    .interviewPanel,
+    .detailTableSection
+) { display: none; }
+
+.candidateTab-fit > :is(
+    .candidateDecisionScores,
+    .githubJobMatchBand,
+    .detailMeta,
+    .decisionSummaryBand,
+    .candidateVotingPanel,
+    .reviewNotesPanel,
+    .signalStatePanel,
+    .analysisBlankPanel,
+    .recruiterSummaryPanel,
+    .fullCvPanel,
+    .technologyMatrixPanel,
+    .memoryPanel,
+    .interviewPanel,
+    .detailTableSection
+) { display: none; }
+
+.candidateTab-evidence > :is(
+    .candidateDecisionScores,
+    .atsEmbeddedPanel,
+    .detailMeta,
+    .decisionSummaryBand,
+    .candidateVotingPanel,
+    .reviewNotesPanel,
+    .candidateInsightGrid,
+    .recruiterSummaryPanel,
+    .jobFitPanel,
+    .candidateReportPanel,
+    .scoreExplanationPanel,
+    .memoryPanel,
+    .interviewPanel
+) { display: none; }
+
+.candidateTab-review > :is(
+    .candidateDecisionScores,
+    .githubJobMatchBand,
+    .atsEmbeddedPanel,
+    .detailMeta,
+    .decisionSummaryBand,
+    .signalStatePanel,
+    .analysisBlankPanel,
+    .candidateInsightGrid,
+    .recruiterSummaryPanel,
+    .fullCvPanel,
+    .jobFitPanel,
+    .technologyMatrixPanel,
+    .candidateReportPanel,
+    .scoreExplanationPanel,
+    .memoryPanel,
+    .detailTableSection
+) { display: none; }
+
 @media (max-width: 760px) {
     .technologyMatrixPanel { padding: 14px; }
+    .candidateDecisionScoreHead { align-items: stretch; flex-direction: column; }
+    .candidateDecisionScoreGrid { grid-template-columns: 1fr 1fr; }
+    .candidateDetailTabs { grid-template-columns: 1fr 1fr; }
+    .candidateDetailTabs button:nth-child(2) { border-right: 0; }
+    .candidateDetailTabs button:nth-child(-n + 2) { border-bottom: 1px solid #30323a; }
+}
+
+@media (max-width: 480px) {
+    .candidateDecisionScoreGrid { grid-template-columns: 1fr; }
+}
+.workflowDecisionModal {
+    position: relative;
+    width: min(620px, calc(100vw - 32px));
+    max-height: min(760px, calc(100vh - 32px));
+    overflow: auto;
+    padding: 28px;
+    border: 1px solid #3b3f46;
+    background: #111316;
+    box-shadow: 0 28px 80px rgb(0 0 0 / 58%);
+}
+
+.workflowDecisionModal h2 {
+    margin: 8px 44px 8px 0;
+    font-size: 24px;
+}
+
+.workflowDecisionModal > p {
+    color: #aeb4bd;
+}
+
+.workflowModalClose {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+}
+
+.workflowTransition {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    margin: 22px 0;
+    padding: 14px;
+    border: 1px solid #34383f;
+    background: #0b0d0f;
+}
+
+.workflowTransition span,
+.workflowTransition strong {
+    min-width: 0;
+    text-align: center;
+}
+
+.workflowDecisionModal label {
+    display: grid;
+    gap: 8px;
+    color: #d9dde3;
+    font-weight: 700;
+}
+
+.workflowDecisionModal textarea {
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+}
+
+.workflowGateNotice {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid #6a5424;
+    background: #211b0f;
+    color: #f0d88b;
+}
+
+.workflowModalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
 }
