@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, BriefcaseBusiness, CodeXml, ExternalLink, Radar, RefreshCcw, Search, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowRight, BriefcaseBusiness, CodeXml, ExternalLink, Link2, Radar, Search, Users } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { apiRunCandidateOsint, apiUpdateCandidateAnalysisState } from '../../api';
 import { analysisStates as signalStates } from '../../data/analysisStates';
+import { discoverCvPublicSources } from '../../utils/publicSourceDiscovery';
 import { findCandidateFromPath } from './projectPageUtils';
 import { ProjectRouteState } from './ProjectRouteState';
 
@@ -144,35 +145,23 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
     const [consentAccepted, setConsentAccepted] = useState(false);
     const [selected, setSelected] = useState(() => new Set(['profile-search', 'project-scan', 'profile-match', 'title-check']));
     const [initializedStateIds, setInitializedStateIds] = useState(() => new Set(activeCandidate?.initializedAnalysisStates || [projectStateId]));
-    const [osintResult, setOsintResult] = useState(null);
     const [osintLoading, setOsintLoading] = useState(false);
     const [osintError, setOsintError] = useState('');
-    const autoRunKey = useRef('');
-    const runOsintRef = useRef(null);
     const signalGroups = lang === 'ge' ? signalGroupsGe : signalGroupsEn;
     const activeState = signalStates.find((state) => state.id === activeStateId) || signalStates[0];
     const selectedStateInitialized = initializedStateIds.has(activeStateId);
     const signalTraceUnlocked = activeStateId === 'strict-war-ai';
     const lockedTraceMessage = 'Switch to WAR_AI State to unlock SignalTrace OSINT.';
-    const resultRows = activeCandidate && selectedStateInitialized ? buildSignalResults(activeCandidate, activeStateId, t, osintResult) : [];
+    const discoveredCvSources = discoverCvPublicSources(activeCandidate?.cvText);
+    const discoveredGithubSources = discoveredCvSources.filter((source) => source.kind === 'github');
 
     useEffect(() => {
         setActiveStateId(activeCandidate?.analysisState || projectStateId);
-        setOsintResult(null);
         setOsintError('');
         setInitializedStateIds(new Set(activeCandidate?.initializedAnalysisStates?.length
             ? activeCandidate.initializedAnalysisStates
             : [projectStateId]));
     }, [activeProject?.id, activeCandidate?.id, activeCandidate?.analysisState, activeCandidate?.initializedAnalysisStates, projectStateId]);
-
-    useEffect(() => {
-        const runKey = `${activeProject?.id || ''}:${activeCandidate?.id || ''}:${activeStateId}`;
-        if (!activeProject || !activeCandidate || !signalTraceUnlocked || !consentAccepted || !selectedStateInitialized || autoRunKey.current === runKey) {
-            return;
-        }
-        autoRunKey.current = runKey;
-        runOsintRef.current?.();
-    }, [activeProject, activeCandidate, activeStateId, consentAccepted, selectedStateInitialized, signalTraceUnlocked]);
 
     if (!activeProject || !activeCandidate) {
         return <ProjectRouteState Header={Header} navigateTo={navigateTo} setRoute={setRoute} user={user} userToken={userToken} setUser={setUser} setUserToken={setUserToken} loading={projectsLoading} eyebrow={activeProject ? 'SignalTrace' : undefined} title={activeProject ? 'Candidate signal route not found' : undefined} message={activeProject ? 'This SignalTrace route points to a candidate that is unavailable.' : undefined} />;
@@ -188,43 +177,31 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
         });
     }
 
-    async function initializeSelectedState() {
+    async function checkInformation() {
         if (!signalTraceUnlocked) return;
         setOsintLoading(true);
         setOsintError('');
         try {
-            const updated = await apiUpdateCandidateAnalysisState(activeProject.id, activeCandidate.id, {
-                state: activeStateId,
-                initialize: true,
-            }, userToken);
-            setInitializedStateIds(new Set(updated.initialized_analysis_states || updated.initializedAnalysisStates || [activeStateId]));
-            await onProjectsChange?.();
-            await runOsintCheck();
-        } catch (error) {
-            setOsintError(error.message || 'Could not initialize the analysis state.');
-        } finally {
-            setOsintLoading(false);
-        }
-    }
-
-    async function runOsintCheck() {
-        if (!activeProject || !activeCandidate || !signalTraceUnlocked || !consentAccepted) return;
-        setOsintLoading(true);
-        setOsintError('');
-        try {
-            const payload = await apiRunCandidateOsint(activeProject.id, activeCandidate.id, {
+            if (!selectedStateInitialized) {
+                const updated = await apiUpdateCandidateAnalysisState(activeProject.id, activeCandidate.id, {
+                    state: activeStateId,
+                    initialize: true,
+                }, userToken);
+                setInitializedStateIds(new Set(updated.initialized_analysis_states || updated.initializedAnalysisStates || [activeStateId]));
+            }
+            await apiRunCandidateOsint(activeProject.id, activeCandidate.id, {
                 state: activeStateId,
                 checks: [...selected],
                 consent: consentAccepted,
             }, userToken);
-            setOsintResult(payload);
+            await onProjectsChange?.();
+            navigateTo(setRoute, 'signalTraceReport', activeProject.id, activeCandidate.id);
         } catch (error) {
-            setOsintError(error.message || 'OSINT check failed');
+            setOsintError(error.message || 'SignalTrace could not check this candidate.');
         } finally {
             setOsintLoading(false);
         }
     }
-    runOsintRef.current = runOsintCheck;
 
     return (
         <div className="shell">
@@ -241,10 +218,10 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
                     <button
                         className="primary"
                         disabled={osintLoading || !signalTraceUnlocked || !consentAccepted}
-                        onClick={initializeSelectedState}
+                        onClick={checkInformation}
                         title={!signalTraceUnlocked ? lockedTraceMessage : !consentAccepted ? 'Accept the consent terms before starting SignalTrace.' : ''}
                     >
-                        <Radar size={18} /> {osintLoading ? 'Running OSINT...' : t('startTrace')}
+                        <Radar size={18} /> {osintLoading ? 'Checking information...' : 'Check information'}
                     </button>
                 </section>
                 <section className="detailMeta">
@@ -253,7 +230,65 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
                     <Metric label={t('selectedChecks')} value={selected.size} />
                     <Metric label={t('consentGate')} value={t('required')} />
                     <Metric label={t('mode')} value={signalTraceUnlocked ? activeState.shortName : `${activeState.shortName} locked`} />
-                    <Metric label={t('risk')} value={osintResult?.status || activeCandidate.risk} />
+                    <Metric label={t('risk')} value={activeCandidate.risk} />
+                </section>
+                {osintError && (
+                    <div className="signalTraceError" role="alert">
+                        <div>
+                            <strong>SignalTrace could not check this candidate.</strong>
+                            <span>{osintError}</span>
+                        </div>
+                        <button className="secondary" type="button" disabled={osintLoading} onClick={checkInformation}>
+                            Try again
+                        </button>
+                    </div>
+                )}
+
+                <section className={`cvSourceDiscovery ${discoveredCvSources.length ? 'hasSources' : ''}`}>
+                    <div className="cvSourceDiscoveryHead">
+                        <div>
+                            <span className="eyebrow">CV source preflight</span>
+                            <h2>
+                                {discoveredGithubSources.length
+                                    ? `Found ${discoveredGithubSources.length} GitHub link${discoveredGithubSources.length === 1 ? '' : 's'} in this CV`
+                                    : discoveredCvSources.length
+                                        ? `Found ${discoveredCvSources.length} public link${discoveredCvSources.length === 1 ? '' : 's'} in this CV`
+                                        : 'No public links found in this CV'}
+                            </h2>
+                            <p>
+                                Link detection uses only the stored CV text. External profiles remain unverified until consent is accepted and SignalTrace runs.
+                            </p>
+                        </div>
+                        <span className={`cvSourceCount ${discoveredCvSources.length ? 'found' : ''}`}>
+                            <Link2 size={15} />
+                            {discoveredCvSources.length} detected
+                        </span>
+                    </div>
+                    {discoveredCvSources.length > 0 ? (
+                        <div className="cvSourceRows">
+                            {discoveredCvSources.map((source) => (
+                                <article className={`cvSourceRow ${source.kind}`} key={source.url}>
+                                    <CodeXml size={18} aria-hidden="true" />
+                                    <div>
+                                        <strong>{source.platform}</strong>
+                                        <span>
+                                            Found in CV
+                                            {source.username ? ` / username: ${source.username}` : ''}
+                                        </span>
+                                    </div>
+                                    <span className="cvSourcePending">Verification pending</span>
+                                    <a href={source.url} target="_blank" rel="noreferrer">
+                                        <span>{source.url}</span>
+                                        <ExternalLink size={14} />
+                                    </a>
+                                </article>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="cvSourceEmpty">
+                            Add a complete URL such as <code>https://github.com/username</code> to the candidate CV, then upload or rescan it.
+                        </div>
+                    )}
                 </section>
 
                 <section className={`consentGatePanel ${consentAccepted ? 'accepted' : ''}`}>
@@ -312,77 +347,6 @@ export function SignalTracePage({ Header, Metric, navigateTo, setRoute, user, us
                     })}
                 </section>
 
-                <section className="signalResultPanel">
-                    <div className="signalResultHead">
-                        <div>
-                            <span className="eyebrow">{t('osintResult')}</span>
-                            <h2>{activeState.name}</h2>
-                            <p>{signalTraceUnlocked ? (selectedStateInitialized ? t('osintResultSubtitle') : `${activeState.name} search has not been initialized.`) : lockedTraceMessage}</p>
-                        </div>
-                        {signalTraceUnlocked && selectedStateInitialized ? (
-                            <div className="signalResultMetrics">
-                                <div><span>{t('identityConfidence')}</span><strong>{osintResult?.identityConfidence ?? identityConfidence(activeCandidate, activeStateId)}%</strong></div>
-                                <div><span>{t('corroboratedSources')}</span><strong>{osintResult?.corroboratedSources ?? sourceCount(activeCandidate, activeStateId)}</strong></div>
-                                <div><span>{t('contradictions')}</span><strong>{osintResult?.contradictions ?? activeCandidate.unsupported}</strong></div>
-                            </div>
-                        ) : (
-                            <div className={`stateNotInitialized ${signalTraceUnlocked ? '' : 'locked'}`} title={signalTraceUnlocked ? '' : lockedTraceMessage}>
-                                <strong>{signalTraceUnlocked ? `${activeState.shortName} search not initialized` : 'SignalTrace locked'}</strong>
-                                <span>{signalTraceUnlocked ? 'Accept consent and press Start trace to initialize this State mode for the current candidate.' : lockedTraceMessage}</span>
-                            </div>
-                        )}
-                    </div>
-                    {osintError && (
-                        <div className="signalTraceError" role="alert">
-                            <div>
-                                <strong>SignalTrace could not finish this check.</strong>
-                                <span>{osintError}</span>
-                            </div>
-                            <button className="secondary" type="button" disabled={osintLoading} onClick={runOsintCheck}>
-                                <RefreshCcw size={16} /> Retry
-                            </button>
-                        </div>
-                    )}
-                    {osintLoading && <div className="emptyState">Running automatic OSINT check for {activeCandidate.name}...</div>}
-                    {signalTraceUnlocked && selectedStateInitialized ? (
-                        <div className="signalResultRows">
-                            {resultRows.map((row) => (
-                                <article className={`signalResultCard ${row.tone}`} key={`${row.source}-${row.url || row.finding}`}>
-                                    <div>
-                                        <span>{t('source')}</span>
-                                        <strong>{row.source}</strong>
-                                        <small className={`signalFindingStatus ${findingStatus(row).tone}`}>{findingStatus(row).label}</small>
-                                    </div>
-                                    <div>
-                                        <span>{t('finding')}</span>
-                                        <p>{row.finding}</p>
-                                        <div className="signalSourceMeta">
-                                            {row.url ? (
-                                                <a href={row.url} target="_blank" rel="noreferrer">
-                                                    <ExternalLink size={13} /> Open public source
-                                                </a>
-                                            ) : <span>No public source URL was returned</span>}
-                                            {row.checkedAt && <time dateTime={row.checkedAt}>Checked {formatCheckedAt(row.checkedAt)}</time>}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <span>{t('sourceConfidence')}</span>
-                                        <b>{row.confidence}%</b>
-                                    </div>
-                                    <div>
-                                        <span>{t('impact')}</span>
-                                        <b>{row.impact}</b>
-                                    </div>
-                                </article>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="emptyState" title={signalTraceUnlocked ? '' : lockedTraceMessage}>
-                            {signalTraceUnlocked ? `${activeState.name} search has not been initialized for ${activeCandidate.name}.` : lockedTraceMessage}
-                        </div>
-                    )}
-                </section>
-
                 <section className="signalPeoplePanel">
                     <div className="tableToolbar">
                         <h2>{t('peopleInJob')}</h2>
@@ -414,86 +378,4 @@ function stateIdFromName(name = '') {
     if (normalized.includes('war+ai') || normalized.includes('war_ai') || normalized.includes('strict')) return 'strict-war-ai';
     if (normalized.includes('war')) return 'war';
     return 'strict-war-ai';
-}
-
-function identityConfidence(candidate, stateId) {
-    if (stateId === 'light') return Math.min(72, Math.max(24, candidate.score));
-    if (stateId === 'war') return Math.min(82, Math.max(34, candidate.score + 3));
-    if (stateId === 'person') return Math.min(88, Math.max(38, candidate.score + 6));
-    if (candidate.osint === 'Ready') return 91;
-    if (candidate.osint === 'Partial') return 67;
-    if (candidate.osint === 'Escalate') return 44;
-    return 28;
-}
-
-function sourceCount(candidate, stateId) {
-    if (stateId === 'light') return 1;
-    if (stateId === 'war') return 2;
-    if (stateId === 'person') return 3;
-    if (candidate.osint === 'Ready') return 4;
-    if (candidate.osint === 'Partial') return 2;
-    if (candidate.osint === 'Escalate') return 1;
-    return 0;
-}
-
-function buildSignalResults(candidate, stateId, t, osintResult) {
-    if (osintResult?.sources?.length) {
-        return osintResult.sources.map((source) => ({
-            source: source.source,
-            finding: source.finding,
-            confidence: source.confidence,
-            impact: source.impact,
-            tone: source.tone || 'neutral',
-            url: source.url || '',
-            checkedAt: osintResult.checked_at || osintResult.checkedAt || '',
-        }));
-    }
-    const baseRows = [
-        { source: 'Contradiction scan', finding: t('contradictionFinding'), confidence: candidate.unsupported ? 76 : 22, impact: candidate.unsupported ? `-${candidate.unsupported * 8}` : '0', tone: candidate.unsupported ? 'bad' : 'good' },
-        { source: 'CV claim map', finding: `${candidate.supported} supported, ${candidate.stretched} stretched, and ${candidate.unsupported} unsupported claims were extracted from the uploaded CV.`, confidence: Math.max(35, Math.min(92, candidate.score)), impact: candidate.score >= 70 ? '+8' : '-4', tone: candidate.score >= 70 ? 'good' : 'warn' },
-    ];
-    if (stateId === 'light') {
-        return baseRows;
-    }
-    const warRows = [
-        ...baseRows,
-        { source: 'Requirement pressure', finding: `${candidate.role} is checked against the job requirements with strict proof expectations.`, confidence: Math.max(42, Math.min(88, candidate.match)), impact: candidate.match >= 70 ? '+10' : '-6', tone: candidate.match >= 70 ? 'good' : 'warn' },
-    ];
-    if (stateId === 'war') {
-        return warRows;
-    }
-    const personRows = [
-        ...warRows,
-        { source: 'LinkedIn', finding: t('linkedinFinding'), confidence: candidate.osint === 'Ready' ? 88 : 54, impact: '+12', tone: 'good' },
-    ];
-    if (stateId === 'person') {
-        return personRows;
-    }
-    return [
-        ...personRows,
-        { source: 'GitHub', finding: t('githubFinding'), confidence: candidate.score >= 75 ? 84 : 48, impact: candidate.score >= 75 ? '+16' : '+4', tone: candidate.score >= 75 ? 'good' : 'warn' },
-        { source: 'Socials', finding: t('socialFinding'), confidence: candidate.osint === 'Not started' ? 0 : 36, impact: candidate.osint === 'Not started' ? '0' : '+2', tone: 'neutral' },
-    ];
-}
-
-function formatCheckedAt(value) {
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
-}
-
-function findingStatus(row) {
-    const finding = String(row.finding || '').toLowerCase();
-    if (finding.includes('not checked') || finding.includes('could not be checked') || finding.includes('interrupted')) {
-        return { label: 'Not checked', tone: 'neutral' };
-    }
-    if (finding.includes('did not resolve') || finding.includes('not found') || finding.includes('no visible')) {
-        return { label: 'Not found', tone: 'warn' };
-    }
-    if (row.tone === 'bad' || finding.includes('contradict')) {
-        return { label: 'Contradicted', tone: 'bad' };
-    }
-    if (row.tone === 'good') {
-        return { label: 'Supported', tone: 'good' };
-    }
-    return { label: 'Needs review', tone: 'warn' };
 }
