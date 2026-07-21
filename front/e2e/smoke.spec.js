@@ -280,7 +280,8 @@ test('project creation persists through the API and opens the project workspace'
 
 test('candidate detail separates fit, evidence, and review and requires a status reason', async ({ page }) => {
     await page.addInitScript(() => sessionStorage.setItem('verdictUserToken', 'smoke-token'));
-    await page.goto('/projects/7/candidates/71');
+    await page.goto('/projects/7/candidates/71', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('heading', { name: 'Nino Backend' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Different scores answer different hiring questions.' })).toBeVisible();
     await expect(page.getByText('ATS keyword coverage', { exact: true })).toBeVisible();
     await expect(page.getByText('Verified evidence', { exact: true })).toBeVisible();
