@@ -87,6 +87,13 @@ public class ProjectInviteService {
         return mapper.invite(saved);
     }
 
+    @Transactional(readOnly = true)
+    public List<InviteResponse> invites(UserAccount actor, Long projectId) {
+        return inviteRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream()
+                .map(mapper::invite)
+                .toList();
+    }
+
     private String randomToken() {
         byte[] bytes = new byte[32];
         secureRandom.nextBytes(bytes);

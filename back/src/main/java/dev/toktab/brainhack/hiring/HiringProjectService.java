@@ -50,6 +50,12 @@ public class HiringProjectService {
     }
 
     @Transactional
+    @Transactional
+    public ProjectResponse project(UserAccount owner, Long id) {
+        return mapper.project(entity(owner, id), "owner", List.of("all"));
+    }
+
+    @Transactional
     public List<ProjectResponse> accessible(UserAccount owner) {
         ensureOrganization(owner);
         return projectRepository.findAccessible(owner.getId(), owner.getEmail()).stream()

@@ -38,6 +38,7 @@ public class CandidateWorkflowService {
     private final CandidateReviewNoteRepository noteRepository;
     private final HiringProjectService projectService;
     private final CandidateIntakeService candidateService;
+    private final CandidateAnalysisService candidateAnalysisService;
     private final ProjectStateService projectStateService;
     private final HiringMapper mapper;
 
@@ -46,12 +47,14 @@ public class CandidateWorkflowService {
             CandidateReviewNoteRepository noteRepository,
             HiringProjectService projectService,
             CandidateIntakeService candidateService,
+            CandidateAnalysisService candidateAnalysisService,
             ProjectStateService projectStateService,
             HiringMapper mapper) {
         this.candidateRepository = candidateRepository;
         this.noteRepository = noteRepository;
         this.projectService = projectService;
         this.candidateService = candidateService;
+        this.candidateAnalysisService = candidateAnalysisService;
         this.projectStateService = projectStateService;
         this.mapper = mapper;
     }
