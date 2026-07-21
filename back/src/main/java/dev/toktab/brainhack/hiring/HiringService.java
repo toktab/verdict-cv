@@ -1668,11 +1668,7 @@ public class HiringService {
         }
     }
 
-    private record GithubInvestigation(
-            GithubProfileResponse profile,
-            List<OsintSourceResponse> sources
-    ) {
-    }
+    // Extracted to public record GithubInvestigation in same package
 
     private void addUnique(List<String> values, String value) {
         String clean = defaulted(value, "").replaceAll("^[^a-zA-Z0-9]+|[^a-zA-Z0-9_-]+$", "");
