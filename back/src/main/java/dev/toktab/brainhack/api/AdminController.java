@@ -1,5 +1,6 @@
 package dev.toktab.brainhack.api;
 
+import dev.toktab.brainhack.admin.AdminAuthentication;
 import dev.toktab.brainhack.admin.AdminSessionService;
 import dev.toktab.brainhack.admin.AdminTableMaintenanceService;
 import dev.toktab.brainhack.admin.AdminTableMaintenanceService.TableClearResult;
@@ -38,6 +39,7 @@ import java.util.Map;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -96,9 +98,9 @@ public class AdminController {
 
     @PostMapping("/login")
     public AdminLoginResponse login(@Valid @RequestBody AdminLoginRequest request, HttpServletRequest httpRequest) {
-        String token = adminSessionService.login(request.username(), request.password());
+        AdminAuthentication authentication = adminSessionService.login(request.username(), request.password());
         logService.record("ADMIN_LOGIN", httpRequest, 200, 0, request.username(), "admin logged in");
-        return new AdminLoginResponse(token, adminSessionService.username());
+        return new AdminLoginResponse(authentication.getToken(), authentication.getUsername());
     }
 
     @GetMapping("/audits")
@@ -174,22 +176,33 @@ public class AdminController {
     }
 
     @PostMapping("/ats-templates")
-    public OfficialAtsVersionResponse publishOfficialAtsTemplate(@RequestBody OfficialAtsPublishRequest request) {
-        OfficialAtsVersionResponse published = atsKeywordCatalog.publish(request.catalogJson(), request.changeNote(), adminSessionService.username());
+    public OfficialAtsVersionResponse publishOfficialAtsTemplate(
+            @RequestBody OfficialAtsPublishRequest request,
+            @AuthenticationPrincipal AdminAuthentication admin) {
+        OfficialAtsVersionResponse published = atsKeywordCatalog.publish(request.catalogJson(), request.changeNote(),
+                admin != null ? admin.getUsername() : adminSessionService.username());
         logService.recordSystem("ADMIN_PUBLISH_ATS_TEMPLATE", "version=" + published.version() + ", note=" + published.changeNote());
         return published;
     }
 
     @PostMapping("/ats-templates/{id}/rollback")
-    public OfficialAtsVersionResponse rollbackOfficialAtsTemplate(@PathVariable Long id, @RequestBody OfficialAtsRollbackRequest request) {
-        OfficialAtsVersionResponse published = atsKeywordCatalog.rollback(id, request.changeNote(), adminSessionService.username());
+    public OfficialAtsVersionResponse rollbackOfficialAtsTemplate(
+            @PathVariable Long id,
+            @RequestBody OfficialAtsRollbackRequest request,
+            @AuthenticationPrincipal AdminAuthentication admin) {
+        OfficialAtsVersionResponse published = atsKeywordCatalog.rollback(id, request.changeNote(),
+                admin != null ? admin.getUsername() : adminSessionService.username());
         logService.recordSystem("ADMIN_ROLLBACK_ATS_TEMPLATE", "sourceId=" + id + ", newVersion=" + published.version());
         return published;
     }
 
     @PatchMapping("/verdicts/{id}")
     @Transactional
-    public VerdictResponse updateVerdict(@PathVariable Long id, @RequestBody Verdict patch) {
+    public VerdictResponse updateVerdict(
+            @PathVariable Long id,
+            @RequestBody Verdict patch,
+            @AuthenticationPrincipal AdminAuthentication admin) {
+        String adminUsername = admin != null ? admin.getUsername() : adminSessionService.username();
         Verdict verdict = verdictRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Verdict not found: " + id));
         Map<String, Object> changes = new LinkedHashMap<>();
         if (patch.getStatus() != null) {
@@ -207,7 +220,7 @@ public class AdminController {
         if (patch.getEvidencePointer() != null) {
             changes.put("evidencePointer", patch.getEvidencePointer());
         }
-        verdictRevisionService.appendAdminPatch(verdict, adminSessionService.username(), changes, "Administrative verdict correction");
+        verdictRevisionService.appendAdminPatch(verdict, adminUsername, changes, "Administrative verdict correction");
         logService.recordSystem("ADMIN_UPDATE_VERDICT", "verdictId=" + id);
         auditService.recalculate(verdict.getAudit().getId());
         return auditMapper.toVerdictResponse(verdict);
@@ -215,10 +228,13 @@ public class AdminController {
 
     @DeleteMapping("/verdicts/{id}")
     @Transactional
-    public void deleteVerdict(@PathVariable Long id) {
+    public void deleteVerdict(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AdminAuthentication admin) {
+        String adminUsername = admin != null ? admin.getUsername() : adminSessionService.username();
         Verdict verdict = verdictRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Verdict not found: " + id));
         Long auditId = verdict.getAudit().getId();
-        verdictRevisionService.appendAdminPatch(verdict, adminSessionService.username(), Map.of("deleted", true), "Administrative soft delete");
+        verdictRevisionService.appendAdminPatch(verdict, adminUsername, Map.of("deleted", true), "Administrative soft delete");
         auditService.recalculate(auditId);
         logService.recordSystem("ADMIN_DELETE_VERDICT", "verdictId=" + id);
     }
@@ -245,8 +261,12 @@ public class AdminController {
     }
 
     @PostMapping("/clear-tables")
-    public List<TableClearResult> clearTables(@RequestBody ClearTablesRequest request, HttpServletRequest httpRequest) {
+    public List<TableClearResult> clearTables(
+            @RequestBody ClearTablesRequest request,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal AdminAuthentication admin) {
         long started = System.currentTimeMillis();
+        String adminUsername = admin != null ? admin.getUsername() : adminSessionService.username();
         String requiredPhrase = request.targets() == null ? "" : request.targets().stream()
                 .map(value -> value == null ? "" : value.trim().toLowerCase())
                 .filter(value -> !value.isBlank())
@@ -266,7 +286,7 @@ public class AdminController {
                 httpRequest,
                 200,
                 System.currentTimeMillis() - started,
-                adminSessionService.username(),
+                adminUsername,
                 "targets=" + request.targets()
                         + "; affectedRowsBefore=" + affectedRows
                         + "; deletedRows=" + deletedRows
@@ -281,7 +301,6 @@ public class AdminController {
     private int safeLimit(int limit) {
         return Math.min(Math.max(limit, 1), 100);
     }
-
 }
 
 record ClearTablesRequest(List<String> targets, String confirmation) {

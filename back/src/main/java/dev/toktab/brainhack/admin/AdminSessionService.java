@@ -15,7 +15,7 @@ public class AdminSessionService {
     private final String passwordHash;
     private final boolean credentialsEnabled;
     private final SecureRandom secureRandom = new SecureRandom();
-    private final Map<String, Instant> sessions = new ConcurrentHashMap<>();
+    private final Map<String, AdminSession> sessions = new ConcurrentHashMap<>();
 
     public AdminSessionService(
             @Value("${verdict.admin.username}") String username,
@@ -26,7 +26,7 @@ public class AdminSessionService {
         this.passwordHash = BCrypt.hashpw(password, BCrypt.gensalt(10));
     }
 
-    public String login(String providedUsername, String providedPassword) {
+    public AdminAuthentication login(String providedUsername, String providedPassword) {
         if (!credentialsEnabled) {
             throw new IllegalArgumentException("Admin login is disabled until VERDICT_ADMIN_USERNAME and VERDICT_ADMIN_PASSWORD are configured.");
         }
@@ -36,26 +36,30 @@ public class AdminSessionService {
         byte[] bytes = new byte[36];
         secureRandom.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        sessions.put(token, Instant.now().plusSeconds(60 * 60 * 12));
-        return token;
+        Instant expiresAt = Instant.now().plusSeconds(60 * 60 * 12);
+        sessions.put(token, new AdminSession(token, expiresAt));
+        return new AdminAuthentication(username, token);
     }
 
-    public boolean isValid(String token) {
+    public AdminAuthentication authenticate(String token) {
         if (token == null || token.isBlank()) {
-            return false;
+            return null;
         }
-        Instant expiresAt = sessions.get(token);
-        if (expiresAt == null) {
-            return false;
+        AdminSession session = sessions.get(token);
+        if (session == null) {
+            return null;
         }
-        if (expiresAt.isBefore(Instant.now())) {
+        if (session.expiresAt().isBefore(Instant.now())) {
             sessions.remove(token);
-            return false;
+            return null;
         }
-        return true;
+        return new AdminAuthentication(username, token);
     }
 
     public String username() {
         return username;
+    }
+
+    private record AdminSession(String token, Instant expiresAt) {
     }
 }
