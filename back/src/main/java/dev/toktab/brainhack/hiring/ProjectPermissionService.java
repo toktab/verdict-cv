@@ -45,24 +45,7 @@ public class ProjectPermissionService {
     }
 
     public List<String> permissionsForRole(String role) {
-        String normalized = displayRole(role).toLowerCase(Locale.ROOT);
-        List<String> permissions = new ArrayList<>();
-        permissions.add("canView");
-        if (normalized.contains("voter")) {
-            permissions.add("canVote");
-        } else if (normalized.contains("reviewer")) {
-            permissions.addAll(List.of("canVote", "canAddNote"));
-        } else if (normalized.contains("screener")) {
-            permissions.addAll(List.of("canVote", "canAddNote", "canMarkOnCheck"));
-        } else if (normalized.contains("coordinator") || normalized.contains("admin")) {
-            permissions.addAll(List.of(
-                    "canVote", "canAddNote", "canMarkOnCheck", "canSetInterview", "canHire", "canClose",
-                    "canInvite", "canTeamManage", "canKickMembers", "canPromoteMembers", "canDemoteMembers",
-                    "canChangePermissions", "canMessage", "canViewActivityLog"
-            ));
-            if (normalized.contains("head")) permissions.add("protectedAccount");
-        }
-        return permissions.stream().distinct().toList();
+        return ProjectPermission.defaultPermissionsForRole(ProjectRole.from(role));
     }
 
     public boolean has(UserAccount actor, HiringProject project, String permission) {
@@ -97,30 +80,11 @@ public class ProjectPermissionService {
     }
 
     public String canonicalRole(String role) {
-        String normalized = clean(role, "Reviewer").replace('_', ' ').replace('-', ' ').toLowerCase(Locale.ROOT);
-        return switch (normalized) {
-            case "viewer" -> "VIEWER";
-            case "voter" -> "VOTER";
-            case "reviewer" -> "REVIEWER";
-            case "screener" -> "SCREENER";
-            case "coordinator" -> "COORDINATOR";
-            case "admin" -> "ADMIN";
-            case "head admin", "organization admin" -> "ORGANIZATION_ADMIN";
-            case "custom" -> "CUSTOM";
-            default -> throw new IllegalArgumentException("Unsupported member role");
-        };
+        return ProjectRole.from(role).name();
     }
 
     public String displayRole(String role) {
-        String normalized = clean(role, "Reviewer").replace('_', ' ').replace('-', ' ').toLowerCase(Locale.ROOT);
-        if (normalized.contains("organization admin") || normalized.contains("head admin")) return "Head Admin";
-        if (normalized.contains("coordinator")) return "Coordinator";
-        if (normalized.equals("admin")) return "Admin";
-        if (normalized.contains("screener")) return "Screener";
-        if (normalized.contains("reviewer")) return "Reviewer";
-        if (normalized.contains("voter")) return "Voter";
-        if (normalized.contains("custom")) return "Custom";
-        return "Viewer";
+        return ProjectRole.from(role).displayName();
     }
 
     private List<String> readPermissions(String json, String fallbackRole) {
