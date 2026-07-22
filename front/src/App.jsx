@@ -1,9 +1,9 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Activity, ArrowRight, ChevronDown, Gauge, History, LayoutDashboard, Lock, LogOut, Mail, Menu, RefreshCcw, User, UserPlus, X } from 'lucide-react';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { ArrowRight, ChevronDown, Gauge, History, LayoutDashboard, RefreshCcw } from 'lucide-react';
 import IntroAnimation from './IntroAnimation';
-import { LanguageContext, translate, useLanguage } from './i18n';
-import { apiCreateRealtimeTicket, apiMe, apiLogout, apiListMessages, apiListProjects, apiRealtimeUrl, apiUpdateNotificationPreferences, javaApi, normaliseProject, normaliseUser } from './api';
-import { messageBelongsTo, readMessages } from './messageStore';
+import { LanguageContext, translate } from './i18n';
+import { apiMe, apiLogout, apiListProjects, apiUpdateNotificationPreferences, javaApi, normaliseProject, normaliseUser } from './api';
+import Header from './components/Header';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { DialogKeyboardManager } from './components/DialogKeyboardManager';
 import { GlobalCompose } from './components/GlobalCompose';
@@ -15,28 +15,14 @@ import { navigateTo, routeFromPath, scrollToPageTop } from './navigation';
 import { formatUploadSize } from './utils/auditPresentation';
 import { auditPayload, demoCase, demoCases, demoStates, demoTemplates, emptyTemplateForm } from './data/auditWorkspaceDefaults';
 import { clearUserToken, readUserToken } from './sessionAuth';
+import { useRealtime } from './hooks/useRealtime';
+import { useUnreadMessages } from './hooks/useUnreadMessages';
+import { pages } from './AppRoutes';
 import './styles.css';
 import './styles/auth.css';
 import './styles/reports.css';
 
-const lazyNamed = (loader, name) => lazy(() => loader().then((module) => ({ default: module[name] })));
-const HistoryPage = lazyNamed(() => import('./pages/HistoryPage'), 'HistoryPage');
-const AuthPage = lazyNamed(() => import('./pages/AuthPage'), 'AuthPage');
-const CandidateDetailPage = lazyNamed(() => import('./pages/projects/CandidateDetailPage'), 'CandidateDetailPage');
-const CandidateMatchReportPage = lazyNamed(() => import('./pages/projects/CandidateMatchReportPage'), 'CandidateMatchReportPage');
-const CandidateProfilePage = lazyNamed(() => import('./pages/projects/CandidateProfilePage'), 'CandidateProfilePage');
-const HomePage = lazyNamed(() => import('./pages/HomePage'), 'HomePage');
-const MessagesPage = lazyNamed(() => import('./pages/MessagesPage'), 'MessagesPage');
-const ProfilePage = lazyNamed(() => import('./pages/ProfilePage'), 'ProfilePage');
-const AdminPage = lazyNamed(() => import('./pages/AdminPage'), 'AdminPage');
-const AddCandidatePage = lazyNamed(() => import('./pages/projects/AddCandidatePage'), 'AddCandidatePage');
-const NewJobPage = lazyNamed(() => import('./pages/projects/NewJobPage'), 'NewJobPage');
-const ProjectDetailPage = lazyNamed(() => import('./pages/projects/ProjectDetailPage'), 'ProjectDetailPage');
-const ProjectSettingsPage = lazyNamed(() => import('./pages/projects/ProjectSettingsPage'), 'ProjectSettingsPage');
-const ProjectTeamPage = lazyNamed(() => import('./pages/projects/ProjectTeamPage'), 'ProjectTeamPage');
-const ProjectsPage = lazyNamed(() => import('./pages/projects/ProjectsPage'), 'ProjectsPage');
-const SignalTracePage = lazyNamed(() => import('./pages/projects/SignalTracePage'), 'SignalTracePage');
-const SignalTraceReportPage = lazyNamed(() => import('./pages/projects/SignalTraceReportPage'), 'SignalTraceReportPage');
+const { HistoryPage, AuthPage, CandidateDetailPage, CandidateMatchReportPage, CandidateProfilePage, HomePage, MessagesPage, ProfilePage, AdminPage, AddCandidatePage, NewJobPage, ProjectDetailPage, ProjectSettingsPage, ProjectTeamPage, ProjectsPage, SignalTracePage, SignalTraceReportPage } = pages;
 
 const MAX_DOCUMENT_UPLOAD_BYTES = 8 * 1024 * 1024;
 const PROJECT_DATA_ROUTES = new Set(['projectDetail', 'projectSettings', 'projectTeam', 'addCandidate', 'candidateDetail', 'candidateReport', 'candidateProfile', 'signalTrace', 'signalTraceReport']);
@@ -81,6 +67,15 @@ function useRouteState(getInitialRoute) {
     return { route, setRoute, detailAuditId, setDetailAuditId };
 }
 
+function SkeletonBlock({ rows = 3, compact = false }) {
+    return (
+        <div className={`skeletonBlock ${compact ? 'compact' : ''}`}>
+            {Array.from({ length: rows }, (_, index) => <span key={index} />)}
+        </div>
+    );
+}
+
+// Metric and Textarea are kept here as they are small utility components used by page renders.
 function Textarea({ value, onChange }) {
     return <textarea value={value || ''} onChange={(event) => onChange(event.target.value)} />;
 }
@@ -90,23 +85,6 @@ function Metric({ label, value }) {
         <div className="metric">
             <span>{label}</span>
             <strong>{value}</strong>
-        </div>
-    );
-}
-
-function Loading({ stage }) {
-    return (
-        <div className="loading">
-            <Activity size={18} />
-            <strong>{stage || 'Loading'}</strong>
-        </div>
-    );
-}
-
-function SkeletonBlock({ rows = 3, compact = false }) {
-    return (
-        <div className={`skeletonBlock ${compact ? 'compact' : ''}`}>
-            {Array.from({ length: rows }, (_, index) => <span key={index} />)}
         </div>
     );
 }
@@ -152,11 +130,10 @@ function App() {
     const [lang, setLangState] = useState('en');
     const [composeOpen, setComposeOpen] = useState(false);
     const [composeDraft, setComposeDraft] = useState({ to: '', subject: '', body: '', replyToMessageId: null, forwardedFromMessageId: null, candidateAttachments: [] });
-    const [unreadMessages, setUnreadMessages] = useState(0);
-    const [messageNotice, setMessageNotice] = useState(null);
-    const seenInboundMessageIds = useRef(new Set());
     const loadersRef = useRef({});
     loadersRef.current = { loadHistory, loadTemplates, loadStates, loadProjects, loadAuditDetail };
+
+    const { unreadMessages, messageNotice, setMessageNotice } = useUnreadMessages(user, userToken);
 
     function setLang(nextLang) {
         if (nextLang !== 'en') return;
@@ -228,71 +205,7 @@ function App() {
         loadersRef.current.loadProjects();
     }, [userToken]);
 
-    useEffect(() => {
-        if (!userToken || typeof EventSource === 'undefined') return undefined;
-        let source;
-        let cancelled = false;
-        apiCreateRealtimeTicket(userToken)
-            .then(({ ticket }) => {
-                if (cancelled) return;
-                source = new EventSource(apiRealtimeUrl(ticket));
-                source.addEventListener('project', () => {
-                    loadersRef.current.loadProjects({ silent: true });
-                    window.dispatchEvent(new Event('verdictProjectsChanged'));
-                });
-                source.addEventListener('message', () => {
-                    window.dispatchEvent(new Event('verdictMessagesChanged'));
-                });
-                source.addEventListener('audit', (event) => {
-                    window.dispatchEvent(new CustomEvent('verdictAuditChanged', { detail: JSON.parse(event.data || '{}') }));
-                });
-                source.onerror = () => {
-                    window.dispatchEvent(new Event('verdictRealtimeDisconnected'));
-                };
-            })
-            .catch(() => window.dispatchEvent(new Event('verdictRealtimeDisconnected')));
-        return () => {
-            cancelled = true;
-            source?.close();
-        };
-    }, [userToken]);
-
-    useEffect(() => {
-        let cancelled = false;
-        async function refreshUnreadMessages() {
-            if (!user) {
-                setUnreadMessages(0);
-                setMessageNotice(null);
-                return;
-            }
-            try {
-                const rows = userToken ? await apiListMessages(userToken) : readMessages(user);
-                if (!cancelled) {
-                    const inbound = rows.filter((message) => messageBelongsTo(message, user, 'to'));
-                    const unread = inbound.filter((message) => !message.read);
-                    setUnreadMessages(unread.length);
-                    const nextIds = new Set(inbound.map((message) => String(message.id)));
-                    const fresh = inbound.find((message) => !seenInboundMessageIds.current.has(String(message.id)));
-                    if (seenInboundMessageIds.current.size > 0 && fresh && shouldShowMessageNotice(user)) {
-                        setMessageNotice(fresh);
-                    }
-                    seenInboundMessageIds.current = nextIds;
-                }
-            } catch {
-                if (!cancelled && !userToken) {
-                    setUnreadMessages(readMessages(user).filter((message) => !message.read && messageBelongsTo(message, user, 'to')).length);
-                }
-            }
-        }
-        refreshUnreadMessages();
-        window.addEventListener('verdictMessagesChanged', refreshUnreadMessages);
-        window.addEventListener('focus', refreshUnreadMessages);
-        return () => {
-            cancelled = true;
-            window.removeEventListener('verdictMessagesChanged', refreshUnreadMessages);
-            window.removeEventListener('focus', refreshUnreadMessages);
-        };
-    }, [user, userToken]);
+    useRealtime(userToken, loadProjects);
 
     useEffect(() => {
         if (!demoConfirmOpen) {
@@ -676,7 +589,11 @@ function App() {
                     navigateTo(setRoute, 'messages');
                 }}
                 onMute={async (duration) => {
-                    const updated = await muteMessageNotices(userToken, duration).catch(() => null);
+                    const durations = { '5m': 300000, '15m': 900000, '1h': 3600000 };
+                    const updated = await apiUpdateNotificationPreferences({
+                        enabled: duration !== 'forever',
+                        mutedUntil: duration === 'forever' ? null : new Date(Date.now() + (durations[duration] || 0)).toISOString(),
+                    }, userToken).catch(() => null);
                     if (updated) setUser(updated);
                     setMessageNotice(null);
                 }}
@@ -687,9 +604,7 @@ function App() {
 
 function MessageNoticeToast({ message, onDismiss, onGo, onMute }) {
     const [menuOpen, setMenuOpen] = useState(false);
-    if (!message) {
-        return null;
-    }
+    if (!message) return null;
     return (
         <aside className="messageNoticeToast">
             <div>
@@ -716,119 +631,19 @@ function MessageNoticeToast({ message, onDismiss, onGo, onMute }) {
     );
 }
 
-function readNotificationSettings(user) {
-    return {
-        messageNoticesEnabled: user?.messageNotificationsEnabled !== false,
-        mutedUntil: user?.messageNotificationsMutedUntil || null,
-    };
-}
-
-function shouldShowMessageNotice(user) {
-    const settings = readNotificationSettings(user);
-    if (settings.messageNoticesEnabled === false) return false;
-    if (settings.mutedUntil && new Date(settings.mutedUntil).getTime() > Date.now()) return false;
-    return true;
-}
-
-async function muteMessageNotices(token, duration) {
-    const durations = { '5m': 5 * 60 * 1000, '15m': 15 * 60 * 1000, '1h': 60 * 60 * 1000 };
-    return apiUpdateNotificationPreferences({
-        enabled: duration !== 'forever',
-        mutedUntil: duration === 'forever' ? null : new Date(Date.now() + (durations[duration] || 0)).toISOString(),
-    }, token);
-}
-
 function RouteLoadingFallback() {
     return (
         <div className="shell">
             <main className="workspace routeChunkLoading" aria-live="polite">
-                <Loading stage="LOADING WORKSPACE" />
-                <SkeletonBlock rows={6} />
+                <div className="loading" role="status">
+                    <div className="_v_spinner" style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.12)', borderTopColor: '#fff', borderRadius: '50%', animation: '_v_spin 0.9s linear infinite', display: 'inline-block', marginRight: 8 }} />
+                    <strong>LOADING WORKSPACE</strong>
+                </div>
+                <div className="skeletonBlock">
+                    {[1,2,3,4,5,6].map((i) => <span key={i} />)}
+                </div>
             </main>
         </div>
-    );
-}
-
-function Header({ setRoute, user, userToken, setUser, setUserToken, unreadMessages = 0 }) {
-    const { t } = useLanguage();
-    const [accountOpen, setAccountOpen] = useState(false);
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    function navigate(next) {
-        setAccountOpen(false);
-        setMobileMenuOpen(false);
-        track('navigation_clicked', next);
-        navigateTo(setRoute, next);
-    }
-
-    async function logout() {
-        track('logout_clicked', 'topbar');
-        if (userToken) {
-            await api.logout(userToken).catch(() => null);
-        }
-        clearUserToken();
-        setUserToken?.('');
-        setUser?.(null);
-        navigate('home');
-    }
-
-    return (
-        <header className={`topbar ${mobileMenuOpen ? 'menuOpen' : ''}`}>
-            <div className="topbarBg contentFadeIn" />
-            <div className="topbarIdentity">
-                <div className="brandLine">
-                    <div className="brand">VERDICT</div>
-                    <span className="languageCurrent" aria-label="Interface language">EN</span>
-                </div>
-                <div className="tagline">{t('brandTagline')}</div>
-            </div>
-            <button
-                className="menuToggle"
-                type="button"
-                aria-label={mobileMenuOpen ? t('closeMenu') : t('openMenu')}
-                aria-expanded={mobileMenuOpen}
-                onClick={() => {
-                    setMobileMenuOpen((open) => !open);
-                    setAccountOpen(false);
-                }}
-            >
-                {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-                <span>{t('menu')}</span>
-            </button>
-            <nav className="topbarNav">
-                <button onClick={() => navigate('home')}>{t('home')}</button>
-                {user && <button className="quiet" onClick={() => navigate('dashboard')}><Gauge size={16} /> {t('dashboard')}</button>}
-                <button className="quiet" onClick={() => navigate('projects')}><LayoutDashboard size={16} /> {t('projects')}</button>
-                {user && <button className="quiet" onClick={() => navigate('history')}><History size={16} /> {t('history')}</button>}
-                {user && (
-                    <button className="quiet mailNavButton" onClick={() => navigate('messages')}>
-                        <Mail size={16} /> Messages
-                        {unreadMessages > 0 && <b aria-label={`${unreadMessages} unread messages`}>{unreadMessages > 99 ? '99+' : unreadMessages}</b>}
-                    </button>
-                )}
-                {user ? (
-                    <div className="accountMenu">
-                        <button className="accountChip" onClick={() => setAccountOpen(!accountOpen)}>
-                            <span>{user.username}</span>
-                            <small>{user.role || t('account')}</small>
-                            <ChevronDown size={15} />
-                        </button>
-                        {accountOpen && (
-                            <div className="accountDropdown">
-                                <button onClick={() => navigate('dashboard')}><LayoutDashboard size={16} /> {t('dashboard')}</button>
-                                <button onClick={() => navigate('history')}><History size={16} /> {t('history')}</button>
-                                <button onClick={() => navigate('profile')}><User size={16} /> {t('profile')}</button>
-                                <button className="destructive" onClick={logout}><LogOut size={16} /> {t('logout')}</button>
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <>
-                        <button className="quiet" onClick={() => navigate('login')}><Lock size={16} /> {t('login')}</button>
-                        <button className="primary" onClick={() => navigate('register')}><UserPlus size={16} /> {t('register')}</button>
-                    </>
-                )}
-            </nav>
-        </header>
     );
 }
 
