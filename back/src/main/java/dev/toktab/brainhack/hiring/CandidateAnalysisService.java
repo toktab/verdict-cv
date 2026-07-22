@@ -21,6 +21,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
@@ -45,6 +46,7 @@ public class CandidateAnalysisService {
     private final HiringCandidateRepository candidateRepository;
     private final CandidateAnalysisRunRepository analysisRunRepository;
     private final CandidateReviewNoteRepository noteRepository;
+    private final CandidateClaimRepository claimRepository;
     private final HiringMapper mapper;
     private final AtsKeywordCatalog atsKeywordCatalog;
     private final ProjectStateService projectStateService;
@@ -56,6 +58,7 @@ public class CandidateAnalysisService {
             HiringCandidateRepository candidateRepository,
             CandidateAnalysisRunRepository analysisRunRepository,
             CandidateReviewNoteRepository noteRepository,
+            CandidateClaimRepository claimRepository,
             HiringMapper mapper,
             AtsKeywordCatalog atsKeywordCatalog,
             ProjectStateService projectStateService,
@@ -65,6 +68,7 @@ public class CandidateAnalysisService {
         this.candidateRepository = candidateRepository;
         this.analysisRunRepository = analysisRunRepository;
         this.noteRepository = noteRepository;
+        this.claimRepository = claimRepository;
         this.mapper = mapper;
         this.atsKeywordCatalog = atsKeywordCatalog;
         this.projectStateService = projectStateService;
@@ -205,6 +209,7 @@ public class CandidateAnalysisService {
     public HiringCandidate saveAndRecord(HiringCandidate candidate, UserAccount actor) {
         HiringCandidate saved = saveAnalyzedCandidate(candidate);
         recordAnalysisRun(saved, actor);
+        saveClaims(saved, null);
         return saved;
     }
 
@@ -229,7 +234,8 @@ public class CandidateAnalysisService {
         run.setCompletionTokens(candidate.getCompletionTokens());
         run.setEstimatedCostUsd(candidate.getEstimatedCostUsd());
         run.setClaimsJson(candidate.getClaimsJson());
-        analysisRunRepository.save(run);
+        CandidateAnalysisRun saved = analysisRunRepository.save(run);
+        saveClaims(candidate, saved);
     }
 
     public void restoreAnalysisRun(HiringCandidate candidate, CandidateAnalysisRun run) {
@@ -649,6 +655,27 @@ public class CandidateAnalysisService {
             throw new IllegalArgumentException("Candidate not found in this project");
         }
         return candidate;
+    }
+
+    private void saveClaims(HiringCandidate candidate, CandidateAnalysisRun run) {
+        claimRepository.deleteByCandidateId(candidate.getId());
+        List<List<String>> claims = mapper.read(candidate.getClaimsJson(),
+                new com.fasterxml.jackson.core.type.TypeReference<List<List<String>>>() {}, List.of());
+        if (claims.isEmpty()) return;
+        List<CandidateClaim> entities = new ArrayList<>();
+        for (int index = 0; index < claims.size(); index++) {
+            List<String> row = claims.get(index);
+            if (row == null || row.size() < 2) continue;
+            CandidateClaim claim = new CandidateClaim();
+            claim.setCandidate(candidate);
+            claim.setClaimText(row.get(0));
+            claim.setStatus(row.get(1));
+            claim.setReason(row.size() > 2 ? row.get(2) : null);
+            claim.setSentenceIndex(index);
+            claim.setAnalysisRun(run);
+            entities.add(claim);
+        }
+        claimRepository.saveAll(entities);
     }
 
     private String defaulted(String value, String fallback) {

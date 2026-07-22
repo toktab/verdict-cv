@@ -9,7 +9,7 @@ Use this before each demo, handoff, or deploy.
 - Confirm admin credentials are explicitly configured and are not `admin/admin`.
 - Confirm `DB_USERNAME`, `DB_PASSWORD`, and non-default RabbitMQ credentials are supplied by the deployment secret store.
 - Confirm the LLM key and selected model are present when AI-backed states are enabled.
-- Confirm RabbitMQ is reachable when `verdict.rabbit.enabled=true`; otherwise verify executor fallback is intentional.
+- Confirm RabbitMQ is reachable when `verdict.rabbitmq.enabled=true`; otherwise verify executor fallback is intentional.
 - Confirm database connection settings point to the intended environment.
 - Confirm the reverse proxy sends `X-Forwarded-Proto: https` and an HTTP request
   is redirected to HTTPS.

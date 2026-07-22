@@ -11,7 +11,7 @@ WORKDIR /workspace
 COPY pom.xml .
 COPY back ./back
 COPY --from=frontend /workspace/back/src/main/resources/static ./back/src/main/resources/static
-RUN mvn -DskipTests package
+RUN mvn package
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app

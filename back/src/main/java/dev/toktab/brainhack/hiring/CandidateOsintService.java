@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class CandidateOsintService {
     private final HiringCandidateRepository candidateRepository;
+    private final CandidateOsintSourceRepository osintSourceRepository;
     private final HiringMapper mapper;
     private final GithubEvidenceService githubEvidenceService;
     private final CandidateAnalysisService candidateAnalysisService;
@@ -23,11 +24,13 @@ public class CandidateOsintService {
 
     public CandidateOsintService(
             HiringCandidateRepository candidateRepository,
+            CandidateOsintSourceRepository osintSourceRepository,
             HiringMapper mapper,
             GithubEvidenceService githubEvidenceService,
             CandidateAnalysisService candidateAnalysisService,
             HiringProjectService projectService) {
         this.candidateRepository = candidateRepository;
+        this.osintSourceRepository = osintSourceRepository;
         this.mapper = mapper;
         this.githubEvidenceService = githubEvidenceService;
         this.candidateAnalysisService = candidateAnalysisService;
@@ -86,6 +89,7 @@ public class CandidateOsintService {
                 : Math.min(100, Math.round(identityConfidence * 0.35f + githubJobMatch.score() * 0.65f)));
         candidateRepository.save(candidate);
         candidateAnalysisService.recordAnalysisRun(candidate, owner);
+        saveOsintSources(candidate, sources);
         projectService.recordActivity(candidate.getProject(), owner, "candidate_osint",
                 "Ran evidence scan for " + candidate.getName(), "info",
                 "SignalTrace evidence cards were refreshed.");
@@ -126,6 +130,25 @@ public class CandidateOsintService {
             throw new IllegalArgumentException("Candidate not found in this project");
         }
         return candidate;
+    }
+
+    private void saveOsintSources(HiringCandidate candidate, List<OsintSourceResponse> sources) {
+        osintSourceRepository.deleteByCandidateId(candidate.getId());
+        if (sources == null || sources.isEmpty()) return;
+        List<CandidateOsintSource> entities = new ArrayList<>();
+        for (OsintSourceResponse src : sources) {
+            CandidateOsintSource entity = new CandidateOsintSource();
+            entity.setCandidate(candidate);
+            entity.setSourceType(src.source());
+            entity.setSourceUrl(src.url());
+            entity.setFinding(src.finding());
+            entity.setConfidence(Math.max(0, Math.min(100, src.confidence())));
+            entity.setImpact(src.impact());
+            entity.setTone(src.tone());
+            entity.setCheckedAt(Instant.now());
+            entities.add(entity);
+        }
+        osintSourceRepository.saveAll(entities);
     }
 
     private String defaulted(String value, String fallback) {

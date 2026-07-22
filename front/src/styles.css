@@ -10576,3 +10576,37 @@ select {
         opacity: 1;
     }
 }
+
+/* Human review required badges */
+.humanReviewBadge {
+    font-size: 0.72rem;
+    background: rgba(200, 40, 40, 0.1);
+    color: var(--verdict-red, #d44);
+    padding: 0.15rem 0.6rem;
+    border-radius: 4px;
+    white-space: nowrap;
+    border: 1px solid rgba(200, 40, 40, 0.25);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    cursor: default;
+    vertical-align: middle;
+}
+
+.humanReviewBanner,
+.humanReviewFooter {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    background: rgba(255, 200, 50, 0.08);
+    border: 1px solid rgba(255, 200, 50, 0.2);
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    margin-top: 0.5rem;
+}
+
+.humanReviewBanner strong {
+    flex-shrink: 0;
+}

@@ -327,6 +327,7 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         <div className="candidateTitleRow">
                             <h1>{activeCandidate.name}</h1>
                             <div className={`candidateScore inline ${scoreTone(activeCandidate.score)}`}>{activeCandidate.score}</div>
+                            <span className="humanReviewBadge" title="Automated score — a human reviewer must verify this before making a hiring decision.">🛡 Human review required</span>
                         </div>
                         <p>{candidateScoreExplanation(activeCandidate)}</p>
                         <div className="candidateDecisionLine">
@@ -613,6 +614,9 @@ export function CandidateDetailPage({ Header, Metric, navigateTo, setRoute, user
                         <span><b>Next action</b>{decision.nextAction}</span>
                         <span><b>Coverage</b>{coverage.covered}/{coverage.total} requirements backed</span>
                         <span><b>State</b>{activeState.name}</span>
+                    </div>
+                    <div className="humanReviewFooter" role="note">
+                        <span>🛡 This assessment is automated. A human reviewer must verify evidence, check context, and evaluate fit before making any hiring decision.</span>
                     </div>
                 </section>
                 <section className="fullCvPanel">
@@ -1059,8 +1063,7 @@ function CandidateDecisionScoreBand({ candidate, report, onOpenEvidence }) {
             detail: candidate.reviewerScore > 0 ? 'Latest reviewer votes normalized to 100' : 'No reviewer votes yet',
         },
     ];
-    return (
-        <section className="candidateDecisionScores">
+    return (            <section className="candidateDecisionScores">
             <div className="candidateDecisionScoreHead">
                 <div>
                     <span className="eyebrow">Decision dimensions</span>
@@ -1068,6 +1071,11 @@ function CandidateDecisionScoreBand({ candidate, report, onOpenEvidence }) {
                     <p>ATS keyword coverage measures CV wording. The recommendation also applies strict claim checks, risk penalties, verified evidence, and reviewer input.</p>
                 </div>
                 <button className="secondary" onClick={onOpenEvidence} type="button"><ShieldCheck size={16} /> Review evidence</button>
+            </div>
+            <div className="humanReviewBanner" role="note">
+                <span>🛡</span>
+                <strong>Automated analysis — all scores require human review before a hiring decision.</strong>
+                <span>Use this report as a decision aid, not as the final verdict.</span>
             </div>
             {Math.abs(Number(candidate.fitScore || 0) - Number(candidate.score || 0)) >= 25 && (
                 <div className="candidateScoreGapNotice" role="note">

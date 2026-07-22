@@ -198,7 +198,7 @@ public class HiringMapper {
         }
     }
 
-    private <T> T read(String json, TypeReference<T> type, T fallback) {
+    public <T> T read(String json, TypeReference<T> type, T fallback) {
         if (json == null || json.isBlank()) {
             return fallback;
         }
