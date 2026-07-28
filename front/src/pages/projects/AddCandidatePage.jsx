@@ -19,6 +19,7 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
     const [stage, setStage] = useState('');
     const [analyzed, setAnalyzed] = useState(false);
     const [error, setError] = useState('');
+    const [uploadFileName, setUploadFileName] = useState('');
     const localDetectedMatches = useMemo(() => findCatchphraseMatches(cvText), [cvText]);
     const detectedMatches = savedAuditMatches.length ? savedAuditMatches : localDetectedMatches;
     const highRiskCount = detectedMatches.filter((match) => match.risk === 'High').length;
@@ -77,12 +78,27 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
         }
     }
 
+    function normalizePastedText(raw) {
+        return raw
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
+            .replace(/[\u200B-\u200D\uFEFF]/g, '')
+            .replace(/\n{3,}/g, '\n\n');
+    }
+
+    function handleCvPaste() {
+        requestAnimationFrame(() => {
+            setCvText((current) => normalizePastedText(current));
+        });
+    }
+
     function chooseResume(event) {
         const file = event.target.files?.[0] || null;
         setAnalyzed(false);
         setSavedAuditMatches([]);
         setReviewSummary('');
         setError('');
+        setUploadFileName('');
         if (!file) {
             setResumeFile(null);
             return;
@@ -101,6 +117,7 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
             return;
         }
         setResumeFile(file);
+        setUploadFileName(file.name);
     }
 
     return (
@@ -153,13 +170,16 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
                         {resumeFile && (
                             <div className="resumeFileMeta">
                                 <FileText size={16} />
-                                <span>{resumeFile.type || 'resume file'}</span>
+                                <span>{uploadFileName || resumeFile.type || 'resume file'}</span>
                                 <strong>{formatFileSize(resumeFile.size)}</strong>
                             </div>
                         )}
                         <small className="uploadLimitHint">PDF, DOCX, or TXT. Maximum file size: 8 MB.</small>
                         <label className="field candidatePasteField">
-                            <span>Paste CV / resume text</span>
+                            <span>
+                                Paste CV / resume text
+                                <span className="pasteHint">Paste from PDF: Ctrl+A → Ctrl+C → Ctrl+V</span>
+                            </span>
                             <textarea
                                 value={cvText}
                                 onChange={(event) => {
@@ -167,7 +187,9 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
                                     setSavedAuditMatches([]);
                                     setAnalyzed(false);
                                 }}
-                                placeholder="Paste the candidate CV, LinkedIn summary, portfolio notes, or application answers here."
+                                onPaste={handleCvPaste}
+                                placeholder="Paste the candidate CV, LinkedIn summary, portfolio notes, or application answers here. Works perfectly with text copied from any PDF reader."
+                                spellCheck={false}
                             />
                         </label>
                     </section>

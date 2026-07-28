@@ -9,8 +9,10 @@ import dev.toktab.brainhack.hiring.HiringDtos.ProjectRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.ProjectResponse;
 import dev.toktab.brainhack.hiring.HiringProjectService;
 import dev.toktab.brainhack.hiring.HiringService;
+import dev.toktab.brainhack.hiring.ResumeTextExtractionService;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,7 +21,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/projects")
@@ -28,13 +32,16 @@ public class ProjectController {
     private final AuthTokenResolver tokenResolver;
     private final HiringProjectService projectService;
     private final HiringService hiringService;
+    private final ResumeTextExtractionService textExtractionService;
 
     public ProjectController(UserSessionService sessionService, AuthTokenResolver tokenResolver,
-                             HiringProjectService projectService, HiringService hiringService) {
+                             HiringProjectService projectService, HiringService hiringService,
+                             ResumeTextExtractionService textExtractionService) {
         this.sessionService = sessionService;
         this.tokenResolver = tokenResolver;
         this.projectService = projectService;
         this.hiringService = hiringService;
+        this.textExtractionService = textExtractionService;
     }
 
     @GetMapping
@@ -83,6 +90,16 @@ public class ProjectController {
             @RequestParam(defaultValue = "25") int size,
             @RequestParam(defaultValue = "") String search) {
         return projectService.page(owner(authorization, legacyToken), page, size, search);
+    }
+
+    @PostMapping("/extract-text")
+    public Map<String, String> extractText(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "X-User-Token", required = false) String legacyToken,
+            @RequestPart("file") MultipartFile file) {
+        owner(authorization, legacyToken);
+        String text = textExtractionService.extract(file);
+        return Map.of("text", text);
     }
 
     private UserAccount owner(String authorization, String legacyToken) {

@@ -10610,3 +10610,203 @@ select {
 .humanReviewBanner strong {
     flex-shrink: 0;
 }
+
+/* === Upload / Paste area for CV and Job Description === */
+.uploadPasteArea {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.uploadPasteToolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.22);
+}
+
+.uploadPasteToolbar .smallUploadButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px;
+    min-height: 34px;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    cursor: pointer;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+    color: var(--soft);
+    font-size: 13px;
+    font-weight: 700;
+    transition: border-color 150ms ease, background 150ms ease;
+}
+
+.uploadPasteToolbar .smallUploadButton:hover {
+    border-color: rgba(255, 99, 99, 0.5);
+    background: linear-gradient(180deg, rgba(255, 99, 99, 0.12), rgba(255, 255, 255, 0.03));
+}
+
+.uploadPasteToolbar .smallUploadButton input {
+    display: none;
+}
+
+.uploadFileTag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 1px solid rgba(102, 217, 145, 0.35);
+    border-radius: 999px;
+    background: rgba(102, 217, 145, 0.1);
+    color: #a3f0c0;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.uploadProgress {
+    color: var(--amber);
+    font-size: 12px;
+    font-weight: 700;
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.pasteHint {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.field > span .pasteHint {
+    display: inline;
+    margin-left: 10px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+@keyframes pulse {
+    0
+/* === Upload / Paste area for CV and Job Description === */
+.uploadPasteArea {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.uploadPasteToolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.22);
+}
+
+.uploadPasteToolbar .smallUploadButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px;
+    min-height: 34px;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    cursor: pointer;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+    color: var(--soft);
+    font-size: 13px;
+    font-weight: 700;
+    transition: border-color 150ms ease, background 150ms ease;
+}
+
+.uploadPasteToolbar .smallUploadButton:hover {
+    border-color: rgba(255, 99, 99, 0.5);
+    background: linear-gradient(180deg, rgba(255, 99, 99, 0.12), rgba(255, 255, 255, 0.03));
+}
+
+.uploadPasteToolbar .smallUploadButton input {
+    display: none;
+}
+
+.uploadFileTag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 1px solid rgba(102, 217, 145, 0.35);
+    border-radius: 999px;
+    background: rgba(102, 217, 145, 0.1);
+    color: #a3f0c0;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.uploadProgress {
+    color: var(--amber);
+    font-size: 12px;
+    font-weight: 700;
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.pasteHint {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.field > span .pasteHint {
+    display: inline;
+    margin-left: 10px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+.candidatePasteField textarea {
+    min-height: 240px;
+    max-height: 560px;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    tab-size: 4;
+}
+
+/* Textarea styles for job description paste */
+.jobDescriptionEditor textarea {
+    min-height: 250px;
+    max-height: 520px;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    tab-size: 4;
+}

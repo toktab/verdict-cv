@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { ArrowRight, BriefcaseBusiness } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ArrowRight, BriefcaseBusiness, FileText, UploadCloud } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { apiCreateProject, normaliseProject } from '../../api';
 import './NewJobPage.css';
 
-export function NewJobPage({ Header, Metric, Textarea, navigateTo, setRoute, user, userToken, setUser, setUserToken, onProjectsChange }) {
+export function NewJobPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, onProjectsChange }) {
     const { t } = useLanguage();
     const [title, setTitle] = useState('');
     const [department, setDepartment] = useState('');
@@ -15,6 +15,78 @@ export function NewJobPage({ Header, Metric, Textarea, navigateTo, setRoute, use
     const [outcomes, setOutcomes] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [uploading, setUploading] = useState(false);
+    const [uploadFileName, setUploadFileName] = useState('');
+    const fileInputRef = useRef(null);
+
+    function normalizePastedText(raw) {
+        return raw
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
+            .replace(/[\u200B-\u200D\uFEFF]/g, '')
+            .replace(/\n{3,}/g, '\n\n');
+    }
+
+    function handleDescriptionPaste() {
+        requestAnimationFrame(() => {
+            setDescription((current) => normalizePastedText(current));
+        });
+    }
+
+    async function handleFileUpload(event) {
+        const file = event.target.files?.[0] || null;
+        setError('');
+        setUploadFileName('');
+        if (!file) return;
+
+        const name = file.name.toLowerCase();
+        if (!name.endsWith('.pdf') && !name.endsWith('.docx') && !name.endsWith('.txt')) {
+            setError('Upload a PDF, DOCX, or TXT file.');
+            event.target.value = '';
+            return;
+        }
+        if (file.size > 8 * 1024 * 1024) {
+            setError(`${file.name} is ${formatFileSize(file.size)}. Files must be 8 MB or smaller.`);
+            event.target.value = '';
+            return;
+        }
+
+        if (name.endsWith('.txt')) {
+            try {
+                const text = await file.text();
+                setDescription(normalizePastedText(text));
+                setUploadFileName(file.name);
+            } catch (err) {
+                setError(`Could not read ${file.name}: ${err.message}`);
+            }
+            event.target.value = '';
+            return;
+        }
+
+        setUploading(true);
+        setUploadFileName(file.name);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const result = await fetch('/api/projects/extract-text', {
+                method: 'POST',
+                headers: { 'X-User-Token': userToken },
+                body: formData,
+            });
+            if (!result.ok) {
+                const body = await result.json().catch(() => ({}));
+                throw new Error(body.message || body.error || `Extraction failed (${result.status})`);
+            }
+            const { text } = await result.json();
+            setDescription(normalizePastedText(text));
+        } catch (err) {
+            setError(err.message);
+            setUploadFileName('');
+        } finally {
+            setUploading(false);
+            event.target.value = '';
+        }
+    }
 
     async function createProject() {
         setError('');
@@ -87,8 +159,31 @@ export function NewJobPage({ Header, Metric, Textarea, navigateTo, setRoute, use
                             <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Tbilisi / Hybrid" />
                         </label>
                     </div>
-                    <div className="jobDescriptionEditor">
-                        <Textarea value={description} onChange={setDescription} />
+                    <div className="uploadPasteArea">
+                        <div className="uploadPasteToolbar">
+                            <label className="smallUploadButton">
+                                <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={handleFileUpload} />
+                                <UploadCloud size={16} />
+                                Upload PDF / DOCX / TXT
+                            </label>
+                            {uploadFileName && (
+                                <span className="uploadFileTag">
+                                    <FileText size={13} />
+                                    {uploadFileName}
+                                </span>
+                            )}
+                            {uploading && <span className="uploadProgress">Extracting text…</span>}
+                            <span className="pasteHint">Paste from PDF: Ctrl+A → Ctrl+C → Ctrl+V here</span>
+                        </div>
+                        <div className="jobDescriptionEditor">
+                            <textarea
+                                value={description}
+                                onChange={(event) => setDescription(event.target.value)}
+                                onPaste={handleDescriptionPaste}
+                                placeholder="Paste the full job description, requirements, and responsibilities here. Works perfectly with text copied from any PDF reader."
+                                spellCheck={false}
+                            />
+                        </div>
                     </div>
                 </section>
                 <section className="panel jobRubricPanel">
@@ -131,4 +226,10 @@ function rubricLines(value) {
         .split(/\r?\n/)
         .map((row) => row.replace(/^[-*]\s*/, '').trim())
         .filter(Boolean);
+}
+
+function formatFileSize(size) {
+    if (!Number.isFinite(size)) return '0 KB';
+    if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    return `${Math.max(1, Math.round(size / 1024))} KB`;
 }
