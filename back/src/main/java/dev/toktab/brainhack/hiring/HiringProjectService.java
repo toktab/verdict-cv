@@ -45,11 +45,15 @@ public class HiringProjectService {
     }
 
     public Organization ensureOrganization(UserAccount owner) {
-        return organizationRepository.findByOwnerId(owner.getId())
-                .orElseGet(() -> organizationRepository.save(Organization.createDefault(owner)));
+        return organizationRepository.findFirstByOwnerIdOrderByCreatedAtAsc(owner.getId())
+                .orElseGet(() -> {
+                    Organization organization = new Organization();
+                    organization.setOwner(owner);
+                    organization.setName(defaulted(owner.getOrganization(), owner.getUsername() + " Team"));
+                    return organizationRepository.save(organization);
+                });
     }
 
-    @Transactional
     @Transactional
     public ProjectResponse project(UserAccount owner, Long id) {
         return mapper.project(entity(owner, id), "owner", List.of("all"));
@@ -79,13 +83,8 @@ public class HiringProjectService {
     }
 
     public HiringProject entity(UserAccount owner, Long id) {
-        HiringProject project = projectRepository.findByIdAndDeletedAtIsNull(id)
+        return projectRepository.findAccessibleById(id, owner.getId(), owner.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
-        if (!project.getOwner().getId().equals(owner.getId())
-                && !projectRepository.isAccessible(project.getId(), owner.getId(), owner.getEmail())) {
-            throw new IllegalArgumentException("Project not found");
-        }
-        return project;
     }
 
     @Transactional
@@ -152,15 +151,23 @@ public class HiringProjectService {
                                String severity, String description) {
         ProjectActivityLog log = new ProjectActivityLog();
         log.setProject(project);
-        log.setUserId(actor.getId());
-        log.setUserLabel(label != null ? label : actor.getUsername());
-        log.setAction(action);
-        log.setDescription(description);
+        log.setActor(actor);
+        log.setType(action);
+        log.setAction(defaulted(label, action));
+        log.setActorName(displayName(actor));
+        log.setActorEmail(actor.getEmail());
+        log.setProjectTitle(project.getTitle());
+        log.setDetail(description);
         log.setSeverity(severity);
         activityRepository.save(log);
     }
 
     private String defaulted(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value.trim();
+    }
+
+    private String displayName(UserAccount user) {
+        String name = user.getFullName();
+        return name != null && !name.isBlank() ? name.trim() : user.getUsername();
     }
 }

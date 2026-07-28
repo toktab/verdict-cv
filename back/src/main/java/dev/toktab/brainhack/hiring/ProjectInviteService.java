@@ -9,6 +9,7 @@ import jakarta.transaction.Transactional;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
 import org.springframework.stereotype.Service;
 
@@ -87,7 +88,7 @@ public class ProjectInviteService {
         return mapper.invite(saved);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<InviteResponse> invites(UserAccount actor, Long projectId) {
         return inviteRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream()
                 .map(mapper::invite)

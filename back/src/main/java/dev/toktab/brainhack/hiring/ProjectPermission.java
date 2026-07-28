@@ -16,7 +16,8 @@ public enum ProjectPermission {
     CAN_CHANGE_PERMISSIONS("canChangePermissions"),
     CAN_MESSAGE("canMessage"),
     CAN_VIEW_ACTIVITY_LOG("canViewActivityLog"),
-    PROTECTED_ACCOUNT("protectedAccount");
+    PROTECTED_ACCOUNT("protectedAccount"),
+    ORGANIZATION_ADMIN("organizationAdmin");
 
     private final String legacyName;
 
@@ -67,7 +68,7 @@ public enum ProjectPermission {
                 perms.add(CAN_CHANGE_PERMISSIONS.legacyName);
                 perms.add(CAN_MESSAGE.legacyName);
                 perms.add(CAN_VIEW_ACTIVITY_LOG.legacyName);
-                if (role == ORGANIZATION_ADMIN) {
+                if (role == ProjectRole.ORGANIZATION_ADMIN) {
                     perms.add(PROTECTED_ACCOUNT.legacyName);
                 }
             }

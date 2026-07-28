@@ -101,7 +101,7 @@ public class CandidateAnalysisService {
         List<String> techTerms = analysisTechTerms(project);
         List<List<String>> baselineClaims = claims(cvText, requirements, techTerms);
         AuditAnalysisResult stateAnalysis = stateAnalysisOrchestrator.analyze(
-                policy.stateId(),
+                analysisState,
                 baselineClaims.stream().map(row -> row.get(0)).toList(),
                 trimCandidateEvidence(cvText));
         List<List<String>> claimsResult = candidateClaims(baselineClaims, stateAnalysis);
@@ -147,7 +147,7 @@ public class CandidateAnalysisService {
         candidate.setState("Unreviewed");
         candidate.setOsint("Partial");
         candidate.setMemory(memoryStatus(priorApplications, unsupported));
-        candidate.setAnalysisState(policy.stateId());
+        candidate.setAnalysisState(analysisState);
         candidate.setAnalysisEngine(stateAnalysis.engine());
         candidate.setAnalysisPromptVersion(
                 stateAnalysis.engine().contains("LLM_")
@@ -157,7 +157,7 @@ public class CandidateAnalysisService {
         candidate.setCompletionTokens(stateAnalysis.usage().completionTokens());
         candidate.setTotalTokens(stateAnalysis.usage().totalTokens());
         candidate.setEstimatedCostUsd(stateAnalysis.usage().estimatedCostUsd());
-        candidate.setInitializedAnalysisStatesJson(mapper.json(List.of(policy.stateId())));
+        candidate.setInitializedAnalysisStatesJson(mapper.json(List.of(analysisState)));
         candidate.setMemoryHistoryJson(mapper.json(priorApplications.stream()
                 .map(prior -> Map.<String, Object>of(
                         "candidateId", prior.getId(),
@@ -317,6 +317,9 @@ public class CandidateAnalysisService {
                                          String label, String severity, String description) {
         projectService.recordActivity(candidate.getProject(), actor, action, label, severity, description);
     }
+
+    private static final Set<String> REQUIREMENT_SECTIONS = Set.of(
+            "RESPONSIBILITIES", "REQUIRED QUALIFICATIONS", "NICE TO HAVE", "TECH STACK", "IDEAL CANDIDATE PROFILE");
 
     private String normalizeAnalysisState(String state) {
         String normalized = defaulted(state, "").trim().toLowerCase(Locale.ROOT);
@@ -649,12 +652,8 @@ public class CandidateAnalysisService {
     }
 
     private HiringCandidate candidateEntity(UserAccount owner, Long projectId, Long candidateId) {
-        HiringCandidate candidate = candidateRepository.findByIdAndDeletedAtIsNull(candidateId)
+        return candidateRepository.findAccessibleById(candidateId, projectId, owner.getId(), owner.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Candidate not found"));
-        if (!candidate.getProject().getId().equals(projectId)) {
-            throw new IllegalArgumentException("Candidate not found in this project");
-        }
-        return candidate;
     }
 
     private void saveClaims(HiringCandidate candidate, CandidateAnalysisRun run) {

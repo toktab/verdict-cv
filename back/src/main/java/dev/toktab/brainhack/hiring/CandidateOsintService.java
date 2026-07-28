@@ -124,12 +124,8 @@ public class CandidateOsintService {
     }
 
     private HiringCandidate candidateEntity(UserAccount owner, Long projectId, Long candidateId) {
-        HiringCandidate candidate = candidateRepository.findByIdAndDeletedAtIsNull(candidateId)
+        return candidateRepository.findAccessibleById(candidateId, projectId, owner.getId(), owner.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Candidate not found"));
-        if (!candidate.getProject().getId().equals(projectId)) {
-            throw new IllegalArgumentException("Candidate not found in this project");
-        }
-        return candidate;
     }
 
     private void saveOsintSources(HiringCandidate candidate, List<OsintSourceResponse> sources) {

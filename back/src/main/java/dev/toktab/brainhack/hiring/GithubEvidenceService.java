@@ -11,8 +11,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -103,7 +101,7 @@ public class GithubEvidenceService {
                 String pushedAt = stringField(repo, "pushed_at");
                 Long repoId = repoId = longField(repo, "id");
 
-                List<GithubLanguageResponse> languages = new ArrayList<>();
+                Map<String, Long> languageBytes = new LinkedHashMap<>();
                 try {
                     HttpResponse<String> langResponse = httpClient.send(
                             githubRequest(URI.create(
@@ -113,15 +111,31 @@ public class GithubEvidenceService {
                     if (langResponse.statusCode() == 200) {
                         Map<String, Object> langData = mapper.map(langResponse.body());
                         for (Map.Entry<String, Object> entry : langData.entrySet()) {
-                            languages.add(new GithubLanguageResponse(
-                                    entry.getKey(), ((Number) entry.getValue()).intValue()));
+                            languageBytes.put(entry.getKey(), ((Number) entry.getValue()).longValue());
                         }
                     }
                 } catch (Exception ignored) {
                 }
 
                 repositories.add(new GithubRepositoryResponse(
-                        repoName, description, language, languages, stars, forks, isFork, pushedAt));
+                        repoName,
+                        description,
+                        "",
+                        language,
+                        stars,
+                        forks,
+                        0,
+                        0,
+                        isFork,
+                        false,
+                        "",
+                        "",
+                        languageBytes,
+                        "",
+                        null,
+                        null,
+                        parseInstant(pushedAt),
+                        List.of()));
             }
 
             return new GithubInvestigation(
@@ -140,7 +154,7 @@ public class GithubEvidenceService {
 
     public GithubJobMatchResponse jobMatch(HiringProject project, GithubProfileResponse profile) {
         if (profile == null) {
-            return new GithubJobMatchResponse(0, 0, 0, 0, 0, 0, 0, 0, 0, List.of(), List.of());
+            return new GithubJobMatchResponse(0, "Not available", "No GitHub profile verified.", List.of(), List.of());
         }
         String requirementsText = defaulted(project.getRequirementsText(), "");
         String projectTitle = defaulted(project.getTitle(), "");
@@ -153,17 +167,15 @@ public class GithubEvidenceService {
 
         List<GithubRepositoryResponse> repos = profile.repositories();
         if (repos == null || repos.isEmpty()) {
-            return new GithubJobMatchResponse(
-                    profile.repoCount(), profile.stars(), profile.starredBy(), 0, 0, 0, 0, 0, 0, List.of(), List.of());
+            return new GithubJobMatchResponse(profile.publicRepos(), "Not available", "No repositories to evaluate.", List.of(), List.of());
         }
 
         int matchedRepos = 0;
-        int unmatchedRepos = 0;
         List<String> matchedLanguages = new ArrayList<>();
         List<String> uncoveredRequirements = new ArrayList<>(techTermsInJob);
 
         for (GithubRepositoryResponse repo : repos) {
-            if (repo.isFork()) continue;
+            if (repo.fork()) continue;
             String repoLang = defaulted(repo.language(), "").toLowerCase(Locale.ROOT);
             String repoName = defaulted(repo.name(), "").toLowerCase(Locale.ROOT);
             String repoDesc = defaulted(repo.description(), "").toLowerCase(Locale.ROOT);
@@ -180,28 +192,25 @@ public class GithubEvidenceService {
                 }
             }
             if (matched) matchedRepos++;
-            else unmatchedRepos++;
         }
 
-        int totalNonFork = matchedRepos + unmatchedRepos;
-        double coverageRatio = totalNonFork == 0 ? 0 : (double) matchedRepos / totalNonFork;
-        int matchingLanguages = matchedLanguages.size();
         int totalJobTerms = techTermsInJob.size();
-        int uncoveredCount = uncoveredRequirements.size();
-        int coveredTerms = totalJobTerms - uncoveredCount;
+        int coveredTerms = totalJobTerms - uncoveredRequirements.size();
+        int termCoverageScore = totalJobTerms == 0 ? 0 : Math.min(50, (int) Math.round((double) coveredTerms / totalJobTerms * 50));
+        int freshnessScore = repos.stream().anyMatch(r -> r.pushedAt() != null && recentActivity(r.pushedAt())) ? 25 : 0;
+        int nonForkCount = (int) repos.stream().filter(r -> !r.fork()).count();
+        int nonForkBonus = nonForkCount >= 5 ? 25 : nonForkCount >= 2 ? 15 : 5;
+        int score = Math.min(98, termCoverageScore + freshnessScore + nonForkBonus);
 
-        int repoCoverageScore = (int) Math.round(coverageRatio * 30);
-        int languageMatchScore = Math.min(20, matchingLanguages * 5);
-        int termCoverageScore = totalJobTerms == 0 ? 0 : Math.min(30, (int) Math.round((double) coveredTerms / totalJobTerms * 30));
-        int freshnessScore = repos.stream().anyMatch(r -> recentActivity(r.pushedAt())) ? 15 : 0;
-        int nonForkBonus = repos.stream().filter(r -> !r.isFork()).count() >= 5 ? 5 : 0;
-        int score = Math.min(98, repoCoverageScore + languageMatchScore + termCoverageScore + freshnessScore + nonForkBonus);
+        String label = score >= 75 ? "Strong GitHub match"
+                : score >= 50 ? "Partial GitHub match"
+                : score > 0 ? "Weak GitHub match"
+                : "No GitHub match";
+        String summary = matchedLanguages.isEmpty()
+                ? "No public repository evidence matching the job requirements was found."
+                : "Public repositories match " + coveredTerms + " of " + totalJobTerms + " job-related terms.";
 
-        return new GithubJobMatchResponse(
-                profile.repoCount(), profile.stars(), profile.starredBy(),
-                matchedRepos, unmatchedRepos, matchingLanguages, totalJobTerms,
-                uncoveredCount, score,
-                matchedLanguages, uncoveredRequirements);
+        return new GithubJobMatchResponse(score, label, summary, matchedLanguages, uncoveredRequirements);
     }
 
     private GithubProfileResponse buildProfile(String username, Map<String, Object> payload, List<GithubRepositoryResponse> repositories) {
@@ -214,18 +223,76 @@ public class GithubEvidenceService {
         int publicRepos = intField(payload, "public_repos");
         int followers = intField(payload, "followers");
         int following = intField(payload, "following");
-        String createdAt = stringField(payload, "created_at");
-        int stars = repositories.stream().mapToInt(GithubRepositoryResponse::stars).sum();
-        int forkedRepos = (int) repositories.stream().filter(r -> r.name() != null).count();
-        int uniqueLanguages = (int) repositories.stream()
-                .filter(r -> r.language() != null && !r.language().isBlank())
-                .map(GithubRepositoryResponse::language)
-                .distinct()
-                .count();
+        int depthScore = computeDepthScore(repositories);
+        List<GithubLanguageResponse> languages = computeLanguages(repositories);
         return new GithubProfileResponse(
-                username, avatarUrl, name, bio, company, location, blog, publicRepos,
-                followers, following, createdAt, stars, 0, forkedRepos, uniqueLanguages,
+                username,
+                name,
+                avatarUrl,
+                "https://github.com/" + username,
+                bio,
+                company,
+                location,
+                blog,
+                publicRepos,
+                followers,
+                following,
+                parseInstant(payload.get("created_at")),
+                parseInstant(payload.get("updated_at")),
+                parseInstant(payload.get("pushed_at")),
+                depthScore,
+                languages,
                 repositories);
+    }
+
+    private int computeDepthScore(List<GithubRepositoryResponse> repositories) {
+        if (repositories == null || repositories.isEmpty()) return 0;
+        int original = 0;
+        int substantial = 0;
+        int recent = 0;
+        for (GithubRepositoryResponse repo : repositories) {
+            if (!repo.fork()) original++;
+            if (repo.stars() >= 10) substantial++;
+            if (repo.pushedAt() != null && recentActivity(repo.pushedAt())) recent++;
+        }
+        int size = repositories.size();
+        return Math.min(100,
+                (original * 100 / Math.max(1, size)) * 40 / 100
+                        + Math.min(30, substantial * 10)
+                        + Math.min(30, recent * 10));
+    }
+
+    private List<GithubLanguageResponse> computeLanguages(List<GithubRepositoryResponse> repositories) {
+        if (repositories == null || repositories.isEmpty()) return List.of();
+        Map<String, Long> bytes = new LinkedHashMap<>();
+        Map<String, Integer> repoCount = new LinkedHashMap<>();
+        for (GithubRepositoryResponse repo : repositories) {
+            if (repo.languageBytes() == null) continue;
+            for (Map.Entry<String, Long> entry : repo.languageBytes().entrySet()) {
+                bytes.merge(entry.getKey(), entry.getValue(), Long::sum);
+                repoCount.merge(entry.getKey(), 1, Integer::sum);
+            }
+        }
+        long total = bytes.values().stream().mapToLong(Long::longValue).sum();
+        if (total <= 0) return List.of();
+        return bytes.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .map(entry -> new GithubLanguageResponse(
+                        entry.getKey(),
+                        repoCount.getOrDefault(entry.getKey(), 0),
+                        entry.getValue(),
+                        (int) Math.round(entry.getValue() * 100.0 / total)))
+                .toList();
+    }
+
+    private Instant parseInstant(Object value) {
+        if (value == null) return null;
+        if (value instanceof Instant instant) return instant;
+        try {
+            return Instant.parse(String.valueOf(value));
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private HttpRequest githubRequest(URI uri, Duration timeout) {
@@ -236,14 +303,8 @@ public class GithubEvidenceService {
         return builder.build();
     }
 
-    private boolean recentActivity(String pushedAt) {
-        if (pushedAt == null || pushedAt.isBlank()) return false;
-        try {
-            Instant pushed = Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(pushedAt));
-            return pushed.isAfter(Instant.now().minus(java.time.Duration.ofDays(365)));
-        } catch (Exception ignored) {
-            return false;
-        }
+    private boolean recentActivity(Instant pushedAt) {
+        return pushedAt != null && pushedAt.isAfter(Instant.now().minus(java.time.Duration.ofDays(365)));
     }
 
     private String stringField(Map<String, Object> map, String key) {

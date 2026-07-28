@@ -2,6 +2,7 @@ package dev.toktab.brainhack.hiring;
 
 import dev.toktab.brainhack.account.UserAccount;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateStatusRequest;
+import dev.toktab.brainhack.hiring.HiringDtos.ActivityResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.CandidateWorkflowResponse;
 import dev.toktab.brainhack.hiring.HiringDtos.NoteRequest;
 import dev.toktab.brainhack.hiring.HiringDtos.NoteResponse;
@@ -191,15 +192,38 @@ public class CandidateWorkflowService {
     }
 
     private CandidateWorkflowResponse workflowResponse(HiringCandidate candidate) {
-        boolean hasVote = noteRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getId()).stream()
-                .anyMatch(n -> "VOTE".equalsIgnoreCase(n.getType())
-                        && Set.of("UPVOTE", "DOWNVOTE").contains(n.getDecision()));
+        String status = workflowStatus(defaulted(candidate.getState(), "Unreviewed"));
+        List<CandidateReviewNote> votes = noteRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getId()).stream()
+                .filter(n -> "VOTE".equalsIgnoreCase(n.getType())
+                        && Set.of("UPVOTE", "DOWNVOTE").contains(n.getDecision()))
+                .toList();
+        int upvotes = (int) votes.stream().filter(n -> "UPVOTE".equals(n.getDecision())).count();
+        int downvotes = (int) votes.stream().filter(n -> "DOWNVOTE".equals(n.getDecision())).count();
+        int stars = (int) noteRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getId()).stream()
+                .filter(n -> "VOTE".equalsIgnoreCase(n.getType()) && "STAR".equals(n.getDecision()))
+                .count();
+        String average = upvotes + downvotes > 0
+                ? String.format("%.1f", (double) upvotes / (upvotes + downvotes) * 5.0)
+                : "0";
+        List<ActivityResponse> activity = activityLog(candidate);
         return new CandidateWorkflowResponse(
-                workflowStatus(defaulted(candidate.getState(), "Unreviewed")),
-                getValidTransitions(candidate),
-                hasVote,
-                candidate.getReviewerScore(),
-                timeInCurrent(candidate));
+                status,
+                new VoteSummaryResponse(average, downvotes, stars, false, "NONE", null, List.of()),
+                activity);
+    }
+
+    private List<ActivityResponse> activityLog(HiringCandidate candidate) {
+        List<CandidateReviewNote> notes = noteRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getId());
+        return notes.stream()
+                .limit(20)
+                .map(n -> new ActivityResponse(
+                        n.getId(),
+                        defaulted(n.getDecision(), n.getType()),
+                        candidate.getName(),
+                        n.getAuthor() == null ? "" : defaulted(n.getAuthor().getFullName(), n.getAuthor().getUsername()),
+                        n.getAuthor() == null ? "" : n.getAuthor().getEmail(),
+                        n.getCreatedAt()))
+                .toList();
     }
 
     private String workflowStatus(String state) {
