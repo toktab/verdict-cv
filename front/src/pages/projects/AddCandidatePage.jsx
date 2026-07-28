@@ -22,6 +22,7 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
     const [uploadFileName, setUploadFileName] = useState('');
     const [dragOver, setDragOver] = useState(false);
     const dragCounter = useRef(0);
+    const cvTextStats = useMemo(() => computeTextStats(cvText), [cvText]);
     const localDetectedMatches = useMemo(() => findCatchphraseMatches(cvText), [cvText]);
     const detectedMatches = savedAuditMatches.length ? savedAuditMatches : localDetectedMatches;
     const highRiskCount = detectedMatches.filter((match) => match.risk === 'High').length;
@@ -229,17 +230,32 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
                                 Paste CV / resume text
                                 <span className="pasteHint">Paste from PDF: Ctrl+A → Ctrl+C → Ctrl+V</span>
                             </span>
-                            <textarea
-                                value={cvText}
-                                onChange={(event) => {
-                                    setCvText(event.target.value);
-                                    setSavedAuditMatches([]);
-                                    setAnalyzed(false);
-                                }}
-                                onPaste={handleCvPaste}
-                                placeholder="Paste the candidate CV, LinkedIn summary, portfolio notes, or application answers here. Works perfectly with text copied from any PDF reader."
-                                spellCheck={false}
-                            />
+                            <div className={`candidateTextareaWrap ${cvText.trim() ? 'hasStats' : ''}`}>
+                                <textarea
+                                    value={cvText}
+                                    onChange={(event) => {
+                                        setCvText(event.target.value);
+                                        setSavedAuditMatches([]);
+                                        setAnalyzed(false);
+                                    }}
+                                    onPaste={handleCvPaste}
+                                    placeholder="Paste the candidate CV, LinkedIn summary, portfolio notes, or application answers here. Works perfectly with text copied from any PDF reader."
+                                    spellCheck={false}
+                                />
+                                {cvText.trim() && (
+                                    <div className="textStatsBar">
+                                        <span><strong>{cvTextStats.chars.toLocaleString()}</strong> chars</span>
+                                        <span className="statDivider" />
+                                        <span><strong>{cvTextStats.words.toLocaleString()}</strong> words</span>
+                                        <span className="statDivider" />
+                                        <span><strong>{cvTextStats.lines.toLocaleString()}</strong> lines</span>
+                                        <span className="statDivider" />
+                                        <span className={cvTextStats.atsPages > 2 ? 'statWarn' : ''}>
+                                            <strong>{cvTextStats.atsLabel}</strong>
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                         </label>
                     </section>
                 </section>
@@ -331,4 +347,14 @@ function formatFileSize(size) {
     if (!Number.isFinite(size)) return '0 KB';
     if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
     return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function computeTextStats(text) {
+    const chars = text.length;
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const lines = text.split(/\r?\n/).length;
+    const rawPages = (chars / 3500);
+    const atsPages = Math.max(0.5, Math.round(rawPages * 10) / 10);
+    const atsLabel = rawPages < 0.5 ? '< 1 page' : atsPages + (atsPages === 1 ? ' page' : ' pages');
+    return { chars, words, lines, atsPages, atsLabel };
 }

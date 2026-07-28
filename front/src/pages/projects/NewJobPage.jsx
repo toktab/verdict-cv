@@ -1,11 +1,10 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ArrowRight, BriefcaseBusiness, FileText, UploadCloud } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { apiCreateProject, normaliseProject } from '../../api';
 import './NewJobPage.css';
 
 export function NewJobPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, onProjectsChange }) {
-    const { t } = useLanguage();
     const { t } = useLanguage();
     const [title, setTitle] = useState('');
     const [department, setDepartment] = useState('');
@@ -21,6 +20,8 @@ export function NewJobPage({ Header, Metric, navigateTo, setRoute, user, userTok
     const [dragOver, setDragOver] = useState(false);
     const fileInputRef = useRef(null);
     const dragCounter = useRef(0);
+
+    const textStats = useMemo(() => computeTextStats(description), [description]);
 
     function normalizePastedText(raw) {
         return raw
@@ -220,7 +221,7 @@ export function NewJobPage({ Header, Metric, navigateTo, setRoute, user, userTok
                             {uploading && <span className="uploadProgress">Extracting text…</span>}
                             <span className="pasteHint">Paste from PDF: Ctrl+A → Ctrl+C → Ctrl+V here</span>
                         </div>
-                        <div className="jobDescriptionEditor">
+                        <div className={`jobDescriptionEditor ${description.trim() ? 'hasStats' : ''}`}>
                             <textarea
                                 value={description}
                                 onChange={(event) => setDescription(event.target.value)}
@@ -232,6 +233,19 @@ export function NewJobPage({ Header, Metric, navigateTo, setRoute, user, userTok
                                 onDragLeave={(e) => e.stopPropagation()}
                                 onDrop={(e) => e.stopPropagation()}
                             />
+                            {description.trim() && (
+                                <div className="textStatsBar">
+                                    <span><strong>{textStats.chars.toLocaleString()}</strong> chars</span>
+                                    <span className="statDivider" />
+                                    <span><strong>{textStats.words.toLocaleString()}</strong> words</span>
+                                    <span className="statDivider" />
+                                    <span><strong>{textStats.lines.toLocaleString()}</strong> lines</span>
+                                    <span className="statDivider" />
+                                    <span className={textStats.atsPages > 2 ? 'statWarn' : ''}>
+                                        <strong>{textStats.atsLabel}</strong>
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </section>
@@ -281,4 +295,14 @@ function formatFileSize(size) {
     if (!Number.isFinite(size)) return '0 KB';
     if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
     return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function computeTextStats(text) {
+    const chars = text.length;
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const lines = text.split(/\r?\n/).length;
+    const rawPages = (chars / 3500);
+    const atsPages = Math.max(0.5, Math.round(rawPages * 10) / 10);
+    const atsLabel = rawPages < 0.5 ? '< 1 page' : atsPages + (atsPages === 1 ? ' page' : ' pages');
+    return { chars, words, lines, atsPages, atsLabel };
 }
