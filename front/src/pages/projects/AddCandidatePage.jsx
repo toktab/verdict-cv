@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ArrowRight, FileSearch, FileText, Play, UploadCloud } from 'lucide-react';
+import React, { useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ArrowRight, FileSearch, FileText, GitCompare, Play, UploadCloud, X } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { apiAddCandidate, apiUploadCandidateResume } from '../../api';
 import { findCatchphraseMatches } from '../../utils/catchphraseAnalyzer';
@@ -21,6 +21,8 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
     const [error, setError] = useState('');
     const [uploadFileName, setUploadFileName] = useState('');
     const [dragOver, setDragOver] = useState(false);
+    const [rawText, setRawText] = useState('');
+    const [showDiff, setShowDiff] = useState(false);
     const dragCounter = useRef(0);
     const cvTextStats = useMemo(() => computeTextStats(cvText), [cvText]);
     const localDetectedMatches = useMemo(() => findCatchphraseMatches(cvText), [cvText]);
@@ -147,7 +149,15 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
             .replace(/\n{3,}/g, '\n\n');
     }
 
-    function handleCvPaste() {
+    function handleCvPaste(event) {
+        const pasted = event.clipboardData?.getData('text/plain') || '';
+        if (pasted && !rawText) {
+            const el = event.target;
+            const start = el.selectionStart;
+            const end = el.selectionEnd;
+            const merged = cvText.slice(0, start) + pasted + cvText.slice(end);
+            setRawText(merged);
+        }
         requestAnimationFrame(() => {
             setCvText((current) => normalizePastedText(current));
         });
@@ -242,7 +252,18 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
                                     placeholder="Paste the candidate CV, LinkedIn summary, portfolio notes, or application answers here. Works perfectly with text copied from any PDF reader."
                                     spellCheck={false}
                                 />
-                                {cvText.trim() && (
+                                {rawText && (
+                            <div className="diffInlineActions">
+                                <button className="ghost diffToggleBtn" onClick={() => setShowDiff(!showDiff)} type="button">
+                                    <GitCompare size={14} />
+                                    {showDiff ? 'Close diff' : 'Compare with original'}
+                                </button>
+                            </div>
+                        )}
+                        {showDiff && rawText && (
+                            <DiffPanel rawText={rawText} cleanedText={cvText} onClose={() => setShowDiff(false)} />
+                        )}
+                        {cvText.trim() && (
                                     <div className="textStatsBar">
                                         <span><strong>{cvTextStats.chars.toLocaleString()}</strong> chars</span>
                                         <span className="statDivider" />
@@ -341,6 +362,90 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
             </main>
         </div>
     );
+}
+
+function DiffPanel({ rawText, cleanedText, onClose }) {
+    const diffStats = useMemo(() => computeDiffStats(rawText, cleanedText), [rawText, cleanedText]);
+    const lineChanges = useMemo(() => {
+        const rawLines = rawText.split('\n');
+        const cleanedLines = cleanedText.split('\n');
+        const maxLines = Math.max(rawLines.length, cleanedLines.length);
+        const changes = [];
+        for (let i = 0; i < maxLines; i++) {
+            const raw = rawLines[i] ?? '';
+            const cleaned = cleanedLines[i] ?? '';
+            if (raw !== cleaned) {
+                changes.push({
+                    line: i + 1,
+                    raw: raw || '(empty)',
+                    cleaned: cleaned || '(empty)',
+                    type: raw === '' ? 'added' : cleaned === '' ? 'removed' : 'modified',
+                });
+            }
+        }
+        return changes;
+    }, [rawText, cleanedText]);
+
+    return (
+        <div className="diffPanel">
+            <div className="diffPanelHead">
+                <span className="eyebrow">Extraction diff</span>
+                <div>
+                    <span className="diffStat"><span className="diffStatDot removed" /> {diffStats.removedChars} chars removed</span>
+                    <span className="diffStat"><span className="diffStatDot replaced" /> {diffStats.crlfCount} CRLF → LF</span>
+                    <span className="diffStat"><span className="diffStatDot stripped" /> {diffStats.zeroWidthCount} zero-width chars stripped</span>
+                    <span className="diffStat"><span className="diffStatDot collapsed" /> {diffStats.collapsedLines} blank line{ diffStats.collapsedLines !== 1 ? 's' : ''} collapsed</span>
+                </div>
+                <button className="ghost" onClick={onClose} type="button"><X size={16} /></button>
+            </div>
+            <div className="diffPanelBody">
+                <div className="diffColumn">
+                    <span className="diffColumnHead">Original <small>({rawText.length} chars)</small></span>
+                    <div className="diffText">
+                        {rawText.split('').map((char, idx) => {
+                            if (char === '\r') return <mark key={idx} className="diffRemoved" title="Carriage return (CR)">\r</mark>;
+                            if (/[\u200B-\u200D\uFEFF]/.test(char)) return <mark key={idx} className="diffRemoved" title="Zero-width character">\u{char.charCodeAt(0).toString(16)}</mark>;
+                            if (char === '\n') return '\n';
+                            return char;
+                        })}
+                    </div>
+                </div>
+                <div className="diffColumn">
+                    <span className="diffColumnHead">Processed <small>({cleanedText.length} chars)</small></span>
+                    <div className="diffText">{cleanedText}</div>
+                </div>
+            </div>
+            {lineChanges.length > 0 && (
+                <div className="diffLineChanges">
+                    <span className="diffColumnHead">Line changes <small>({lineChanges.length} line{lineChanges.length !== 1 ? 's' : ''} affected)</small></span>
+                    <div className="diffLineGrid">
+                        <span className="diffLineHead">#</span>
+                        <span className="diffLineHead">Original</span>
+                        <span className="diffLineHead">Processed</span>
+                        {lineChanges.slice(0, 50).map((change) => (
+                            <React.Fragment key={change.line}>
+                                <span className="diffLineNum">{change.line}</span>
+                                <span className={`diffLineCell ${change.type === 'added' ? 'cellAdded' : change.type === 'removed' ? 'cellRemoved' : 'cellModified'}`}>{change.raw}</span>
+                                <span className={`diffLineCell ${change.type === 'added' ? 'cellAdded' : change.type === 'removed' ? 'cellRemoved' : 'cellModified'}`}>{change.cleaned}</span>
+                            </React.Fragment>
+                        ))}
+                        {lineChanges.length > 50 && <span className="diffLineMore">… and {lineChanges.length - 50} more changed lines</span>}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function computeDiffStats(raw, cleaned) {
+    const crlfPairs = (raw.match(/\r\n/g) || []).length;
+    const standaloneCr = (raw.match(/(?<!\n)\r(?!\n)/g) || []).length;
+    const crlfCount = crlfPairs + standaloneCr;
+    const zeroWidthCount = (raw.match(/[\u200B-\u200D\uFEFF]/g) || []).length;
+    const collapsedRaw = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/[\u200B-\u200D\uFEFF]/g, '');
+    const extraBlankCount = (collapsedRaw.match(/\n{3,}/g) || []).reduce((sum, m) => sum + m.length - 2, 0);
+    const removedChars = raw.length - cleaned.length;
+    return { crlfCount, zeroWidthCount, collapsedLines: extraBlankCount, removedChars };
 }
 
 function formatFileSize(size) {

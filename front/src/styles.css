@@ -11008,3 +11008,230 @@ select {
     border-radius: 8px 8px 0 0 !important;
     border-bottom: none !important;
 }
+/* === Diff / extraction comparison panel === */
+.diffPanel {
+    margin-top: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)), var(--panel);
+    overflow: hidden;
+}
+
+.diffPanelHead {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.diffPanelHead .eyebrow {
+    margin-right: 6px;
+}
+
+.diffPanelHead > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.diffPanelHead .ghost {
+    min-height: 32px;
+    padding: 0 10px;
+    border-color: transparent;
+    background: transparent;
+    color: var(--muted);
+}
+
+.diffPanelHead .ghost:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.diffStat {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.diffStatDot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+}
+
+.diffStatDot.removed { background: #ef4444; }
+.diffStatDot.replaced { background: #f59e0b; }
+.diffStatDot.stripped { background: #8b5cf6; }
+.diffStatDot.collapsed { background: #6366f1; }
+
+.diffToggleBtn {
+    min-height: 30px !important;
+    padding: 0 10px !important;
+    font-size: 12px !important;
+    border-color: var(--line-strong) !important;
+    color: var(--soft) !important;
+}
+
+.diffToggleBtn:hover {
+    border-color: rgba(255, 99, 99, 0.4) !important;
+    color: var(--text) !important;
+}
+
+.diffInlineActions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 0;
+}
+
+.diffPanelBody {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    min-height: 200px;
+    max-height: 420px;
+    overflow: auto;
+}
+
+.diffColumn {
+    min-width: 0;
+    display: grid;
+    grid-template-rows: auto 1fr;
+}
+
+.diffColumn:first-child {
+    border-right: 1px solid var(--line);
+}
+
+.diffColumnHead {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.12);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.diffColumnHead small {
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.diffText {
+    padding: 12px 14px;
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: var(--soft);
+    overflow: auto;
+}
+
+mark.diffRemoved {
+    background: rgba(239, 68, 68, 0.3);
+    color: #ffb4b4;
+    border-radius: 3px;
+    padding: 1px 2px;
+    text-decoration: line-through;
+    cursor: help;
+}
+
+.diffColumn:first-child .diffText {
+    background: rgba(239, 68, 68, 0.03);
+}
+
+.diffColumn:last-child .diffText {
+    background: rgba(16, 185, 129, 0.02);
+}
+
+.diffLineChanges {
+    border-top: 1px solid var(--line);
+    padding: 10px 14px;
+    max-height: 260px;
+    overflow: auto;
+}
+
+.diffLineGrid {
+    display: grid;
+    grid-template-columns: 32px 1fr 1fr;
+    gap: 0;
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.diffLineHead {
+    font-weight: 800;
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+    z-index: 1;
+}
+
+.diffLineNum {
+    padding: 3px 6px;
+    color: var(--muted);
+    font-size: 11px;
+    text-align: right;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    font-family: monospace;
+}
+
+.diffLineCell {
+    padding: 3px 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    min-width: 0;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.cellAdded {
+    background: rgba(16, 185, 129, 0.08);
+    color: #a7f3d0;
+}
+
+.cellRemoved {
+    background: rgba(239, 68, 68, 0.08);
+    color: #fecaca;
+    text-decoration: line-through;
+}
+
+.cellModified {
+    background: rgba(245, 158, 11, 0.08);
+    color: #fde68a;
+}
+
+.diffLineMore {
+    grid-column: 1 / -1;
+    padding: 8px 6px;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 12px;
+}
