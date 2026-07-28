@@ -6,6 +6,7 @@ import './NewJobPage.css';
 
 export function NewJobPage({ Header, Metric, navigateTo, setRoute, user, userToken, setUser, setUserToken, onProjectsChange }) {
     const { t } = useLanguage();
+    const { t } = useLanguage();
     const [title, setTitle] = useState('');
     const [department, setDepartment] = useState('');
     const [location, setLocation] = useState('');
@@ -17,7 +18,9 @@ export function NewJobPage({ Header, Metric, navigateTo, setRoute, user, userTok
     const [error, setError] = useState('');
     const [uploading, setUploading] = useState(false);
     const [uploadFileName, setUploadFileName] = useState('');
+    const [dragOver, setDragOver] = useState(false);
     const fileInputRef = useRef(null);
+    const dragCounter = useRef(0);
 
     function normalizePastedText(raw) {
         return raw
@@ -27,27 +30,49 @@ export function NewJobPage({ Header, Metric, navigateTo, setRoute, user, userTok
             .replace(/\n{3,}/g, '\n\n');
     }
 
-    function handleDescriptionPaste() {
-        requestAnimationFrame(() => {
-            setDescription((current) => normalizePastedText(current));
-        });
+    function handleDragEnter(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter.current += 1;
+        if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+            setDragOver(true);
+        }
     }
 
-    async function handleFileUpload(event) {
-        const file = event.target.files?.[0] || null;
-        setError('');
-        setUploadFileName('');
-        if (!file) return;
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
 
+    function handleDragLeave(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter.current -= 1;
+        if (dragCounter.current <= 0) {
+            dragCounter.current = 0;
+            setDragOver(false);
+        }
+    }
+
+    async function handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragOver(false);
+        dragCounter.current = 0;
+        const file = e.dataTransfer.files?.[0];
+        if (!file) return;
+        e.dataTransfer.clearData();
+        await processFile(file);
+    }
+
+    async function processFile(file) {
         const name = file.name.toLowerCase();
         if (!name.endsWith('.pdf') && !name.endsWith('.docx') && !name.endsWith('.txt')) {
             setError('Upload a PDF, DOCX, or TXT file.');
-            event.target.value = '';
             return;
         }
         if (file.size > 8 * 1024 * 1024) {
             setError(`${file.name} is ${formatFileSize(file.size)}. Files must be 8 MB or smaller.`);
-            event.target.value = '';
             return;
         }
 
@@ -59,7 +84,6 @@ export function NewJobPage({ Header, Metric, navigateTo, setRoute, user, userTok
             } catch (err) {
                 setError(`Could not read ${file.name}: ${err.message}`);
             }
-            event.target.value = '';
             return;
         }
 
@@ -84,8 +108,22 @@ export function NewJobPage({ Header, Metric, navigateTo, setRoute, user, userTok
             setUploadFileName('');
         } finally {
             setUploading(false);
-            event.target.value = '';
         }
+    }
+
+    function handleDescriptionPaste() {
+        requestAnimationFrame(() => {
+            setDescription((current) => normalizePastedText(current));
+        });
+    }
+
+    async function handleFileUpload(event) {
+        const file = event.target.files?.[0] || null;
+        setError('');
+        setUploadFileName('');
+        if (!file) return;
+        event.target.value = '';
+        await processFile(file);
     }
 
     async function createProject() {
@@ -159,7 +197,14 @@ export function NewJobPage({ Header, Metric, navigateTo, setRoute, user, userTok
                             <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Tbilisi / Hybrid" />
                         </label>
                     </div>
-                    <div className="uploadPasteArea">
+                    <div
+                        className={`uploadPasteArea ${dragOver ? 'dragOver' : ''}`}
+                        onDragEnter={handleDragEnter}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                    >
+                        {dragOver && <div className="dragOverlay"><UploadCloud size={28} /><strong>Drop your file here</strong><span>PDF, DOCX, or TXT</span></div>}
                         <div className="uploadPasteToolbar">
                             <label className="smallUploadButton">
                                 <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={handleFileUpload} />
@@ -182,6 +227,10 @@ export function NewJobPage({ Header, Metric, navigateTo, setRoute, user, userTok
                                 onPaste={handleDescriptionPaste}
                                 placeholder="Paste the full job description, requirements, and responsibilities here. Works perfectly with text copied from any PDF reader."
                                 spellCheck={false}
+                                onDragEnter={(e) => e.stopPropagation()}
+                                onDragOver={(e) => e.stopPropagation()}
+                                onDragLeave={(e) => e.stopPropagation()}
+                                onDrop={(e) => e.stopPropagation()}
                             />
                         </div>
                     </div>

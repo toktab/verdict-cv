@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ArrowRight, FileSearch, FileText, Play, UploadCloud } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { apiAddCandidate, apiUploadCandidateResume } from '../../api';
@@ -20,6 +20,8 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
     const [analyzed, setAnalyzed] = useState(false);
     const [error, setError] = useState('');
     const [uploadFileName, setUploadFileName] = useState('');
+    const [dragOver, setDragOver] = useState(false);
+    const dragCounter = useRef(0);
     const localDetectedMatches = useMemo(() => findCatchphraseMatches(cvText), [cvText]);
     const detectedMatches = savedAuditMatches.length ? savedAuditMatches : localDetectedMatches;
     const highRiskCount = detectedMatches.filter((match) => match.risk === 'High').length;
@@ -78,6 +80,64 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
         }
     }
 
+    function handleDragEnter(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter.current += 1;
+        if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+            setDragOver(true);
+        }
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function handleDragLeave(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter.current -= 1;
+        if (dragCounter.current <= 0) {
+            dragCounter.current = 0;
+            setDragOver(false);
+        }
+    }
+
+    async function handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragOver(false);
+        dragCounter.current = 0;
+        const file = e.dataTransfer.files?.[0];
+        if (!file) return;
+        e.dataTransfer.clearData();
+        acceptFile(file);
+    }
+
+    function acceptFile(file) {
+        setAnalyzed(false);
+        setSavedAuditMatches([]);
+        setReviewSummary('');
+        setError('');
+        setUploadFileName('');
+        if (!file) {
+            setResumeFile(null);
+            return;
+        }
+        const name = file.name.toLowerCase();
+        if (!name.endsWith('.pdf') && !name.endsWith('.docx') && !name.endsWith('.txt')) {
+            setError('Upload a PDF, DOCX, or TXT resume.');
+            return;
+        }
+        if (file.size > MAX_RESUME_BYTES) {
+            setError(`${file.name} is ${formatFileSize(file.size)}. Resume files must be 8 MB or smaller.`);
+            return;
+        }
+        setResumeFile(file);
+        setUploadFileName(file.name);
+    }
+
     function normalizePastedText(raw) {
         return raw
             .replace(/\r\n/g, '\n')
@@ -94,30 +154,12 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
 
     function chooseResume(event) {
         const file = event.target.files?.[0] || null;
-        setAnalyzed(false);
-        setSavedAuditMatches([]);
-        setReviewSummary('');
-        setError('');
-        setUploadFileName('');
         if (!file) {
-            setResumeFile(null);
+            acceptFile(null);
             return;
         }
-        const name = file.name.toLowerCase();
-        if (!name.endsWith('.pdf') && !name.endsWith('.docx') && !name.endsWith('.txt')) {
-            setResumeFile(null);
-            setError('Upload a PDF, DOCX, or TXT resume.');
-            event.target.value = '';
-            return;
-        }
-        if (file.size > MAX_RESUME_BYTES) {
-            setResumeFile(null);
-            setError(`${file.name} is ${formatFileSize(file.size)}. Resume files must be 8 MB or smaller.`);
-            event.target.value = '';
-            return;
-        }
-        setResumeFile(file);
-        setUploadFileName(file.name);
+        event.target.value = '';
+        acceptFile(file);
     }
 
     return (
@@ -151,7 +193,14 @@ export function AddCandidatePage({ Header, Metric, navigateTo, setRoute, user, u
                         </div>
                         <pre className="jobDescriptionBox">{project.description + `\n\n${t('requirements')}:\n- ` + project.requirements.join('\n- ')}</pre>
                     </section>
-                    <section className="panel">
+                    <section
+                        className={`panel ${dragOver ? 'dragOver' : ''}`}
+                        onDragEnter={handleDragEnter}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                    >
+                        {dragOver && <div className="dragOverlay"><UploadCloud size={28} /><strong>Drop your file here</strong><span>PDF, DOCX, or TXT</span></div>}
                         <div className="panelHead candidatePanelHead">
                             <div>
                                 <h2>{t('candidateCvResume')}</h2>

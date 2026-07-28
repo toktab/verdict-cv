@@ -10810,3 +10810,86 @@ select {
     overflow-wrap: break-word;
     tab-size: 4;
 }
+
+/* === Drag-and-drop upload overlay === */
+.uploadPasteArea.dragOver,
+.panel.dragOver {
+    position: relative;
+    border-color: rgba(255, 99, 99, 0.6) !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 99, 99, 0.35), 0 0 40px rgba(255, 59, 59, 0.12);
+    background: radial-gradient(circle at 50% 50%, rgba(255, 59, 59, 0.1), transparent 18rem) !important;
+    transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.dragOverlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: inherit;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    animation: fadeIn 120ms ease both;
+    pointer-events: none;
+}
+
+.dragOverlay strong {
+    font-size: 18px;
+    color: var(--text);
+    margin-top: 4px;
+}
+
+.dragOverlay span {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+/* === Drag-and-drop upload overlay === */
+.uploadPasteArea.dragOver,
+.panel.dragOver {
+    position: relative;
+    border-color: rgba(255, 99, 99, 0.6) !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 99, 99, 0.35), 0 0 40px rgba(255, 59, 59, 0.12);
+    background: radial-gradient(circle at 50% 50%, rgba(255, 59, 59, 0.1), transparent 18rem) !important;
+    transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.dragOverlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: inherit;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    animation: fadeIn 120ms ease both;
+    pointer-events: none;
+}
+
+.dragOverlay strong {
+    font-size: 18px;
+    color: var(--text);
+    margin-top: 4px;
+}
+
+.dragOverlay span {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
