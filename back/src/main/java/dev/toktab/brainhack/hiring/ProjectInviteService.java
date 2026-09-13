@@ -47,6 +47,7 @@ public class ProjectInviteService {
     @Transactional
     public InviteResponse invite(UserAccount actor, Long projectId, InviteRequest request) {
         HiringProject project = projectService.entity(actor, projectId);
+        permissionService.requirePermission(actor, project, "canInvite");
         ProjectInvite invite = new ProjectInvite();
         String rawInvitee = defaulted(request.email(), "").toLowerCase(Locale.ROOT);
         UserAccount invitedUser = userAccountService.findActiveByUsernameOrEmail(rawInvitee).orElse(null);
@@ -90,7 +91,9 @@ public class ProjectInviteService {
 
     @Transactional
     public List<InviteResponse> invites(UserAccount actor, Long projectId) {
-        return inviteRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream()
+        HiringProject project = projectService.entity(actor, projectId);
+        permissionService.requirePermission(actor, project, "canInvite");
+        return inviteRepository.findByProjectIdOrderByCreatedAtDesc(project.getId()).stream()
                 .map(mapper::invite)
                 .toList();
     }

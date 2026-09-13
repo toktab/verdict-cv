@@ -89,6 +89,7 @@ public class ProjectMemberService {
     @Transactional
     public List<ProjectMemberResponse> updateRole(UserAccount actor, Long projectId, MemberRoleRequest request) {
         HiringProject project = projectService.entity(actor, projectId);
+        permissionService.requirePermission(actor, project, "canChangePermissions");
         String role = canonicalRole(request.role());
         String targetEmail = defaulted(request.email(), "").trim().toLowerCase(Locale.ROOT);
         UserAccount target = userAccountService.findActiveByUsernameOrEmail(targetEmail)
@@ -140,6 +141,7 @@ public class ProjectMemberService {
     @Transactional
     public List<ProjectMemberResponse> removeMember(UserAccount actor, Long projectId, String email) {
         HiringProject project = projectService.entity(actor, projectId);
+        permissionService.requirePermission(actor, project, "canKickMembers");
         String targetEmail = defaulted(email, "").trim().toLowerCase(Locale.ROOT);
         if (targetEmail.isBlank()) throw new IllegalArgumentException("Member email required");
         if (project.getOwner().getEmail().equalsIgnoreCase(targetEmail)) {

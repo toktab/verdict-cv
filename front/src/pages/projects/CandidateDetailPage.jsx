@@ -1613,8 +1613,8 @@ function buildInterviewQuestions(candidate, t) {
 }
 
 function candidateCvContainsClaim(candidate, claim) {
-    const normalizedClaim = normalizeClaim(claim);
-    const normalizedCv = normalizeClaim(candidate.cvText || candidate.summary || '');
+    const normalizedClaim = normalizeLocal(claim);
+    const normalizedCv = normalizeLocal(candidate.cvText || candidate.summary || '');
     return normalizedClaim.length >= 8 && normalizedCv.includes(normalizedClaim);
 }
 

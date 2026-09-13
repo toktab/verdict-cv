@@ -32,16 +32,19 @@ public class HiringProjectService {
     private final HiringMapper mapper;
     private final OrganizationRepository organizationRepository;
     private final ProjectActivityLogRepository activityRepository;
+    private final ProjectPermissionService permissionService;
 
     public HiringProjectService(
             HiringProjectRepository projectRepository,
             HiringMapper mapper,
             OrganizationRepository organizationRepository,
-            ProjectActivityLogRepository activityRepository) {
+            ProjectActivityLogRepository activityRepository,
+            ProjectPermissionService permissionService) {
         this.projectRepository = projectRepository;
         this.mapper = mapper;
         this.organizationRepository = organizationRepository;
         this.activityRepository = activityRepository;
+        this.permissionService = permissionService;
     }
 
     public Organization ensureOrganization(UserAccount owner) {
@@ -112,10 +115,18 @@ public class HiringProjectService {
     @Transactional
     public void delete(UserAccount owner, Long id) {
         HiringProject project = entity(owner, id);
+        requireHeadAdmin(owner, project);
         project.setDeletedAt(Instant.now());
         projectRepository.save(project);
         recordActivity(project, owner, "project_delete", "Deleted project " + project.getTitle(), "danger",
                 "Project was deleted from active lists.");
+    }
+
+    private void requireHeadAdmin(UserAccount actor, HiringProject project) {
+        boolean isOwner = project.getOwner().getId().equals(actor.getId());
+        if (!isOwner && !permissionService.has(actor, project, "protectedAccount")) {
+            throw new IllegalArgumentException("Project Head Admin permissions required");
+        }
     }
 
     public List<String> extractRequirements(String text) {

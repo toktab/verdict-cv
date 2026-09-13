@@ -41,6 +41,7 @@ public class CandidateWorkflowService {
     private final CandidateIntakeService candidateService;
     private final CandidateAnalysisService candidateAnalysisService;
     private final ProjectStateService projectStateService;
+    private final ProjectPermissionService permissionService;
     private final HiringMapper mapper;
 
     public CandidateWorkflowService(
@@ -50,6 +51,7 @@ public class CandidateWorkflowService {
             CandidateIntakeService candidateService,
             CandidateAnalysisService candidateAnalysisService,
             ProjectStateService projectStateService,
+            ProjectPermissionService permissionService,
             HiringMapper mapper) {
         this.candidateRepository = candidateRepository;
         this.noteRepository = noteRepository;
@@ -57,6 +59,7 @@ public class CandidateWorkflowService {
         this.candidateService = candidateService;
         this.candidateAnalysisService = candidateAnalysisService;
         this.projectStateService = projectStateService;
+        this.permissionService = permissionService;
         this.mapper = mapper;
     }
 
@@ -69,6 +72,7 @@ public class CandidateWorkflowService {
     @Transactional
     public CandidateWorkflowResponse vote(UserAccount actor, Long projectId, Long candidateId, VoteRequest request) {
         HiringCandidate candidate = candidateEntity(actor, projectId, candidateId);
+        permissionService.requirePermission(actor, candidate.getProject(), "canVote");
         String action = defaulted(request.action(), "").toUpperCase(Locale.ROOT);
         if (!Set.of("UPVOTE", "DOWNVOTE", "STAR", "UNSTAR").contains(action)) {
             throw new IllegalArgumentException("Unsupported vote action");
@@ -99,6 +103,7 @@ public class CandidateWorkflowService {
         String status = normalizeStatus(request.status());
         String currentStatus = workflowStatus(defaulted(candidate.getState(), "Unreviewed"));
         if (status.equals(currentStatus)) return workflowResponse(candidate);
+        requireStatusPermission(actor, candidate.getProject(), status);
         String reason = defaulted(request.reason(), "").trim();
         requireWorkflowGate(candidate, status, reason);
         candidate.setState(status);
@@ -128,6 +133,7 @@ public class CandidateWorkflowService {
     @Transactional
     public NoteResponse addNote(UserAccount actor, Long projectId, Long candidateId, NoteRequest request) {
         HiringCandidate candidate = candidateEntity(actor, projectId, candidateId);
+        permissionService.requirePermission(actor, candidate.getProject(), "canAddNote");
         CandidateReviewNote note = new CandidateReviewNote();
         note.setCandidate(candidate);
         note.setAuthor(actor);
@@ -138,6 +144,17 @@ public class CandidateWorkflowService {
         candidateAnalysisService.recordCandidateActivity(candidate, actor, "candidate_note",
                 "Added candidate note", "info", candidate.getName() + ": " + note.getDecision());
         return mapper.note(saved);
+    }
+
+    private void requireStatusPermission(UserAccount actor, HiringProject project, String status) {
+        String permission = switch (status) {
+            case "Unreviewed", "OnCheck" -> "canMarkOnCheck";
+            case "OnInterview" -> "canSetInterview";
+            case "Hired" -> "canHire";
+            case "Closed" -> "canClose";
+            default -> "canMarkOnCheck";
+        };
+        permissionService.requirePermission(actor, project, permission);
     }
 
     private void requireWorkflowGate(HiringCandidate candidate, String targetStatus, String reason) {

@@ -214,6 +214,7 @@ public class CandidateAnalysisService {
     }
 
     public void recordAnalysisRun(HiringCandidate candidate, UserAccount actor) {
+        ProjectStateService.AnalysisTemplate template = projectStateService.activeAnalysisTemplate(candidate.getProject());
         CandidateAnalysisRun run = new CandidateAnalysisRun();
         run.setCandidate(candidate);
         run.setProject(candidate.getProject());
@@ -222,6 +223,8 @@ public class CandidateAnalysisService {
         run.setEngine(candidate.getAnalysisEngine());
         run.setPromptVersion(candidate.getAnalysisPromptVersion());
         run.setResumeFingerprint(fingerprintService.sha256(defaulted(candidate.getCvText(), "")));
+        run.setTemplateFingerprint(fingerprintService.sha256(
+                template.name() + "\n" + defaulted(template.sourceJson(), "bundled-default")));
         run.setRecommendationScore(candidate.getScore());
         run.setFitScore(candidate.getMatchScore());
         run.setEvidenceScore(candidate.getEvidenceScore());

@@ -52,6 +52,12 @@ public class ProjectPermissionService {
         return permissionsFor(actor, project).contains(permission);
     }
 
+    public void requirePermission(UserAccount actor, HiringProject project, String permission) {
+        if (!has(actor, project, permission)) {
+            throw new IllegalArgumentException("Project permission required: " + permission);
+        }
+    }
+
     public ProjectMemberPermission saveRole(HiringProject project, UserAccount member, String role, UserAccount updatedBy) {
         ProjectMemberPermission row = permissionRepository
                 .findByProjectIdAndMemberEmailIgnoreCase(project.getId(), member.getEmail())

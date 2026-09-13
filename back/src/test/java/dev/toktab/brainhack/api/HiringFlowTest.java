@@ -969,6 +969,84 @@ class HiringFlowTest {
     }
 
     @Test
+    void reviewerWithoutElevatedPermissionsIsBlockedFromRestrictedTeamAndWorkflowActions() throws Exception {
+        String ownerToken = register("perm_gap_owner");
+        String reviewerEmail = "perm_gap_reviewer_" + UUID.randomUUID().toString().replace("-", "").substring(0, 10) + "@example.com";
+        String reviewerToken = registerWithEmail("perm_gap_reviewer", reviewerEmail);
+        long projectId = createProject(ownerToken, "Permission Gap Role", "Requirements:\n- Java", "[\"Java\"]");
+
+        MvcResult invite = mockMvc.perform(post("/api/projects/" + projectId + "/invites")
+                        .header("X-User-Token", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":%s,"role":"REVIEWER"}
+                                """.formatted(objectMapper.writeValueAsString(reviewerEmail))))
+                .andExpect(status().isOk())
+                .andReturn();
+        mockMvc.perform(post("/api/projects/invites/accept")
+                        .header("X-User-Token", reviewerToken)
+                        .param("token", objectMapper.readTree(invite.getResponse().getContentAsString()).get("token").asText()))
+                .andExpect(status().isOk());
+
+        MvcResult candidate = mockMvc.perform(post("/api/projects/" + projectId + "/candidates")
+                        .header("X-User-Token", ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Permission Gap Candidate","role":"Engineer","cv_text":"Java backend work."}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        long candidateId = objectMapper.readTree(candidate.getResponse().getContentAsString()).get("id").asLong();
+
+        // REVIEWER carries canVote and canAddNote by default, so those still work.
+        mockMvc.perform(post("/api/projects/" + projectId + "/candidates/" + candidateId + "/votes")
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"action\":\"UPVOTE\",\"score\":4.0}"))
+                .andExpect(status().isOk());
+
+        // But REVIEWER has none of canSetInterview / canInvite / canChangePermissions / canKickMembers.
+        mockMvc.perform(patch("/api/projects/" + projectId + "/candidates/" + candidateId + "/status")
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"OnInterview\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Project permission required: canSetInterview"));
+
+        mockMvc.perform(post("/api/projects/" + projectId + "/invites")
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"blocked-invite@example.com\",\"role\":\"VIEWER\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Project permission required: canInvite"));
+
+        mockMvc.perform(patch("/api/projects/" + projectId + "/members/role")
+                        .header("X-User-Token", reviewerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":%s,"role":"Admin"}
+                                """.formatted(objectMapper.writeValueAsString(reviewerEmail))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Project permission required: canChangePermissions"));
+
+        mockMvc.perform(delete("/api/projects/" + projectId + "/members")
+                        .header("X-User-Token", reviewerToken)
+                        .param("email", "someone-else@example.com"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Project permission required: canKickMembers"));
+
+        // Deleting the project is a Head Admin (owner/protected) action, not just any team permission.
+        mockMvc.perform(delete("/api/projects/" + projectId)
+                        .header("X-User-Token", reviewerToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Project Head Admin permissions required"));
+
+        mockMvc.perform(delete("/api/projects/" + projectId)
+                        .header("X-User-Token", ownerToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void signalTraceOnlyRunsForStrictWarAiAndReturnsExtractedEvidence() throws Exception {
         String token = register("hiring_osint");
         long projectId = createProject(token, "OSINT Role", "Requirements:\n- GitHub portfolio", "[\"GitHub portfolio\"]");
