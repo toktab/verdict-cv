@@ -56,11 +56,9 @@ public class GithubEvidenceService {
         }
 
         if (username.isBlank()) {
-            return new GithubInvestigation(null, List.of(new OsintSourceResponse(
-                    "GitHub",
+            return new GithubInvestigation(null, List.of(githubSource(
                     "No GitHub profile URL found in the CV.",
-                    24, "0", "warn", ""
-            )));
+                    24, "0", "warn", "", "NO_LINK")));
         }
 
         try {
@@ -69,14 +67,37 @@ public class GithubEvidenceService {
                     HttpResponse.BodyHandlers.ofString());
 
             if (profileResponse.statusCode() == 404) {
-                return new GithubInvestigation(null, List.of(new OsintSourceResponse(
-                        "GitHub", "GitHub URL found, but profile did not resolve.",
-                        18, "-4", "bad", githubLink)));
+                return new GithubInvestigation(null, List.of(githubSource(
+                        "GitHub URL found, but the @" + username + " profile does not exist.",
+                        18, "-4", "bad", githubLink, "NOT_FOUND")));
+            }
+            if (profileResponse.statusCode() == 403 || profileResponse.statusCode() == 429) {
+                boolean rateLimited = "0".equals(profileResponse.headers().firstValue("X-RateLimit-Remaining").orElse(""))
+                        || profileResponse.headers().firstValue("Retry-After").isPresent()
+                        || profileResponse.statusCode() == 429;
+                if (rateLimited) {
+                    return new GithubInvestigation(null, List.of(githubSource(
+                            "GitHub API rate limit reached while checking @" + username + ". Configure GITHUB_TOKEN or retry later.",
+                            30, "0", "warn", githubLink, "RATE_LIMITED")));
+                }
+                return new GithubInvestigation(null, List.of(githubSource(
+                        "GitHub blocked this request for @" + username + " (403 Forbidden).",
+                        30, "0", "warn", githubLink, "FORBIDDEN")));
+            }
+            if (profileResponse.statusCode() == 401) {
+                return new GithubInvestigation(null, List.of(githubSource(
+                        "GitHub rejected the configured access token (401 Unauthorized).",
+                        30, "0", "warn", githubLink, "UNAUTHORIZED")));
+            }
+            if (profileResponse.statusCode() >= 500) {
+                return new GithubInvestigation(null, List.of(githubSource(
+                        "GitHub API is temporarily unavailable (status " + profileResponse.statusCode() + "). Try again shortly.",
+                        30, "0", "warn", githubLink, "GITHUB_DOWN")));
             }
             if (profileResponse.statusCode() != 200) {
-                return new GithubInvestigation(null, List.of(new OsintSourceResponse(
-                        "GitHub", "GitHub API returned status " + profileResponse.statusCode() + ".",
-                        30, "0", "warn", githubLink)));
+                return new GithubInvestigation(null, List.of(githubSource(
+                        "GitHub API returned an unexpected status " + profileResponse.statusCode() + ".",
+                        30, "0", "warn", githubLink, "UNEXPECTED_STATUS")));
             }
 
             Map<String, Object> profilePayload = mapper.map(profileResponse.body());
@@ -140,16 +161,45 @@ public class GithubEvidenceService {
 
             return new GithubInvestigation(
                     buildProfile(username, profilePayload, repositories),
-                    List.of(new OsintSourceResponse(
-                            "GitHub",
-                            "Found " + repositories.size() + " public repositories for @" + username + ".",
-                            76, "+12", "good", githubLink)));
+                    List.of(classifyRepositories(username, githubLink, repositories)));
+        } catch (java.net.http.HttpTimeoutException | java.net.ConnectException timeoutOrConnect) {
+            return new GithubInvestigation(null, List.of(githubSource(
+                    "Could not reach GitHub to verify @" + username + " (connection timed out).",
+                    24, "0", "warn", githubLink, "NETWORK_ERROR")));
         } catch (Exception exception) {
-            return new GithubInvestigation(null, List.of(new OsintSourceResponse(
-                    "GitHub",
-                    "Could not verify GitHub profile: " + exception.getClass().getSimpleName(),
-                    24, "0", "warn", githubLink)));
+            return new GithubInvestigation(null, List.of(githubSource(
+                    "Could not verify GitHub profile for @" + username + ": " + exception.getClass().getSimpleName() + ".",
+                    24, "0", "warn", githubLink, "VERIFICATION_ERROR")));
         }
+    }
+
+    private OsintSourceResponse classifyRepositories(String username, String githubLink, List<GithubRepositoryResponse> repositories) {
+        if (repositories.isEmpty()) {
+            return githubSource(
+                    "GitHub profile @" + username + " verified, but it has no public repositories.",
+                    40, "0", "warn", githubLink, "VERIFIED_EMPTY");
+        }
+        List<GithubRepositoryResponse> original = repositories.stream().filter(repo -> !repo.fork()).toList();
+        if (original.isEmpty()) {
+            return githubSource(
+                    "GitHub profile @" + username + " verified, but all " + repositories.size()
+                            + " public repositories are forks with no original work.",
+                    36, "0", "warn", githubLink, "VERIFIED_FORKS_ONLY");
+        }
+        boolean hasRecentActivity = original.stream().anyMatch(repo -> recentActivity(repo.pushedAt()));
+        if (!hasRecentActivity) {
+            return githubSource(
+                    "GitHub profile @" + username + " verified with " + original.size()
+                            + " original repositories, but none pushed in the last year.",
+                    52, "+4", "warn", githubLink, "VERIFIED_STALE");
+        }
+        return githubSource(
+                "Found " + repositories.size() + " public repositories for @" + username + ".",
+                76, "+12", "good", githubLink, "VERIFIED_ACTIVE");
+    }
+
+    private OsintSourceResponse githubSource(String finding, int confidence, String impact, String tone, String url, String scenario) {
+        return new OsintSourceResponse("GitHub", finding, confidence, impact, tone, url, scenario);
     }
 
     public GithubJobMatchResponse jobMatch(HiringProject project, GithubProfileResponse profile) {

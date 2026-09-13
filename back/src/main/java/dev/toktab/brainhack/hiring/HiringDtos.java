@@ -60,8 +60,12 @@ public class HiringDtos {
             int confidence,
             String impact,
             String tone,
-            String url
+            String url,
+            String scenario
     ) {
+        public OsintSourceResponse(String source, String finding, int confidence, String impact, String tone, String url) {
+            this(source, finding, confidence, impact, tone, url, "");
+        }
     }
 
     public record GithubLanguageResponse(

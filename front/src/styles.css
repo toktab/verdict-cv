@@ -7158,6 +7158,39 @@ mark {
     background: #ff6363;
 }
 
+.signalEvidenceBody {
+    display: grid;
+    gap: 6px;
+}
+
+.signalEvidenceBadge {
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border: 1px solid rgba(240, 184, 90, 0.35);
+    color: #f0b85a;
+    background: rgba(240, 184, 90, 0.12);
+}
+
+.signalEvidenceBadge.good {
+    border-color: rgba(102, 217, 145, 0.35);
+    color: #66d991;
+    background: rgba(102, 217, 145, 0.12);
+}
+
+.signalEvidenceBadge.bad {
+    border-color: rgba(255, 99, 99, 0.35);
+    color: #ff8080;
+    background: rgba(255, 99, 99, 0.12);
+}
+
 .signalReportState,
 .signalReportEmpty {
     border: 1px dashed var(--line);

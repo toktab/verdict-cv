@@ -1,15 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+    AlertTriangle,
     ArrowLeft,
     CalendarClock,
+    CheckCircle2,
+    Clock,
     Code2,
     ExternalLink,
+    FolderX,
     GitFork,
+    Link2Off,
     MapPin,
     RefreshCcw,
+    ServerCrash,
+    ShieldAlert,
     ShieldCheck,
     Star,
     UserRoundCheck,
+    WifiOff,
+    XCircle,
 } from 'lucide-react';
 import { apiGetLatestCandidateOsint } from '../../api';
 import { discoverCvPublicSources } from '../../utils/publicSourceDiscovery';
@@ -292,13 +301,25 @@ export function SignalTraceReportPage({
                                     </div>
                                 </div>
                                 <div className="signalEvidenceList">
-                                    {(report.sources || []).map((source) => (
-                                        <div key={`${source.source}-${source.finding}`}>
-                                            <span className={`signalEvidenceTone ${source.tone || 'warn'}`} />
-                                            <p><strong>{source.source}</strong>{source.finding}</p>
-                                            <b>{source.confidence}%</b>
-                                        </div>
-                                    ))}
+                                    {(report.sources || []).map((source) => {
+                                        const meta = GITHUB_SCENARIO_META[source.scenario] || null;
+                                        const Icon = meta?.icon;
+                                        return (
+                                            <div key={`${source.source}-${source.finding}`}>
+                                                <span className={`signalEvidenceTone ${source.tone || 'warn'}`} />
+                                                <div className="signalEvidenceBody">
+                                                    {meta ? (
+                                                        <span className={`signalEvidenceBadge ${source.tone || 'warn'}`}>
+                                                            {Icon ? <Icon size={13} /> : null}
+                                                            {meta.label}
+                                                        </span>
+                                                    ) : null}
+                                                    <p><strong>{source.source}</strong>{source.finding}</p>
+                                                </div>
+                                                <b>{source.confidence}%</b>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </article>
                         </section>
@@ -348,6 +369,24 @@ const CLAIM_STOP_WORDS = new Set([
     'and', 'the', 'for', 'with', 'from', 'that', 'this', 'have', 'using', 'into',
     'basic', 'knowledge', 'experience', 'project', 'projects', 'public', 'candidate',
 ]);
+
+// Every distinct outcome GithubEvidenceService.investigate() can report, so a
+// reviewer can tell "we looked and found nothing" apart from "we couldn't check".
+const GITHUB_SCENARIO_META = {
+    NO_LINK: { icon: Link2Off, label: 'No GitHub link in CV' },
+    NOT_FOUND: { icon: XCircle, label: 'Profile not found' },
+    RATE_LIMITED: { icon: Clock, label: 'GitHub rate limited' },
+    FORBIDDEN: { icon: ShieldAlert, label: 'Request blocked' },
+    UNAUTHORIZED: { icon: ShieldAlert, label: 'Token rejected' },
+    GITHUB_DOWN: { icon: ServerCrash, label: 'GitHub unavailable' },
+    UNEXPECTED_STATUS: { icon: AlertTriangle, label: 'Unexpected response' },
+    NETWORK_ERROR: { icon: WifiOff, label: 'Connection failed' },
+    VERIFICATION_ERROR: { icon: AlertTriangle, label: 'Verification error' },
+    VERIFIED_EMPTY: { icon: FolderX, label: 'No public repositories' },
+    VERIFIED_FORKS_ONLY: { icon: GitFork, label: 'Forks only, no original work' },
+    VERIFIED_STALE: { icon: CalendarClock, label: 'Inactive for over a year' },
+    VERIFIED_ACTIVE: { icon: CheckCircle2, label: 'Verified & active' },
+};
 
 function formatDateTime(value) {
     if (!value) return 'Not available';
