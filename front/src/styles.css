@@ -50,15 +50,8 @@ button {
 }
 
 p,
-span,
-strong,
-small,
 code,
-pre,
-h1,
-h2,
-h3,
-button {
+pre {
     overflow-wrap: anywhere;
 }
 
@@ -145,6 +138,7 @@ button {
 
 nav {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
 }
 
@@ -173,6 +167,7 @@ nav button,
     gap: 8px;
     padding: 0 14px;
     text-decoration: none;
+    white-space: nowrap;
     transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
 }
 
@@ -1788,8 +1783,8 @@ html body .shell .atsCheckRows p {
 
 .detailMeta {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
 }
 
 .documentCompare {
@@ -3557,12 +3552,12 @@ mark {
 
 .projectFunnelSteps {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
     gap: 8px;
 }
 
 .projectFunnelSteps span {
-    min-height: 96px;
+    min-height: 76px;
     border: 1px solid var(--line);
     border-radius: 8px;
     padding: 10px;
@@ -3572,7 +3567,7 @@ mark {
 }
 
 .projectFunnelSteps strong {
-    font-size: 28px;
+    font-size: 26px;
     color: var(--text);
 }
 
@@ -7849,19 +7844,30 @@ select {
 
 .metric {
     min-width: 150px;
-    min-height: 40px;
+    min-height: 72px;
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 10px;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 12px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 16px;
     color: var(--muted);
     background: rgba(255, 255, 255, 0.04);
 }
 
+.metric span {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
 .metric strong {
     color: var(--text);
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.1;
 }
 
 .contentFadeIn {
